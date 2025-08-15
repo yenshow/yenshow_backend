@@ -47,7 +47,7 @@ services:
       - GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID}
       - GA_API_SECRET=${GA_API_SECRET}
     volumes:
-      - D:/storage:/app/storage
+      - /home/yenshoweb-server/yenshow_storage:/app/storage
     depends_on:
       mongodb:
         condition: service_healthy
@@ -76,7 +76,7 @@ services:
       - backend
     restart: unless-stopped
     volumes:
-      - D:/storage:/mnt/storage:ro
+      - /home/yenshoweb-server/yenshow_storage:/storage:ro
 
   cloudflared:
     image: cloudflare/cloudflared:latest
