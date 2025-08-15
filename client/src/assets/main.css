@@ -1,0 +1,124 @@
+@import 'tailwindcss';
+
+/* Reset & Base styles */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+/* 對於 Chrome 和 Safari 隱藏滾動條 */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+/* 主題相關變數 */
+:root {
+  /* Layout */
+  --header-height: 112px;
+  --container-max-width: 1280px;
+
+  /* Colors - Light Theme (Default) */
+  --body-bg: #f1f5f9;
+  --body-color: #1e293b;
+  --header-bg: #ffffff;
+  --header-border: #cbd5e1;
+  --surface-ground: #e2e8f0;
+  --surface-card: #ffffff;
+  --surface-border: #cbd5e1;
+  --surface-hover: #e2e8f0;
+  --primary-color: #0284c7;
+  --primary-light: #38bdf8;
+  --primary-dark: #0c4a6e;
+  --primary-color-text: #f0f9ff;
+  --text-color: #1e293b;
+  --text-color-secondary: #475569;
+  --menu-bg: #ffffff;
+  --menu-text: #1e293b;
+  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+  /* Transitions */
+  --transition-duration: 0.3s;
+
+  font-weight: 500;
+}
+
+/* 明亮模式的基本設置 */
+body {
+  background-color: var(--body-bg);
+  color: var(--body-color);
+  font-family: 'Noto Sans TC', sans-serif;
+  line-height: 1.4;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition:
+    background-color var(--transition-duration),
+    color var(--transition-duration);
+}
+
+/* 黑暗主題 */
+[data-theme='dark'] {
+  --body-bg: #0f172a;
+  --body-color: #e2e8f0;
+  --header-bg: #1e293b;
+  --header-border: rgba(255, 255, 255, 0.1);
+  --surface-ground: #1e293b;
+  --surface-card: #334155;
+  --surface-border: #475569;
+  --surface-hover: #475569;
+  --primary-color: #0ea5e9;
+  --primary-light: #0284c7;
+  --primary-dark: #0369a1;
+  --primary-color-text: #7dd3fc;
+  --text-color: #f1f5f9;
+  --text-color-secondary: #cbd5e1;
+  --menu-bg: #1e293b;
+  --menu-text: #f1f5f9;
+  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+.no-scrollbar {
+  overflow-y: scroll;
+  scrollbar-width: none; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+
+/* 主題通用類 - 可用於所有元件 */
+.theme-card {
+  background-color: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 0.5rem;
+  box-shadow: var(--card-shadow);
+  color: var(--text-color);
+  transition: all var(--transition-duration);
+}
+
+.theme-text {
+  color: var(--text-color);
+}
+
+.theme-text-secondary {
+  color: var(--text-color-secondary);
+}
+
+.theme-bg {
+  background-color: var(--body-bg);
+}
+
+.theme-surface {
+  background-color: var(--surface-ground);
+}
+
+.theme-primary {
+  background-color: var(--primary-color);
+  color: var(--primary-color-text);
+}
