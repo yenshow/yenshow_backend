@@ -1,7 +1,7 @@
 import { StatusCodes } from "http-status-codes";
-import { successResponse } from "../../utils/responseHandler.js";
-import { EntityService } from "../../services/EntityService.js";
-import { getAccessOptions } from "../../utils/accessUtils.js";
+import { successResponse } from "../utils/responseHandler.js";
+import { EntityService } from "../services/EntityService.js";
+import { getAccessOptions } from "../utils/accessUtils.js";
 
 export class EntityController {
 	constructor(model, options = {}) {
