@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import Series from "../models/series.js";
-import Category from "../models/categories.js";
-import SubCategory from "../models/subCategories.js";
-import Specification from "../models/specifications.js";
-import Product from "../models/products.js";
+import Series from "../../models/series.js";
+import Category from "../../models/categories.js";
+import SubCategory from "../../models/subCategories.js";
+import Specification from "../../models/specifications.js";
+import Product from "../../models/products.js";
 
 // 載入環境變數
 dotenv.config();

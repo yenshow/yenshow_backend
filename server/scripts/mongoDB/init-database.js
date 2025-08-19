@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
-import Series from "../models/series.js";
-import Category from "../models/categories.js";
-import SubCategory from "../models/subCategories.js";
-import Specification from "../models/specifications.js";
-import { initialData } from "../enums/initialData.js";
+import Series from "../../models/series.js";
+import Category from "../../models/categories.js";
+import SubCategory from "../../models/subCategories.js";
+import Specification from "../../models/specifications.js";
+import { initialData } from "../../enums/initialData.js";
 import dotenv from "dotenv";
 
 // 載入環境變數

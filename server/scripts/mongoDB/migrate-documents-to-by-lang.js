@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import Products from "../models/products.js";
+import Products from "../../models/products.js";
 
 // 將 legacy documents 內容搬遷到 documentsByLang.TW（若該語言陣列為空）
 // 並保留原 documents（不刪除），以確保相容與可回滾

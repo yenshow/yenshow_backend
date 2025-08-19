@@ -1,9 +1,8 @@
 import mongoose from "mongoose";
-import User from "../models/user.js";
-import UserRole from "../enums/UserRole.js";
+import User from "../../models/user.js";
+import UserRole from "../../enums/UserRole.js";
 import dotenv from "dotenv";
 import readline from "readline";
-import bcrypt from "bcrypt";
 
 // 載入環境變數
 dotenv.config();

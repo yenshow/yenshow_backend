@@ -2,8 +2,8 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import fs from "fs-extra";
 import path from "path";
-import User from "../models/user.js";
-import UserRole from "../enums/UserRole.js";
+import User from "../../models/user.js";
+import UserRole from "../../enums/UserRole.js";
 
 dotenv.config();
 
