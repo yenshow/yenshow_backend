@@ -15,9 +15,20 @@ if errorlevel 1 (
 REM 進入專案目錄
 cd /d D:\web\yenshow
 
-REM 停止現有服務（如果正在運行）
-echo 停止現有服務...
-docker compose down
+REM 檢查服務是否已經在運行
+docker compose ps | findstr "Up" >nul
+if not errorlevel 1 (
+    echo 警告：服務已經在運行中
+    echo 是否要重新啟動服務？(Y/N)
+    set /p choice=
+    if /i "%choice%"=="Y" (
+        echo 重新啟動服務...
+    ) else (
+        echo 取消操作
+        pause
+        exit /b 0
+    )
+)
 
 REM 啟動備用系統
 echo 啟動備用系統...
