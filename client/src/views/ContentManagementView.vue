@@ -218,12 +218,13 @@
                   </div>
                 </div>
               </th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">作者</th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">封面圖</th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">圖片</th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">影片</th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">狀態</th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">操作</th>
+              <th class="py-3 px-4 theme-text opacity-50">作者</th>
+              <th class="py-3 px-4 theme-text opacity-50">封面圖</th>
+              <th class="py-3 px-4 theme-text opacity-50">圖片</th>
+              <th class="py-3 px-4 theme-text opacity-50">影片</th>
+              <th class="py-3 px-4 theme-text opacity-50">文件</th>
+              <th class="py-3 px-4 theme-text opacity-50">狀態</th>
+              <th class="py-3 px-4 theme-text opacity-50">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -232,38 +233,45 @@
               :key="item._id"
               :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
             >
-              <td class="py-3 px-4 lg:px-6 theme-text max-w-[450px] truncate">
+              <td class="py-3 px-4 theme-text max-w-[450px] truncate">
                 {{ item.title?.TW || '-' }}
               </td>
-              <td class="py-3 px-4 lg:px-6 theme-text">{{ item.category || '-' }}</td>
-              <td class="py-3 px-4 lg:px-6 theme-text">
+              <td class="py-3 px-4 theme-text">{{ item.category || '-' }}</td>
+              <td class="py-3 px-4 theme-text">
                 {{
                   formatDate(currentSort.field === 'createdAt' ? item.createdAt : item.publishDate)
                 }}
               </td>
-              <td class="py-3 px-4 lg:px-6 theme-text">{{ item.author || '-' }}</td>
+              <td class="py-3 px-4 theme-text">{{ item.author || '-' }}</td>
               <td
-                class="py-3 px-4 lg:px-6"
+                class="py-3 px-4"
                 :title="'封面圖: ' + (item.coverImageUrl ? '✓' : '✗')"
                 :class="item.coverImageUrl ? 'text-green-500' : 'text-red-500'"
               >
                 {{ item.coverImageUrl ? '✓' : '✗' }}
               </td>
               <td
-                class="py-3 px-4 lg:px-6"
+                class="py-3 px-4"
                 :title="'圖片: ' + (hasContentImages(item.content) ? '✓' : '✗')"
                 :class="hasContentImages(item.content) ? 'text-green-500' : 'text-red-500'"
               >
                 {{ hasContentImages(item.content) ? '✓' : '✗' }}
               </td>
               <td
-                class="py-3 px-4 lg:px-6"
+                class="py-3 px-4"
                 :title="'影片: ' + (hasContentVideos(item.content) ? '✓' : '✗')"
                 :class="hasContentVideos(item.content) ? 'text-green-500' : 'text-red-500'"
               >
                 {{ hasContentVideos(item.content) ? '✓' : '✗' }}
               </td>
-              <td class="py-3 px-4 lg:px-6">
+              <td
+                class="py-3 px-4"
+                :title="'文件: ' + (hasContentDocuments(item.content) ? '✓' : '✗')"
+                :class="hasContentDocuments(item.content) ? 'text-green-500' : 'text-red-500'"
+              >
+                {{ hasContentDocuments(item.content) ? '✓' : '✗' }}
+              </td>
+              <td class="py-3 px-4">
                 <span
                   :class="statusDisplayClass(item.status, item.isActive, 'news')"
                   class="px-2 py-1 rounded-full text-sm"
@@ -271,7 +279,7 @@
                   {{ getStatusLabel(item.status, item.isActive, 'news') }}
                 </span>
               </td>
-              <td class="py-3 px-4 lg:px-6">
+              <td class="py-3 px-4">
                 <div class="flex gap-2 justify-center">
                   <button
                     @click="handleEditItem(item)"
@@ -295,7 +303,7 @@
             </tr>
             <tr v-if="!newsStore.items || newsStore.items.length === 0">
               <td
-                colspan="9"
+                colspan="10"
                 class="text-center py-6"
                 :class="conditionalClass('text-gray-400', 'text-slate-500')"
               >
@@ -317,8 +325,8 @@
         <table class="w-full text-center">
           <thead :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')">
             <tr>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">問題 (TW)</th>
-              <th class="py-3 px-4 lg:px-6 relative" ref="faqCategoryDropdownRef">
+              <th class="py-3 px-4 theme-text opacity-50">問題 (TW)</th>
+              <th class="py-3 px-4 relative" ref="faqCategoryDropdownRef">
                 <button
                   @click="toggleFaqCategoryDropdown"
                   class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
@@ -389,7 +397,7 @@
                   </div>
                 </div>
               </th>
-              <th class="py-3 px-4 lg:px-6 relative" ref="sortDropdownRef">
+              <th class="py-3 px-4 relative" ref="sortDropdownRef">
                 <button
                   @click="toggleSortDropdown"
                   class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
@@ -452,12 +460,12 @@
                   </div>
                 </div>
               </th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">作者</th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">圖片</th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">文件</th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">影片</th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">狀態</th>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">操作</th>
+              <th class="py-3 px-4 theme-text opacity-50">作者</th>
+              <th class="py-3 px-4 theme-text opacity-50">圖片</th>
+              <th class="py-3 px-4 theme-text opacity-50">文件</th>
+              <th class="py-3 px-4 theme-text opacity-50">影片</th>
+              <th class="py-3 px-4 theme-text opacity-50">狀態</th>
+              <th class="py-3 px-4 theme-text opacity-50">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -466,17 +474,17 @@
               :key="item._id"
               :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
             >
-              <td class="py-3 px-4 lg:px-6 theme-text max-w-[450px] truncate">
+              <td class="py-3 px-4 theme-text max-w-[450px] truncate">
                 {{ item.question?.TW || '-' }}
               </td>
-              <td class="py-3 px-4 lg:px-6 theme-text">
+              <td class="py-3 px-4 theme-text">
                 {{
                   typeof item.category === 'object' && item.category
                     ? item.category.main || '-'
                     : item.category || '-'
                 }}
               </td>
-              <td class="py-3 px-4 lg:px-6 theme-text">
+              <td class="py-3 px-4 theme-text">
                 {{
                   formatDate(
                     currentSort.field === 'createdAt'
@@ -485,9 +493,9 @@
                   )
                 }}
               </td>
-              <td class="py-3 px-4 lg:px-6 theme-text">{{ item.author || '-' }}</td>
+              <td class="py-3 px-4 theme-text">{{ item.author || '-' }}</td>
               <td
-                class="py-3 px-4 lg:px-6"
+                class="py-3 px-4"
                 :title="'圖片: ' + (item.imageUrl && item.imageUrl.length > 0 ? '✓' : '✗')"
                 :class="
                   item.imageUrl && item.imageUrl.length > 0 ? 'text-green-500' : 'text-red-500'
@@ -496,7 +504,7 @@
                 {{ item.imageUrl && item.imageUrl.length > 0 ? '✓' : '✗' }}
               </td>
               <td
-                class="py-3 px-4 lg:px-6"
+                class="py-3 px-4"
                 :title="'文件: ' + (item.documentUrl && item.documentUrl.length > 0 ? '✓' : '✗')"
                 :class="
                   item.documentUrl && item.documentUrl.length > 0
@@ -507,7 +515,7 @@
                 {{ item.documentUrl && item.documentUrl.length > 0 ? '✓' : '✗' }}
               </td>
               <td
-                class="py-3 px-4 lg:px-6"
+                class="py-3 px-4"
                 :title="'影片: ' + (item.videoUrl && item.videoUrl.length > 0 ? '✓' : '✗')"
                 :class="
                   item.videoUrl && item.videoUrl.length > 0 ? 'text-green-500' : 'text-red-500'
@@ -515,7 +523,7 @@
               >
                 {{ item.videoUrl && item.videoUrl.length > 0 ? '✓' : '✗' }}
               </td>
-              <td class="py-3 px-4 lg:px-6">
+              <td class="py-3 px-4">
                 <span
                   :class="statusDisplayClass(null, item.isActive, 'faq')"
                   class="px-2 py-1 rounded-full text-sm"
@@ -523,7 +531,7 @@
                   {{ getStatusLabel(null, item.isActive, 'faq') }}
                 </span>
               </td>
-              <td class="py-3 px-4 lg:px-6">
+              <td class="py-3 px-4">
                 <div class="flex gap-2 justify-center">
                   <button
                     @click="handleEditItem(item)"
@@ -1043,6 +1051,12 @@ const hasContentImages = (content) => {
 const hasContentVideos = (content) => {
   if (!content || !Array.isArray(content)) return false
   return content.some((block) => block.itemType === 'videoEmbed' && block.videoEmbedUrl)
+}
+
+// 檢查 News content 是否包含文件
+const hasContentDocuments = (content) => {
+  if (!content || !Array.isArray(content)) return false
+  return content.some((block) => block.itemType === 'document' && block.documentUrl)
 }
 </script>
 

@@ -350,6 +350,13 @@
                     :class="conditionalClass('hover:bg-gray-600', 'hover:bg-gray-100')"
                     >嵌入影片 (Video)</a
                   >
+                  <a
+                    href="#"
+                    @click.prevent="addBlock('document')"
+                    class="block px-4 py-2 text-sm theme-text hover:bg-opacity-10"
+                    :class="conditionalClass('hover:bg-gray-600', 'hover:bg-gray-100')"
+                    >文件 (Document)</a
+                  >
                 </div>
               </div>
             </div>
@@ -558,6 +565,9 @@ const ImageBlockEditor = defineAsyncComponent(
 const VideoBlockEditor = defineAsyncComponent(
   () => import('@/components/news/VideoBlockEditor.vue'),
 )
+const DocumentBlockEditor = defineAsyncComponent(
+  () => import('@/components/news/DocumentBlockEditor.vue'),
+)
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -629,6 +639,8 @@ const getBlockComponent = (itemType) => {
       return ImageBlockEditor
     case 'videoEmbed':
       return VideoBlockEditor
+    case 'document':
+      return DocumentBlockEditor
     default:
       return null // Or a default placeholder component
   }
@@ -681,6 +693,11 @@ const addBlock = (itemType) => {
       newBlock._newVideoFile = null
       newBlock._previewVideoUrl = null
       break
+    case 'document':
+      newBlock.documentUrl = ''
+      newBlock.documentDescription = { TW: '', EN: '' }
+      newBlock._newDocumentFile = null
+      break
   }
 
   form.value.contentBlocks.push(newBlock)
@@ -699,6 +716,9 @@ const deleteBlock = (index) => {
       block._previewVideoUrl.startsWith('blob:')
     ) {
       URL.revokeObjectURL(block._previewVideoUrl)
+    }
+    if (block.itemType === 'document' && block._newDocumentFile) {
+      // 清理 document 相關的臨時資源
     }
     form.value.contentBlocks.splice(index, 1)
     form.value.contentBlocks.forEach((b, i) => (b.sortOrder = i))
@@ -782,6 +802,12 @@ const validateForm = () => {
           isValid = false
         }
       }
+      if (block.itemType === 'document') {
+        if (!block.documentUrl && !block._newDocumentFile && !block._id) {
+          setValidationError(`content_${index}`, '文件檔案為必填')
+          isValid = false
+        }
+      }
     })
   }
 
@@ -859,6 +885,7 @@ const submitForm = async () => {
 
   const contentImageFiles = []
   const contentVideoFiles = []
+  const contentDocumentFiles = []
 
   form.value.contentBlocks.forEach((block) => {
     if (
@@ -873,6 +900,12 @@ const submitForm = async () => {
       block.videoEmbedUrl === '__NEW_CONTENT_VIDEO__'
     ) {
       contentVideoFiles.push(block._newVideoFile)
+    } else if (
+      block.itemType === 'document' &&
+      block._newDocumentFile &&
+      block.documentUrl === '__NEW_CONTENT_DOCUMENT__'
+    ) {
+      contentDocumentFiles.push(block._newDocumentFile)
     }
   })
 
@@ -886,6 +919,7 @@ const submitForm = async () => {
     delete cleanBlock._newFile
     delete cleanBlock._newVideoFile
     delete cleanBlock._previewVideoUrl
+    delete cleanBlock._newDocumentFile
 
     if (block.itemType === 'richText') {
       cleanBlock.richTextData = {
@@ -897,6 +931,8 @@ const submitForm = async () => {
       delete cleanBlock.imageCaption
       delete cleanBlock.videoEmbedUrl
       delete cleanBlock.videoCaption
+      delete cleanBlock.documentUrl
+      delete cleanBlock.documentDescription
     } else if (block.itemType === 'image') {
       if (block.imageUrl === '__NEW_CONTENT_IMAGE__' && !block._newFile) {
         cleanBlock.imageUrl = null // Explicitly nullify if marked new but no file.
@@ -904,6 +940,8 @@ const submitForm = async () => {
       delete cleanBlock.richTextData
       delete cleanBlock.videoEmbedUrl
       delete cleanBlock.videoCaption
+      delete cleanBlock.documentUrl
+      delete cleanBlock.documentDescription
     } else if (block.itemType === 'videoEmbed') {
       if (block.videoEmbedUrl === '__NEW_CONTENT_VIDEO__' && !block._newVideoFile) {
         cleanBlock.videoEmbedUrl = null
@@ -912,12 +950,27 @@ const submitForm = async () => {
       delete cleanBlock.imageUrl
       delete cleanBlock.imageAltText
       delete cleanBlock.imageCaption
+      delete cleanBlock.documentUrl
+      delete cleanBlock.documentDescription
+    } else if (block.itemType === 'document') {
+      if (block.documentUrl === '__NEW_CONTENT_DOCUMENT__' && !block._newDocumentFile) {
+        cleanBlock.documentUrl = null
+      }
+      delete cleanBlock.richTextData
+      delete cleanBlock.imageUrl
+      delete cleanBlock.imageAltText
+      delete cleanBlock.imageCaption
+      delete cleanBlock.videoEmbedUrl
+      delete cleanBlock.videoCaption
     }
     return cleanBlock
   })
 
   const useFormData =
-    !!imageFile.value || contentImageFiles.length > 0 || contentVideoFiles.length > 0
+    !!imageFile.value ||
+    contentImageFiles.length > 0 ||
+    contentVideoFiles.length > 0 ||
+    contentDocumentFiles.length > 0
   let submissionPayload
 
   const newsDataPayload = {
@@ -950,6 +1003,11 @@ const submitForm = async () => {
     if (contentVideoFiles.length > 0) {
       contentVideoFiles.forEach((file) => {
         submissionPayload.append('contentVideos', file)
+      })
+    }
+    if (contentDocumentFiles.length > 0) {
+      contentDocumentFiles.forEach((file) => {
+        submissionPayload.append('contentDocuments', file)
       })
     }
   } else {
@@ -1080,6 +1138,12 @@ const resetAndInitializeForm = async () => {
             (block.videoEmbedUrl.startsWith('blob:') || block.videoEmbedUrl.startsWith('/storage'))
               ? block.videoEmbedUrl
               : null
+        } else if (block.itemType === 'document') {
+          newClientBlock._newDocumentFile = null
+          newClientBlock.documentDescription = {
+            TW: block.documentDescription?.TW || '',
+            EN: block.documentDescription?.EN || '',
+          }
         }
         return newClientBlock
       })

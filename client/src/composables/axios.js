@@ -5,9 +5,11 @@ import { useLanguageStore } from '@/stores/core/languageStore'
 // 建立實例
 const api = axios.create({
   baseURL: import.meta.env.VITE_API,
+  timeout: 30000, // 30秒超時
 })
 const apiAuth = axios.create({
   baseURL: import.meta.env.VITE_API,
+  timeout: 30000, // 30秒超時
 })
 
 // 在每個請求中自動加上 JWT Token
@@ -15,6 +17,12 @@ apiAuth.interceptors.request.use((config) => {
   const user = useUserStore()
   config.headers.Authorization = 'Bearer ' + user.token
   config.headers['X-App-Context'] = 'admin'
+
+  // 如果是檔案上傳，增加超時時間
+  if (config.data instanceof FormData) {
+    config.timeout = 300000 // 5分鐘超時
+  }
+
   return config
 })
 

@@ -124,7 +124,11 @@ const configureApp = () => {
 
 	// 請求超時處理
 	app.use((req, res, next) => {
-		res.setTimeout(30000, () => {
+		// 如果是檔案上傳請求，設定更長的超時時間
+		const isFileUpload = req.path.includes("/news") || req.path.includes("/products") || req.path.includes("/faqs");
+		const timeout = isFileUpload ? 300000 : 30000; // 檔案上傳 5分鐘，一般請求 30秒
+
+		res.setTimeout(timeout, () => {
 			res.status(408).json({
 				success: false,
 				message: "請求超時"

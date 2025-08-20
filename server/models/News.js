@@ -6,7 +6,7 @@ const newsContentItemSchema = new Schema(
 		itemType: {
 			type: String,
 			required: true,
-			enum: ["richText", "image", "videoEmbed"] // 可擴展
+			enum: ["richText", "image", "videoEmbed", "document"] // 可擴展
 		},
 		// --- richText 類型數據 ---
 		richTextData: {
@@ -32,7 +32,13 @@ const newsContentItemSchema = new Schema(
 			TW: { type: String },
 			EN: { type: String }
 		},
-		sortOrder: { type: Number, default: 0 } // 用於排序區塊
+		// --- document 類型數據 ---
+		documentUrl: { type: String },
+		documentDescription: {
+			// 文件描述
+			TW: { type: String },
+			EN: { type: String }
+		}
 	},
 	{ timestamps: true }
 );

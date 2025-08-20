@@ -7,6 +7,7 @@ import os from "os";
 const MAX_TOTAL_NEWS_IMAGES = 20; // 新聞總圖片數上限 (封面+內容)
 const MAX_NEWS_CONTENT_IMAGES = MAX_TOTAL_NEWS_IMAGES - 1; // 內容圖片上限
 const MAX_NEWS_CONTENT_VIDEOS = 5; // 新增：內容影片上限 (可根據需求調整)
+const MAX_NEWS_CONTENT_DOCUMENTS = 5; // 新增：內容文件上限 (可根據需求調整)
 
 /**
  * 檔案上傳工具類
@@ -157,7 +158,8 @@ class FileUpload {
 		return this.upload.fields([
 			{ name: "coverImage", maxCount: 1 },
 			{ name: "contentImages", maxCount: MAX_NEWS_CONTENT_IMAGES },
-			{ name: "contentVideos", maxCount: MAX_NEWS_CONTENT_VIDEOS }
+			{ name: "contentVideos", maxCount: MAX_NEWS_CONTENT_VIDEOS },
+			{ name: "contentDocuments", maxCount: MAX_NEWS_CONTENT_DOCUMENTS }
 		]);
 	}
 

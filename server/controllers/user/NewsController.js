@@ -15,7 +15,7 @@ function validateContentItems(content) {
 		if (!item || typeof item !== "object") {
 			throw new ApiError(StatusCodes.BAD_REQUEST, "內容陣列中的項目格式無效");
 		}
-		if (!item.itemType || !["richText", "image", "videoEmbed"].includes(item.itemType)) {
+		if (!item.itemType || !["richText", "image", "videoEmbed", "document"].includes(item.itemType)) {
 			throw new ApiError(StatusCodes.BAD_REQUEST, `無效的內容項目類型: ${item.itemType}`);
 		}
 
@@ -62,6 +62,24 @@ function validateContentItems(content) {
 				delete item.imageUrl;
 				delete item.imageAltText;
 				delete item.imageCaption;
+				break;
+			case "document":
+				if (
+					item.documentUrl !== undefined &&
+					item.documentUrl !== null &&
+					typeof item.documentUrl !== "string" &&
+					item.documentUrl !== "__NEW_CONTENT_DOCUMENT__"
+				) {
+					throw new ApiError(StatusCodes.BAD_REQUEST, "document 項目 documentUrl 格式無效");
+				}
+				if (item.documentDescription && typeof item.documentDescription !== "object")
+					throw new ApiError(StatusCodes.BAD_REQUEST, "documentDescription 格式無效");
+				delete item.richTextData;
+				delete item.imageUrl;
+				delete item.imageAltText;
+				delete item.imageCaption;
+				delete item.videoEmbedUrl;
+				delete item.videoCaption;
 				break;
 		}
 		if (item.sortOrder !== undefined && typeof item.sortOrder !== "number") {
@@ -186,12 +204,15 @@ class NewsController extends EntityController {
 		data._pendingCoverFile = files.coverImage?.[0];
 		data._pendingContentImageFiles = files.contentImages || [];
 		data._pendingContentVideoFiles = files.contentVideos || [];
+		data._pendingContentDocumentFiles = files.contentDocuments || [];
 
 		let imagesToDeletePaths = [];
 		let videosToDeletePaths = []; // NEW: for videos to delete
+		let documentsToDeletePaths = []; // NEW: for documents to delete
 
 		let currentContentImageFileIndex = 0;
 		let currentContentVideoFileIndex = 0; // NEW: index for video files
+		let currentContentDocumentFileIndex = 0; // NEW: index for document files
 
 		if (data.title !== undefined) {
 			if (typeof data.title !== "object" || !data.title.TW) {
@@ -209,7 +230,7 @@ class NewsController extends EntityController {
 			try {
 				if (Array.isArray(data.content)) {
 					data.content.forEach((item) => {
-						if ((item.itemType === "image" || item.itemType === "videoEmbed") && item.richTextData) {
+						if ((item.itemType === "image" || item.itemType === "videoEmbed" || item.itemType === "document") && item.richTextData) {
 							delete item.richTextData;
 						}
 					});
@@ -259,6 +280,26 @@ class NewsController extends EntityController {
 								videosToDeletePaths.push(existingBlockInNews.videoEmbedUrl);
 							}
 						}
+					} else if (block.itemType === "document") {
+						// NEW: Handle document blocks
+						const wantsNewDocumentForBlock = block.documentUrl === "__NEW_CONTENT_DOCUMENT__";
+						if (wantsNewDocumentForBlock && data._pendingContentDocumentFiles[currentContentDocumentFileIndex]) {
+							block._pendingDocumentFile = data._pendingContentDocumentFiles[currentContentDocumentFileIndex];
+							currentContentDocumentFileIndex++;
+							if (isUpdate && existingNews) {
+								const existingBlockInNews = existingNews.content.find((eb) => eb._id?.toString() === block._id?.toString());
+								if (existingBlockInNews?.documentUrl && existingBlockInNews.documentUrl.startsWith("/storage")) {
+									documentsToDeletePaths.push(existingBlockInNews.documentUrl);
+								}
+							}
+							block.documentUrl = ""; // Will be replaced by uploaded file path
+						} else if (isUpdate && block.documentUrl === null && existingNews) {
+							// Explicitly removing a document
+							const existingBlockInNews = existingNews.content.find((eb) => eb._id?.toString() === block._id?.toString());
+							if (existingBlockInNews?.documentUrl && existingBlockInNews.documentUrl.startsWith("/storage")) {
+								documentsToDeletePaths.push(existingBlockInNews.documentUrl);
+							}
+						}
 					}
 				});
 			}
@@ -274,6 +315,9 @@ class NewsController extends EntityController {
 					}
 					if (block.itemType === "videoEmbed" && block.videoEmbedUrl && block.videoEmbedUrl.startsWith("/storage")) {
 						videosToDeletePaths.push(block.videoEmbedUrl);
+					}
+					if (block.itemType === "document" && block.documentUrl && block.documentUrl.startsWith("/storage")) {
+						documentsToDeletePaths.push(block.documentUrl);
 					}
 				});
 			}
@@ -359,6 +403,11 @@ class NewsController extends EntityController {
 							videosToDeletePaths.push(existingBlock.videoEmbedUrl);
 						}
 					}
+					if (existingBlock.itemType === "document" && existingBlock.documentUrl && existingBlock.documentUrl.startsWith("/storage/")) {
+						if (!documentsToDeletePaths.includes(existingBlock.documentUrl)) {
+							documentsToDeletePaths.push(existingBlock.documentUrl);
+						}
+					}
 				}
 			});
 		}
@@ -366,7 +415,13 @@ class NewsController extends EntityController {
 		// Make sure newsTitleTw is available for context for saveAsset calls
 		const newsTitleTwForContext = data.newsTitleTw || (existingNews ? existingNews.title?.TW : null) || "untitled_news";
 
-		return { processedData: data, imagesToDelete: imagesToDeletePaths, videosToDelete: videosToDeletePaths, newsTitleTwForContext };
+		return {
+			processedData: data,
+			imagesToDelete: imagesToDeletePaths,
+			videosToDelete: videosToDeletePaths,
+			documentsToDelete: documentsToDeletePaths,
+			newsTitleTwForContext
+		};
 	}
 
 	createItem = async (req, res, next) => {
@@ -385,6 +440,7 @@ class NewsController extends EntityController {
 			delete processedData._pendingCoverFile;
 			delete processedData._pendingContentImageFiles;
 			delete processedData._pendingContentVideoFiles;
+			delete processedData._pendingContentDocumentFiles;
 			delete processedData.newsTitleTw; // Remove from DB data, use newsTitleTwForContext for paths
 
 			if (Array.isArray(processedData.content)) {
@@ -392,12 +448,14 @@ class NewsController extends EntityController {
 					delete block._tempClientKey;
 					delete block._pendingFile;
 					delete block._pendingVideoFile;
-					if ((block.itemType === "image" || block.itemType === "videoEmbed") && block.richTextData) {
+					delete block._pendingDocumentFile;
+					if ((block.itemType === "image" || block.itemType === "videoEmbed" || block.itemType === "document") && block.richTextData) {
 						delete block.richTextData;
 					}
-					// Ensure imageUrl and videoEmbedUrl are not empty strings if no file was uploaded for them
+					// Ensure imageUrl, videoEmbedUrl, and documentUrl are not empty strings if no file was uploaded for them
 					if (block.itemType === "image" && block.imageUrl === "") block.imageUrl = null;
 					if (block.itemType === "videoEmbed" && block.videoEmbedUrl === "") block.videoEmbedUrl = null;
+					if (block.itemType === "document" && block.documentUrl === "") block.documentUrl = null;
 				});
 			}
 			processedData.coverImageUrl = null; // Set to null initially, will be updated if file exists
@@ -471,6 +529,22 @@ class NewsController extends EntityController {
 							console.error(`內容影片上傳失敗 (original index ${blockIndex}):`, uploadError);
 							blockInRawItem.videoEmbedUrl = null;
 						}
+					} else if (originalBlockData?.itemType === "document" && originalBlockData.documentUrl === "" && originalBlockData._pendingDocumentFile) {
+						try {
+							const documentUrl = fileUpload.saveAsset(
+								originalBlockData._pendingDocumentFile.buffer,
+								"news",
+								entityContext,
+								"documents", // assetCategory
+								originalBlockData._pendingDocumentFile.originalname,
+								"content_doc" // assetPrefix
+							);
+							blockInRawItem.documentUrl = documentUrl;
+							itemChangedByFileUpload = true;
+						} catch (uploadError) {
+							console.error(`內容文件上傳失敗 (original index ${blockIndex}):`, uploadError);
+							blockInRawItem.documentUrl = null;
+						}
 					}
 				}
 			}
@@ -498,6 +572,7 @@ class NewsController extends EntityController {
 				processedData,
 				imagesToDelete: filesToDeleteFromPrepare,
 				videosToDelete: additionalVideosToDeleteFromPrepare,
+				documentsToDelete: documentsToDeleteFromPrepare,
 				newsTitleTwForContext // Get this from _prepareNewsData
 			} = await this._prepareNewsData(req, true, existingItem);
 
@@ -510,13 +585,14 @@ class NewsController extends EntityController {
 			delete processedData._pendingCoverFile;
 			delete processedData._pendingContentImageFiles;
 			delete processedData._pendingContentVideoFiles;
+			delete processedData._pendingContentDocumentFiles;
 			delete processedData.newsTitleTw; // Remove from DB data
 
 			if (Array.isArray(processedData.content)) {
 				processedData.content.forEach((block) => {
 					delete block._tempClientKey;
-					// _pendingFile and _pendingVideoFile are kept for upload logic below
-					if ((block.itemType === "image" || block.itemType === "videoEmbed") && block.richTextData) {
+					// _pendingFile, _pendingVideoFile, and _pendingDocumentFile are kept for upload logic below
+					if ((block.itemType === "image" || block.itemType === "videoEmbed" || block.itemType === "document") && block.richTextData) {
 						delete block.richTextData;
 					}
 				});
@@ -594,6 +670,26 @@ class NewsController extends EntityController {
 						// No new file, but videoEmbedUrl was cleared
 						block.videoEmbedUrl = existingBlockEquivalent?.videoEmbedUrl || null; // Keep old or set to null
 					}
+
+					if (block.itemType === "document" && block._pendingDocumentFile) {
+						try {
+							block.documentUrl = fileUpload.saveAsset(
+								block._pendingDocumentFile.buffer,
+								"news",
+								entityContext,
+								"documents", // assetCategory
+								block._pendingDocumentFile.originalname,
+								"content_doc" // assetPrefix
+							);
+						} catch (e) {
+							console.error(`內容文件更新上傳失敗 for block (ID: ${block._id || "new"}):`, e);
+							block.documentUrl = existingBlockEquivalent?.documentUrl || null;
+						}
+						delete block._pendingDocumentFile;
+					} else if (block.itemType === "document" && block.documentUrl === "") {
+						// No new file, but documentUrl was cleared
+						block.documentUrl = existingBlockEquivalent?.documentUrl || null; // Keep old or set to null
+					}
 				}
 			}
 
@@ -604,7 +700,7 @@ class NewsController extends EntityController {
 				}
 			});
 
-			const allFilesToDelete = new Set([...filesToDeleteFromPrepare, ...additionalVideosToDeleteFromPrepare]);
+			const allFilesToDelete = new Set([...filesToDeleteFromPrepare, ...additionalVideosToDeleteFromPrepare, ...documentsToDeleteFromPrepare]);
 
 			const updatedItem = await existingItem.save({ session: req.dbSession });
 
