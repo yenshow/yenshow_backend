@@ -337,14 +337,16 @@ class ProductsController {
 			const productId = newProduct._id.toString();
 			const hierarchyData = await this._getProductHierarchy(newProduct.specifications);
 
-			const saveFile = async (file, fileType) => {
+			const saveFile = async (file, fileType, lang = null, index = null) => {
 				try {
 					return fileUpload.saveProductFile(file.buffer, {
 						productId: productId,
 						hierarchyData: hierarchyData,
 						productCode: newProduct.code,
 						fileName: file.originalname,
-						fileType: fileType
+						fileType: fileType,
+						lang: lang,
+						index: index
 					});
 				} catch (uploadError) {
 					console.error(`產品 ${fileType} 上傳失敗: ${file.originalname}`, uploadError);
@@ -352,10 +354,10 @@ class ProductsController {
 				}
 			};
 
-			const newImageUrls = (await Promise.all(pendingImages.map((file) => saveFile(file, "images")))).filter(Boolean);
+			const newImageUrls = (await Promise.all(pendingImages.map((file, index) => saveFile(file, "images", null, index)))).filter(Boolean);
 			const newDocumentUrls = (await Promise.all(pendingDocuments.map((file) => saveFile(file, "documents")))).filter(Boolean);
-			const newDocTwUrls = (await Promise.all(pendingDocumentsTW.map((file) => saveFile(file, "documents")))).filter(Boolean);
-			const newDocEnUrls = (await Promise.all(pendingDocumentsEN.map((file) => saveFile(file, "documents")))).filter(Boolean);
+			const newDocTwUrls = (await Promise.all(pendingDocumentsTW.map((file) => saveFile(file, "documents", "TW")))).filter(Boolean);
+			const newDocEnUrls = (await Promise.all(pendingDocumentsEN.map((file) => saveFile(file, "documents", "EN")))).filter(Boolean);
 			const newVideoUrls = (await Promise.all(pendingVideos.map((file) => saveFile(file, "videos")))).filter(Boolean);
 
 			let itemChangedByFileUpload = false;
@@ -435,14 +437,16 @@ class ProductsController {
 			const updatePayload = { ...processedData }; // Start with text field updates
 
 			// 3. 處理新檔案上傳並合併 URL
-			const saveFile = async (file, fileType) => {
+			const saveFile = async (file, fileType, lang = null, index = null) => {
 				try {
 					return fileUpload.saveProductFile(file.buffer, {
 						productId: id, // Use existing product ID for update
 						hierarchyData,
 						productCode,
 						fileName: file.originalname,
-						fileType: fileType
+						fileType: fileType,
+						lang: lang,
+						index: index
 					});
 				} catch (uploadError) {
 					console.error(`產品 ${fileType} 上傳失敗: ${file.originalname}`, uploadError);
@@ -450,10 +454,10 @@ class ProductsController {
 				}
 			};
 
-			const newImageUrls = (await Promise.all(pendingImages.map((file) => saveFile(file, "images")))).filter(Boolean);
+			const newImageUrls = (await Promise.all(pendingImages.map((file, index) => saveFile(file, "images", null, index)))).filter(Boolean);
 			const newDocumentUrls = (await Promise.all(pendingDocuments.map((file) => saveFile(file, "documents")))).filter(Boolean);
-			const newDocTwUrls = (await Promise.all(pendingDocumentsTW.map((file) => saveFile(file, "documents")))).filter(Boolean);
-			const newDocEnUrls = (await Promise.all(pendingDocumentsEN.map((file) => saveFile(file, "documents")))).filter(Boolean);
+			const newDocTwUrls = (await Promise.all(pendingDocumentsTW.map((file) => saveFile(file, "documents", "TW")))).filter(Boolean);
+			const newDocEnUrls = (await Promise.all(pendingDocumentsEN.map((file) => saveFile(file, "documents", "EN")))).filter(Boolean);
 			const newVideoUrls = (await Promise.all(pendingVideos.map((file) => saveFile(file, "videos")))).filter(Boolean);
 
 			if (updatePayload.images !== undefined) {
@@ -1077,8 +1081,18 @@ class ProductsController {
 		// 識別需要刪除的檔案：資料庫中存在的 /storage/ URL，但客戶端不再希望保留它們
 		if (Array.isArray(existingUrls)) {
 			existingUrls.forEach((oldUrl) => {
-				if (typeof oldUrl === "string" && oldUrl.startsWith("/storage/") && !validClientKeptUrls.includes(oldUrl)) {
-					pathsToDelete.push(oldUrl);
+				if (typeof oldUrl === "string" && oldUrl.startsWith("/storage/")) {
+					// 標準化 URL 格式進行比較
+					const normalizedOldUrl = oldUrl.startsWith("/storage/") ? oldUrl : `/${oldUrl.replace(/^\/+/, "")}`;
+					const isKept = validClientKeptUrls.some((keptUrl) => {
+						const normalizedKeptUrl = keptUrl.startsWith("/storage/") ? keptUrl : `/${keptUrl.replace(/^\/+/, "")}`;
+						return normalizedOldUrl === normalizedKeptUrl;
+					});
+
+					if (!isKept) {
+						console.log(`標記檔案為刪除: ${oldUrl}`);
+						pathsToDelete.push(oldUrl);
+					}
 				}
 			});
 		}

@@ -38,51 +38,31 @@ class FileUpload {
 
 		// 檔案過濾器
 		this.fileFilter = (req, file, cb) => {
-			if (file.fieldname === "contentImages") {
+			// 定義檔案類型驗證規則
+			const fileTypeRules = {
+				// 圖片欄位
+				imageFields: ["contentImages", "images", "faqImages", "coverImage"],
+				// 文件欄位
+				documentFields: ["contentDocuments", "documents", "documents_TW", "documents_EN", "faqDocuments", "contentDocuments"],
+				// 影片欄位
+				videoFields: ["contentVideos", "videos", "faqVideos"]
+			};
+
+			// 檢查檔案類型
+			if (fileTypeRules.imageFields.includes(file.fieldname)) {
 				if (!file.mimetype.startsWith("image/")) {
-					return cb(new ApiError(400, "新聞相關圖片只允許上傳圖片檔案"), false);
+					return cb(new ApiError(400, `${file.fieldname} 只允許上傳圖片檔案`), false);
 				}
-			} else if (file.fieldname === "contentDocuments") {
-				if (!file.mimetype.startsWith("application/pdf")) {
-					return cb(new ApiError(400, "新聞內容文檔只允許上傳 PDF 檔案"), false);
+			} else if (fileTypeRules.documentFields.includes(file.fieldname)) {
+				if (file.mimetype !== "application/pdf") {
+					return cb(new ApiError(400, `${file.fieldname} 僅允許 PDF 格式`), false);
 				}
-			} else if (file.fieldname === "contentVideos") {
+			} else if (fileTypeRules.videoFields.includes(file.fieldname)) {
 				if (!file.mimetype.startsWith("video/")) {
-					return cb(new ApiError(400, "新聞內容影片只允許上傳影片檔案"), false);
+					return cb(new ApiError(400, `${file.fieldname} 只允許上傳影片檔案`), false);
 				}
 			}
-			// Handling for product uploads
-			else if (
-				file.fieldname === "images" ||
-				file.fieldname === "documents" ||
-				file.fieldname === "videos" ||
-				file.fieldname === "documents_TW" ||
-				file.fieldname === "documents_EN"
-			) {
-				if (file.fieldname === "images" && !file.mimetype.startsWith("image/")) {
-					return cb(new ApiError(400, "產品示圖只允許上傳圖片檔案"), false);
-				}
-				if ((file.fieldname === "documents" || file.fieldname === "documents_TW" || file.fieldname === "documents_EN") && file.mimetype !== "application/pdf") {
-					return cb(new ApiError(400, "產品文檔僅允許 PDF 格式"), false);
-				}
-				if (file.fieldname === "videos" && !file.mimetype.startsWith("video/")) {
-					return cb(new ApiError(400, "產品影片只允許上傳影片檔案"), false);
-				}
-			}
-			// NEW: Handling for FAQ uploads
-			else if (file.fieldname === "faqImages") {
-				if (!file.mimetype.startsWith("image/")) {
-					return cb(new ApiError(400, "FAQ 圖片只允許上傳圖片檔案"), false);
-				}
-			} else if (file.fieldname === "faqVideos") {
-				if (!file.mimetype.startsWith("video/")) {
-					return cb(new ApiError(400, "FAQ 影片只允許上傳影片檔案"), false);
-				}
-			} else if (file.fieldname === "faqDocuments") {
-				if (!file.mimetype.startsWith("application/pdf")) {
-					return cb(new ApiError(400, "FAQ 文檔只允許上傳 PDF 檔案"), false);
-				}
-			}
+
 			cb(null, true);
 		};
 
@@ -107,23 +87,6 @@ class FileUpload {
 			}
 		} catch (error) {
 			console.error(`無法創建檔案儲存根目錄: ${error.message}`);
-		}
-	}
-
-	/**
-	 * 確保指定目錄存在
-	 * @param {String} directoryPath - 目錄的絕對路徑
-	 */
-	ensureDirectory(directoryPath) {
-		try {
-			if (!fs.existsSync(directoryPath)) {
-				fs.mkdirSync(directoryPath, { recursive: true });
-				console.log(`已創建目錄: ${directoryPath}`);
-			}
-		} catch (error) {
-			console.error(`無法創建目錄: ${directoryPath}`, error);
-			// 可以選擇拋出錯誤或返回失敗狀態
-			throw new ApiError(500, `無法創建目錄 ${directoryPath}: ${error.message}`);
 		}
 	}
 
@@ -197,7 +160,7 @@ class FileUpload {
 
 	/**
 	 * 確保目錄存在
-	 * @param {String} filePath - 檔案路徑
+	 * @param {String} filePath - 檔案路徑或目錄路徑
 	 */
 	ensureDirectoryExists(filePath) {
 		const dir = path.dirname(filePath);
@@ -211,14 +174,50 @@ class FileUpload {
 	 * 生成檔案名
 	 * @param {String} originalName - 原始檔案名
 	 * @param {String} prefix - 檔案名前綴
+	 * @param {Object} options - 額外選項
 	 * @returns {String} 檔案名
 	 */
-	generateUniqueFileName(originalName, prefix = "") {
+	generateUniqueFileName(originalName, prefix = "", options = {}) {
 		const ext = path.extname(originalName);
+
+		// 如果是產品檔案且有產品代碼，使用標準化命名
+		if (options.productCode && (options.fileType === "documents" || options.fileType === "images")) {
+			const productCode = this.extractProductCode(options.productCode);
+
+			if (options.fileType === "images") {
+				// 圖片：只需要產品代碼，不需要語系、類型後綴和序號
+				return `${productCode}${ext}`;
+			} else {
+				// 文件：需要語系後綴和序號
+				const langSuffix = options.lang ? `_${options.lang}` : "";
+				const indexSuffix = options.index !== null && options.index !== undefined ? `_${options.index + 1}` : "";
+				return `${productCode}${langSuffix}${indexSuffix}${ext}`;
+			}
+		}
+
+		// 其他檔案使用原始邏輯
 		const baseName = path.basename(originalName, ext);
-		// 清理基本檔名並添加時間戳以確保唯一性
 		const sanitizedBaseName = this.sanitizeFileName(baseName);
 		return `${prefix ? prefix + "_" : ""}${sanitizedBaseName}${ext}`;
+	}
+
+	/**
+	 * 提取產品代碼
+	 * @param {String} productCode - 產品代碼
+	 * @returns {String} 清理後的產品代碼
+	 */
+	extractProductCode(productCode) {
+		if (!productCode) return "";
+
+		// 移除中文字符和特殊字符，只保留英文字母、數字、連字符和底線
+		const cleanCode = productCode
+			.replace(/[\u4e00-\u9fff]/g, "") // 移除中文字符
+			.replace(/[^\w\-]/g, "") // 只保留英文字母、數字、連字符和底線
+			.replace(/_+/g, "_") // 將多個連續的底線合併為一個
+			.replace(/^-+|-+$/g, "") // 移除開頭和結尾的連字符
+			.trim();
+
+		return cleanCode || "product";
 	}
 
 	/**
@@ -355,7 +354,7 @@ class FileUpload {
 			throw new ApiError(400, "無效的檔案內容");
 		}
 
-		const { hierarchyData, productCode, fileName, fileType, productId } = options;
+		const { hierarchyData, productCode, fileName, fileType, productId, lang, index } = options;
 
 		// 檢查必要參數
 		if (!hierarchyData || !productCode || !fileName || !fileType || !productId) {
@@ -375,8 +374,7 @@ class FileUpload {
 
 		try {
 			const entityContext = {
-				id: productId, // Use ID for path generation
-				// The following are now just for the human-readable part of the path
+				id: productId,
 				seriesName: series.name?.TW || "unknown",
 				categoryName: category.name?.TW || "unknown",
 				subCategoryName: subCategory.name?.TW || "unknown",
@@ -384,9 +382,14 @@ class FileUpload {
 				productCode: productCode
 			};
 
-			// fileType can be 'images', 'documents', 'videos'.
-			// The prefix for the filename can also be based on fileType.
-			return this.saveAsset(fileBuffer, "products", entityContext, fileType, fileName, fileType);
+			const fileNameOptions = {
+				productCode: productCode,
+				fileType: fileType,
+				lang: lang,
+				index: index
+			};
+
+			return this.saveAsset(fileBuffer, "products", entityContext, fileType, fileName, fileType, fileNameOptions);
 		} catch (error) {
 			console.error("儲存產品檔案失敗:", error);
 			if (error instanceof ApiError) {
@@ -466,46 +469,30 @@ class FileUpload {
 	/**
 	 * @private
 	 * 產生實體特定的基礎相對目錄路徑。
-	 * @param {String} entityType - 實體類型 (e.g., "news", "products", "faqs")
-	 * @param {Object} entityContext - 包含構建路徑所需資訊的物件
-	 *    - for "news": { id: string, name: string (e.g., titleTw) }
-	 *    - for "faqs": { id: string, name: string (e.g., questionTw) }
-	 *    - for "products": { seriesName: string, categoryName: string, subCategoryName: string, specificationName: string, productCode: string }
+	 * @param {String} entityType - 實體類型
+	 * @param {Object} entityContext - 包含 id 的上下文物件
 	 * @returns {String} 相對於 /storage/{entityType}/ 的路徑部分
 	 */
 	_buildEntitySpecificDirPart(entityType, entityContext) {
-		switch (entityType) {
-			case "news":
-			case "faqs":
-				if (!entityContext || !entityContext.id) {
-					console.error(`Context for ${entityType} must include 'id'. Received:`, entityContext);
-					throw new ApiError(400, `無效的 ${entityType} 路徑上下文`);
-				}
-				const safeId = this.sanitizeFileName(entityContext.id.toString());
-				return safeId;
-			case "products":
-				if (!entityContext || !entityContext.id) {
-					console.error(`Context for ${entityType} must include 'id'. Received:`, entityContext);
-					throw new ApiError(400, "產品路徑上下文不完整，缺少 ID");
-				}
-				// The primary directory is the product's unique ID.
-				const productIdDir = this.sanitizeFileName(entityContext.id.toString());
-				return productIdDir;
-			default:
-				throw new ApiError(500, `不支援的實體類型用於路徑生成: ${entityType}`);
+		if (!entityContext || !entityContext.id) {
+			console.error(`Context for ${entityType} must include 'id'. Received:`, entityContext);
+			throw new ApiError(400, `無效的 ${entityType} 路徑上下文`);
 		}
+
+		return this.sanitizeFileName(entityContext.id.toString());
 	}
 
 	/**
 	 * 產生通用實體資產的檔案儲存路徑。
-	 * @param {String} entityType - 實體類型 (e.g., "news", "products", "faqs")
-	 * @param {Object} entityContext - 傳遞給 _buildEntitySpecificDirPart 的上下文
-	 * @param {String} assetCategory - 資產的分類/子目錄 (e.g., "images", "videos", "documents", "covers")
+	 * @param {String} entityType - 實體類型
+	 * @param {Object} entityContext - 實體上下文
+	 * @param {String} assetCategory - 資產分類
 	 * @param {String} originalFileName - 原始檔案名
-	 * @param {String} [assetPrefix="asset"] - 用於 generateUniqueFileName 的檔案名前綴
+	 * @param {String} [assetPrefix="asset"] - 檔案名前綴
+	 * @param {Object} [options] - 額外選項
 	 * @returns {Object} 包含 virtualPath 和 physicalPath 的物件
 	 */
-	generateAssetPath(entityType, entityContext, assetCategory, originalFileName, assetPrefix = "asset") {
+	generateAssetPath(entityType, entityContext, assetCategory, originalFileName, assetPrefix = "asset", options = {}) {
 		try {
 			if (!entityType || !entityContext || !assetCategory || !originalFileName) {
 				throw new ApiError(400, "產生資產路徑缺少必要參數");
@@ -513,7 +500,7 @@ class FileUpload {
 
 			// 此函數現在回傳一個帶有正斜線的路徑
 			const entitySpecificDirPart = this._buildEntitySpecificDirPart(entityType, entityContext);
-			const uniqueFileName = this.generateUniqueFileName(originalFileName, assetPrefix);
+			const uniqueFileName = this.generateUniqueFileName(originalFileName, assetPrefix, options);
 
 			const baseEntityDir = entityType;
 
@@ -537,18 +524,19 @@ class FileUpload {
 	 * 儲存通用實體資產檔案。
 	 * @param {Buffer} fileBuffer - 檔案內容
 	 * @param {String} entityType - 實體類型
-	 * @param {Object} entityContext - 傳遞給 generateAssetPath 的上下文
-	 * @param {String} assetCategory - 資產分類/子目錄
+	 * @param {Object} entityContext - 實體上下文
+	 * @param {String} assetCategory - 資產分類
 	 * @param {String} originalFileName - 原始檔案名
 	 * @param {String} [assetPrefix="asset"] - 檔案名前綴
+	 * @param {Object} [options] - 額外選項
 	 * @returns {String} 檔案的虛擬路徑
 	 */
-	saveAsset(fileBuffer, entityType, entityContext, assetCategory, originalFileName, assetPrefix = "asset") {
+	saveAsset(fileBuffer, entityType, entityContext, assetCategory, originalFileName, assetPrefix = "asset", options = {}) {
 		if (!fileBuffer || !Buffer.isBuffer(fileBuffer)) {
 			throw new ApiError(400, "無效的檔案內容 (通用資產儲存)");
 		}
 		try {
-			const { virtualPath, physicalPath } = this.generateAssetPath(entityType, entityContext, assetCategory, originalFileName, assetPrefix);
+			const { virtualPath, physicalPath } = this.generateAssetPath(entityType, entityContext, assetCategory, originalFileName, assetPrefix, options);
 			const saveResult = this.saveBufferToFile(fileBuffer, physicalPath);
 			if (!saveResult) {
 				throw new ApiError(500, `儲存 ${entityType} 資產檔案本身失敗`);
@@ -564,7 +552,7 @@ class FileUpload {
 	/**
 	 * 刪除指定實體的整個根目錄。
 	 * @param {String} entityType - 實體類型
-	 * @param {Object} entityContext - 傳遞給 _buildEntitySpecificDirPart 的上下文
+	 * @param {Object} entityContext - 實體上下文
 	 * @returns {Boolean} 是否成功刪除
 	 */
 	deleteEntityDirectory(entityType, entityContext) {

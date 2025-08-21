@@ -88,8 +88,11 @@ export class EntityController {
 			// 應用其他過濾條件
 			this._applyCustomFilters(query, req);
 
+			// 預設按 order 欄位排序，如果沒有 order 則按 createdAt 排序
+			const sortOption = { order: 1, createdAt: 1 };
+
 			const results = await this.entityService.search(query, {
-				sort: { createdAt: 1 }
+				sort: sortOption
 			});
 
 			return this._sendResponse(res, StatusCodes.OK, `獲取${this.entityName}列表成功`, { [this.responseKey]: results.data });
@@ -244,6 +247,35 @@ export class EntityController {
 			});
 		} catch (error) {
 			this._handleError(error, "搜索", next);
+		}
+	}
+
+	// 重新排序項目
+	async reorderItems(req, res, next) {
+		try {
+			const { items } = req.body;
+
+			if (!Array.isArray(items) || items.length === 0) {
+				return this._sendResponse(res, StatusCodes.BAD_REQUEST, "請提供有效的排序項目列表", null);
+			}
+
+			// 驗證項目格式
+			for (const item of items) {
+				if (!item.id || typeof item.order !== "number") {
+					return this._sendResponse(res, StatusCodes.BAD_REQUEST, "每個項目必須包含 id 和 order 欄位", null);
+				}
+			}
+
+			// 批量更新排序
+			const updatePromises = items.map((item) => this.model.findByIdAndUpdate(item.id, { order: item.order }, { new: true, session: req.dbSession }));
+
+			const updatedItems = await Promise.all(updatePromises);
+
+			return this._sendResponse(res, StatusCodes.OK, `${this.entityName}排序更新成功`, {
+				[this.responseKey]: updatedItems.map((item) => this.entityService.formatOutput(item))
+			});
+		} catch (error) {
+			this._handleError(error, "重新排序", next);
 		}
 	}
 }
