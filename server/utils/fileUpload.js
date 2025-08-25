@@ -190,8 +190,7 @@ class FileUpload {
 			} else {
 				// 文件：需要語系後綴和序號
 				const langSuffix = options.lang ? `_${options.lang}` : "";
-				const indexSuffix = options.index !== null && options.index !== undefined ? `_${options.index + 1}` : "";
-				return `${productCode}${langSuffix}${indexSuffix}${ext}`;
+				return `${productCode}_DataSheet${langSuffix}${ext}`;
 			}
 		}
 
