@@ -726,22 +726,6 @@ const pagedItems = computed(() => {
   return list.slice(start, end)
 })
 
-// 監聽資料或 activeTab 變化時，重設分頁
-watch(
-  [filteredItems, activeTab],
-  () => {
-    const total = filteredItems.value.length
-    pagination.value.totalPages = Math.ceil(total / pagination.value.itemsPerPage) || 1
-    if (pagination.value.currentPage > pagination.value.totalPages) {
-      pagination.value.currentPage = pagination.value.totalPages || 1
-    }
-    if (pagination.value.currentPage < 1) {
-      pagination.value.currentPage = 1
-    }
-  },
-  { immediate: true, deep: true },
-)
-
 // 切換分頁
 const changePage = (page) => {
   if (page < 1 || page > pagination.value.totalPages || page === pagination.value.currentPage)
@@ -769,6 +753,8 @@ const setActiveTab = async (tab) => {
   isCategoryDropdownOpen.value = false
   selectedFaqCategory.value = null
   isFaqCategoryDropdownOpen.value = false
+  // 切換資料類型時回到第一頁，避免沿用上一個 Tab 的頁碼
+  pagination.value.currentPage = 1
   await fetchData()
 }
 
