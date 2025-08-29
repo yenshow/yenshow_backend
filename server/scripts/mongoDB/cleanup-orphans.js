@@ -1,13 +1,17 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import Series from "../../models/series.js";
 import Category from "../../models/categories.js";
 import SubCategory from "../../models/subCategories.js";
 import Specification from "../../models/specifications.js";
 import Product from "../../models/products.js";
 
-// 載入環境變數
-dotenv.config();
+// 載入環境變數（以絕對路徑指向 server/.env，避免從不同工作目錄執行時載入失敗）
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 /**
  * 清理指定模型的孤兒文件。
@@ -51,13 +55,11 @@ async function runCleanup() {
 	try {
 		console.log("開始清理資料庫中的孤兒文件...");
 
-		// 注意：清理順序需「自上而下」(父 → 子)，
-		// 若先刪子層，再刪父層，會在同一次執行的後段產生新的孤兒而未被處理。
-		// 因此調整為先清理 Categories（沒有有效 Series），再一路向下清理。
-		await cleanupModel(Category, "Categories", Series, "series");
-		await cleanupModel(SubCategory, "SubCategories", Category, "categories");
-		await cleanupModel(Specification, "Specifications", SubCategory, "subCategories");
+		// 按照從底層到頂層的順序執行清理
 		await cleanupModel(Product, "Products", Specification, "specifications");
+		await cleanupModel(Specification, "Specifications", SubCategory, "subCategories");
+		await cleanupModel(SubCategory, "SubCategories", Category, "categories");
+		await cleanupModel(Category, "Categories", Series, "series");
 
 		console.log("\n所有孤兒文件清理完成！");
 	} catch (error) {

@@ -198,7 +198,7 @@ class ProductsController {
 				additionalConditions.specifications = specifications;
 			}
 
-			// 使用 searchHelper 進行搜索（深度 populate 到 series）
+			// 使用 searchHelper 進行搜索
 			const searchResults = await performSearch({
 				model: Products,
 				keyword,
@@ -207,16 +207,7 @@ class ProductsController {
 				sort,
 				sortDirection,
 				limit: parseInt(limit),
-				populate: {
-					path: "specifications",
-					populate: {
-						path: "subCategories",
-						populate: {
-							path: "categories",
-							populate: { path: "series" }
-						}
-					}
-				}
+				populate: "specifications"
 			});
 
 			// 計算分頁
@@ -224,20 +215,9 @@ class ProductsController {
 			const skip = (parseInt(page) - 1) * parseInt(limit);
 			const paginatedItems = items.slice(skip, skip + parseInt(limit));
 
-			// 應用轉換並補上 series 欄位供前端導航使用
+			// 應用轉換
 			const baseUrl = process.env.PUBLIC_BASE_URL;
-			const transformedItems = paginatedItems.map((itemDoc) => {
-				const obj = transformProductImagePaths(itemDoc.toObject(), baseUrl);
-				try {
-					const s = itemDoc?.specifications?.subCategories?.categories?.series;
-					if (s && s._id) {
-						obj.series = { _id: s._id.toString(), name: s.name };
-					}
-				} catch (e) {
-					// ignore extraction errors, keep payload minimal
-				}
-				return obj;
-			});
+			const transformedItems = paginatedItems.map((item) => transformProductImagePaths(item.toObject(), baseUrl));
 
 			// 回傳結果
 			return res.status(StatusCodes.OK).json({

@@ -1,11 +1,16 @@
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import fs from "fs-extra";
 import path from "path";
 import User from "../../models/user.js";
 import UserRole from "../../enums/UserRole.js";
 
-dotenv.config();
+// 載入環境變數（以絕對路徑指向 server/.env）
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 function parseArgs(argv) {
 	const args = {};

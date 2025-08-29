@@ -5,9 +5,13 @@ import SubCategory from "../../models/subCategories.js";
 import Specification from "../../models/specifications.js";
 import { initialData } from "../../enums/initialData.js";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
-// 載入環境變數
-dotenv.config();
+// 載入環境變數（以絕對路徑指向 server/.env）
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 // 清空資料庫函數
 async function clearDatabase() {

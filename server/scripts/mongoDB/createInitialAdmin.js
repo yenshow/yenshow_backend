@@ -3,9 +3,13 @@ import User from "../../models/user.js";
 import UserRole from "../../enums/UserRole.js";
 import dotenv from "dotenv";
 import readline from "readline";
+import path from "path";
+import { fileURLToPath } from "url";
 
-// 載入環境變數
-dotenv.config();
+// 載入環境變數（以絕對路徑指向 server/.env）
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 // 建立輸入介面
 const rl = readline.createInterface({
@@ -23,7 +27,11 @@ async function createInitialAdmin() {
 	try {
 		// 連接到資料庫
 		console.log("連接到資料庫...");
-		await mongoose.connect(process.env.DB_URL);
+		const dbUrl = process.env.MONGO_URI || process.env.DB_URL;
+		if (!dbUrl) {
+			throw new Error("缺少資料庫連線字串，請在 .env 設定 MONGO_URI 或 DB_URL");
+		}
+		await mongoose.connect(dbUrl);
 		console.log("資料庫連接成功");
 
 		// 檢查是否已有管理員
