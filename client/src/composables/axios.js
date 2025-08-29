@@ -254,6 +254,14 @@ export const useApi = () => {
       // 取得分類列表（News 使用）
       getCategories: async () => {
         const response = await safeApiCall(() => instance.get(`/api/${entityType}/categories`))
+        // FAQ 類別回傳 { categoriesTW, categoriesEN }，其他維持陣列
+        if (entityType === 'faqs') {
+          const data = response?.data?.result || {}
+          return {
+            categoriesTW: data.categoriesTW || [],
+            categoriesEN: data.categoriesEN || [],
+          }
+        }
         return response?.data?.result?.categories || []
       },
 

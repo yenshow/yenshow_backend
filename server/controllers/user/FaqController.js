@@ -32,11 +32,15 @@ class FaqController extends EntityController {
 		}
 	}
 
-	// 取得 FAQ 主分類清單
+	// 取得 FAQ 主分類清單（同時提供 TW 與 EN）
 	getCategories = async (req, res, next) => {
 		try {
-			const categories = Faq.schema.path("category.main").enumValues || [];
-			this._sendResponse(res, StatusCodes.OK, `分類清單獲取成功`, { categories });
+			// 新結構（main.TW/EN）可能無法直接由 enumValues 讀 EN
+			const mainPath = Faq.schema.path("category.main.TW") || Faq.schema.path("category.main");
+			const categoriesTW = mainPath?.enumValues || [];
+			const categoriesENPath = Faq.schema.path("category.main.EN");
+			const categoriesEN = categoriesENPath?.enumValues || [];
+			this._sendResponse(res, StatusCodes.OK, `分類清單獲取成功`, { categoriesTW, categoriesEN });
 		} catch (error) {
 			this._handleError(error, "獲取分類清單", next);
 		}
@@ -51,7 +55,12 @@ class FaqController extends EntityController {
 				query.isActive = true;
 			}
 			if (category) {
-				query["category.main"] = category;
+				// 同時支援舊資料（category.main為字串）與新資料（category.main.TW/EN）
+				query.$or = [
+					{ "category.main": category }, // 舊資料
+					{ "category.main.TW": category },
+					{ "category.main.EN": category }
+				];
 			}
 
 			const allowedSortFields = ["publishDate", "createdAt"];
@@ -157,7 +166,22 @@ class FaqController extends EntityController {
 			}
 		}
 		if (!data.author && !isUpdate) throw new ApiError(StatusCodes.BAD_REQUEST, "作者為必填");
-		if (!data.category?.main && !isUpdate) throw new ApiError(StatusCodes.BAD_REQUEST, "主分類為必填");
+		// 檢查新舊結構：允許傳入 category.main（舊）或 category.main.TW（新）
+		const hasNewCategoryMainTW = Boolean(data.category && typeof data.category.main === "object" && data.category.main.TW);
+		const hasOldCategoryMain = Boolean(data.category && typeof data.category.main === "string" && data.category.main);
+		if (!isUpdate && !hasNewCategoryMainTW && !hasOldCategoryMain) {
+			throw new ApiError(StatusCodes.BAD_REQUEST, "主分類為必填");
+		}
+
+		// 若客戶端仍用舊結構，轉成新結構
+		if (hasOldCategoryMain) {
+			data.category = {
+				main: {
+					TW: data.category.main,
+					EN: data.category.mainEN || ""
+				}
+			};
+		}
 
 		if (userRole !== Permissions.ADMIN) {
 			if (!isUpdate) data.isActive = false;

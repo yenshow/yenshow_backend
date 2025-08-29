@@ -480,7 +480,11 @@
               <td class="py-3 px-4 theme-text">
                 {{
                   typeof item.category === 'object' && item.category
-                    ? item.category.main || '-'
+                    ? typeof item.category.main === 'object'
+                      ? item.category.main[languageStore.currentLang] ||
+                        item.category.main.TW ||
+                        '-'
+                      : item.category.main || '-'
                     : item.category || '-'
                 }}
               </td>
@@ -625,11 +629,13 @@ import { useNewsStore } from '@/stores/newsStore'
 import { useFaqStore } from '@/stores/faqStore'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { useNotifications } from '@/composables/notificationCenter'
+import { useLanguageStore } from '@/stores/core/languageStore'
 import NewsModal from '@/components/news/NewsModal.vue'
 import FaqModal from '@/components/FaqModal.vue'
 
 const newsStore = useNewsStore()
 const faqStore = useFaqStore()
+const languageStore = useLanguageStore()
 const notify = useNotifications()
 const { cardClass, conditionalClass } = useThemeClass()
 
@@ -691,8 +697,12 @@ const selectedNewsCategoryLabel = computed(() => {
 })
 
 // FAQ 分類：從後端取全量分類，避免下拉選項隨列表改變
-const allFaqCategories = ref([])
-const faqCategories = computed(() => allFaqCategories.value)
+const allFaqCategoriesTW = ref([])
+const allFaqCategoriesEN = ref([])
+const faqCategories = computed(() => {
+  const { currentLang } = languageStore
+  return currentLang === 'EN' ? allFaqCategoriesEN.value : allFaqCategoriesTW.value
+})
 
 // 計算 FAQ 分類下拉選單的按鈕標籤
 const selectedFaqCategoryLabel = computed(() => {
@@ -812,7 +822,15 @@ onMounted(async () => {
     const api = entityApi('news', { responseKey: 'news' })
     allNewsCategories.value = await api.getCategories()
     const faqApi = entityApi('faqs', { responseKey: 'faqs' })
-    allFaqCategories.value = await faqApi.getCategories()
+    const faqCats = await faqApi.getCategories()
+    if (Array.isArray(faqCats)) {
+      // 後端若尚未更新，容錯處理
+      allFaqCategoriesTW.value = faqCats
+      allFaqCategoriesEN.value = faqCats
+    } else {
+      allFaqCategoriesTW.value = faqCats.categoriesTW || []
+      allFaqCategoriesEN.value = faqCats.categoriesEN || []
+    }
   } catch (e) {
     console.warn('載入分類清單失敗', e?.message || e)
   }

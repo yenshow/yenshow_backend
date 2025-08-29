@@ -22,13 +22,16 @@ const faqSchema = new Schema(
 		},
 		category: {
 			main: {
-				type: String,
-				enum: ["名詞解說", "產品介紹", "故障排除"],
-				required: [true, "主分類為必填"]
-			},
-			sub: {
-				type: String,
-				trim: true
+				TW: {
+					type: String,
+					enum: ["名詞解說", "產品介紹", "故障排除"],
+					required: [true, "主分類為必填"]
+				},
+				EN: {
+					type: String,
+					enum: ["Glossary", "Product Introduction", "Troubleshooting"],
+					trim: true
+				}
 			}
 		},
 		isActive: {
@@ -111,16 +114,23 @@ faqSchema.virtual("metaTitle").get(function () {
 	let baseTitleEN = "";
 
 	if (this.category && this.category.main) {
-		let categoryStr = this.category.main;
-		if (this.category.sub && this.category.sub.trim() !== "") {
-			categoryStr = `${this.category.sub.trim()} | ${this.category.main}`;
+		// 兼容舊資料（string）與新資料（{ TW, EN }）
+		const mainTW = typeof this.category.main === "string" ? this.category.main : this.category.main.TW || "";
+		const mainENVal = typeof this.category.main === "string" ? "" : this.category.main.EN || "";
+
+		// TW 顯示：main(TW)
+		let categoryStrTW = mainTW;
+		if (categoryStrTW.length > 20) {
+			categoryStrTW = categoryStrTW.substring(0, 20) + "...";
 		}
-		// 限制 category 長度
-		if (categoryStr.length > 20) {
-			categoryStr = categoryStr.substring(0, 20) + "...";
+		baseTitleTW = `${categoryStrTW} | ${pageTypeTW}`;
+
+		// EN 顯示：優先 main(EN)，回退 main(TW)
+		let categoryStrEN = mainENVal && mainENVal.trim() !== "" ? mainENVal.trim() : mainTW;
+		if (categoryStrEN.length > 20) {
+			categoryStrEN = categoryStrEN.substring(0, 20) + "...";
 		}
-		baseTitleTW = `${categoryStr} | ${pageTypeTW}`;
-		baseTitleEN = `${categoryStr} | ${pageTypeEN}`; // 假設 category 對 TW 和 EN 是一樣的
+		baseTitleEN = `${categoryStrEN} | ${pageTypeEN}`;
 	} else {
 		baseTitleTW = pageTypeTW;
 		baseTitleEN = pageTypeEN;

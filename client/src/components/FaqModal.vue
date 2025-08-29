@@ -109,34 +109,50 @@
                   </p>
                 </div>
               </div>
-              <!-- Category -->
+              <!-- Category (Bilingual) -->
               <div>
-                <label for="faqCategoryMain" class="block mb-3 theme-text">主分類 *</label>
+                <label for="faqCategoryMainTW" class="block mb-3 theme-text">主分類 (TW) *</label>
                 <select
-                  id="faqCategoryMain"
-                  v-model="form.category.main"
-                  :class="[inputClass, validationErrors['category.main'] ? 'border-red-500' : '']"
+                  id="faqCategoryMainTW"
+                  v-model="form.category.main.TW"
+                  :class="[
+                    inputClass,
+                    validationErrors['category.main.TW'] ? 'border-red-500' : '',
+                  ]"
                 >
-                  <option value="" disabled class="text-black/70">請選擇主分類</option>
-                  <option value="名詞解說" class="text-black/70">名詞解說</option>
-                  <option value="產品介紹" class="text-black/70">產品介紹</option>
-                  <option value="故障排除" class="text-black/70">故障排除</option>
+                  <option value="" disabled class="text-black/70">請選擇主分類 (TW)</option>
+                  <option
+                    v-for="cat in faqCategoriesTW"
+                    :key="`tw-${cat}`"
+                    :value="cat"
+                    class="text-black/70"
+                  >
+                    {{ cat }}
+                  </option>
                 </select>
-                <p v-if="validationErrors['category.main']" class="text-red-500 text-xs mt-1">
-                  {{ validationErrors['category.main'] }}
+                <p v-if="validationErrors['category.main.TW']" class="text-red-500 text-xs mt-1">
+                  {{ validationErrors['category.main.TW'] }}
                 </p>
               </div>
               <div>
-                <label for="faqCategorySub" class="block mb-3 theme-text opacity-80"
-                  >自訂子分類</label
+                <label for="faqCategoryMainEN" class="block mb-3 theme-text opacity-80"
+                  >主分類 (EN)</label
                 >
-                <input
-                  id="faqCategorySub"
-                  v-model="form.category.sub"
-                  type="text"
+                <select
+                  id="faqCategoryMainEN"
+                  v-model="form.category.main.EN"
                   :class="[inputClass]"
-                  placeholder="例如：安裝、設定"
-                />
+                >
+                  <option value="" class="text-black/70">（可留空）</option>
+                  <option
+                    v-for="cat in faqCategoriesEN"
+                    :key="`en-${cat}`"
+                    :value="cat"
+                    class="text-black/70"
+                  >
+                    {{ cat }}
+                  </option>
+                </select>
               </div>
 
               <!-- Publish Date -->
@@ -302,7 +318,7 @@
                     全部分類
                   </button>
                   <button
-                    v-for="cat in faqCategories"
+                    v-for="cat in faqCategoriesTW"
                     :key="cat"
                     type="button"
                     @click="relatedFaqFilterCategory = cat"
@@ -694,6 +710,7 @@ import { useNotifications } from '@/composables/notificationCenter'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { useFormValidation } from '@/composables/useFormValidation'
 import { useUserStore } from '@/stores/userStore'
+import { useApi } from '@/composables/axios'
 
 const RichTextBlockEditor = defineAsyncComponent(
   () => import('@/components/news/RichTextBlockEditor.vue'),
@@ -741,7 +758,8 @@ const tabs = [
 ]
 
 const relatedFaqFilterCategory = ref(null)
-const faqCategories = ['名詞解說', '產品介紹', '故障排除']
+const faqCategoriesTW = ref([])
+const faqCategoriesEN = ref([])
 
 const filteredAllFaqs = computed(() => {
   let faqs = props.allFaqs
@@ -753,7 +771,12 @@ const filteredAllFaqs = computed(() => {
 
   // 2. 根據分類篩選
   if (relatedFaqFilterCategory.value) {
-    faqs = faqs.filter((faq) => faq.category?.main === relatedFaqFilterCategory.value)
+    faqs = faqs.filter((faq) => {
+      const main = faq.category?.main
+      if (!main) return false
+      if (typeof main === 'object') return main.TW === relatedFaqFilterCategory.value
+      return main === relatedFaqFilterCategory.value
+    })
   }
 
   return faqs
@@ -869,7 +892,7 @@ const initialFormState = () => ({
     EN: { type: 'doc', content: [{ type: 'paragraph' }] },
   },
   summary: { TW: '', EN: '' },
-  category: { main: '', sub: '' },
+  category: { main: { TW: '', EN: '' } },
   author: '',
   publishDate: formatDateForInput(new Date()),
   productModel: '',
@@ -923,8 +946,10 @@ watch(
               EN: faqData.answer?.EN || { type: 'doc', content: [{ type: 'paragraph' }] },
             },
             category: {
-              main: faqData.category?.main || '',
-              sub: faqData.category?.sub || '',
+              main:
+                typeof faqData.category?.main === 'object'
+                  ? { TW: faqData.category.main.TW || '', EN: faqData.category.main.EN || '' }
+                  : { TW: faqData.category?.main || '', EN: '' },
             },
             author: faqData.author || '',
             publishDate: formatDateForInput(faqData.publishDate),
@@ -979,8 +1004,8 @@ const validateForm = () => {
     setError('author', '作者為必填項')
     isValid = false
   }
-  if (!form.value.category.main) {
-    setError('category.main', '主分類為必填項')
+  if (!form.value.category.main?.TW) {
+    setError('category.main.TW', '主分類 (TW) 為必填項')
     isValid = false
   }
   if (!form.value.question.TW?.trim() && !form.value.question.EN?.trim()) {
@@ -1028,7 +1053,7 @@ const validateForm = () => {
       if (
         [
           'author',
-          'category.main',
+          'category.main.TW',
           'publishDate',
           'question.TW',
           'question.EN',
@@ -1073,6 +1098,10 @@ const submitForm = async () => {
     videoUrl: form.value.videoUrl,
     documentUrl: form.value.documentUrl,
     relatedFaqs: form.value.relatedFaqs,
+  }
+  // 若 EN 主分類為空字串，允許省略，後端會回退 TW
+  if (faqDataPayload.category?.main && !faqDataPayload.category.main.EN) {
+    delete faqDataPayload.category.main.EN
   }
   // Clean up empty EN fields
   if (!faqDataPayload.question.EN) delete faqDataPayload.question.EN
@@ -1132,4 +1161,22 @@ const closeModal = () => {
   emit('update:show', false)
   currentTab.value = 'general' // 關閉時重置 Tab
 }
+
+// 載入 FAQ 分類選項 (TW/EN)
+;(async () => {
+  try {
+    const { entityApi } = useApi()
+    const faqApi = entityApi('faqs', { responseKey: 'faqs' })
+    const cats = await faqApi.getCategories()
+    if (Array.isArray(cats)) {
+      faqCategoriesTW.value = cats
+      faqCategoriesEN.value = cats
+    } else {
+      faqCategoriesTW.value = cats.categoriesTW || []
+      faqCategoriesEN.value = cats.categoriesEN || []
+    }
+  } catch (e) {
+    console.warn('載入 FAQ 分類清單失敗', e?.message || e)
+  }
+})()
 </script>
