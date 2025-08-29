@@ -697,12 +697,8 @@ const selectedNewsCategoryLabel = computed(() => {
 })
 
 // FAQ 分類：從後端取全量分類，避免下拉選項隨列表改變
-const allFaqCategoriesTW = ref([])
-const allFaqCategoriesEN = ref([])
-const faqCategories = computed(() => {
-  const { currentLang } = languageStore
-  return currentLang === 'EN' ? allFaqCategoriesEN.value : allFaqCategoriesTW.value
-})
+const allFaqCategories = ref([])
+const faqCategories = computed(() => allFaqCategories.value)
 
 // 計算 FAQ 分類下拉選單的按鈕標籤
 const selectedFaqCategoryLabel = computed(() => {
@@ -822,15 +818,7 @@ onMounted(async () => {
     const api = entityApi('news', { responseKey: 'news' })
     allNewsCategories.value = await api.getCategories()
     const faqApi = entityApi('faqs', { responseKey: 'faqs' })
-    const faqCats = await faqApi.getCategories()
-    if (Array.isArray(faqCats)) {
-      // 後端若尚未更新，容錯處理
-      allFaqCategoriesTW.value = faqCats
-      allFaqCategoriesEN.value = faqCats
-    } else {
-      allFaqCategoriesTW.value = faqCats.categoriesTW || []
-      allFaqCategoriesEN.value = faqCats.categoriesEN || []
-    }
+    allFaqCategories.value = await faqApi.getCategories()
   } catch (e) {
     console.warn('載入分類清單失敗', e?.message || e)
   }

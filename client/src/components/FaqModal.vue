@@ -134,26 +134,7 @@
                   {{ validationErrors['category.main.TW'] }}
                 </p>
               </div>
-              <div>
-                <label for="faqCategoryMainEN" class="block mb-3 theme-text opacity-80"
-                  >主分類 (EN)</label
-                >
-                <select
-                  id="faqCategoryMainEN"
-                  v-model="form.category.main.EN"
-                  :class="[inputClass]"
-                >
-                  <option value="" class="text-black/70">（可留空）</option>
-                  <option
-                    v-for="cat in faqCategoriesEN"
-                    :key="`en-${cat}`"
-                    :value="cat"
-                    class="text-black/70"
-                  >
-                    {{ cat }}
-                  </option>
-                </select>
-              </div>
+              <!-- 英文分類自動對應，不顯示於表單 -->
 
               <!-- Publish Date -->
               <div>
@@ -759,7 +740,6 @@ const tabs = [
 
 const relatedFaqFilterCategory = ref(null)
 const faqCategoriesTW = ref([])
-const faqCategoriesEN = ref([])
 
 const filteredAllFaqs = computed(() => {
   let faqs = props.allFaqs
@@ -920,6 +900,20 @@ const resetForm = () => {
   questionLanguage.value = 'TW'
   answerLanguage.value = 'TW'
 }
+
+// 當 TW 類別變更時，自動同步 EN 類別（不顯示 EN 下拉）
+watch(
+  () => form.value.category.main.TW,
+  (newTw) => {
+    const mapping = {
+      名詞解說: 'Glossary',
+      產品介紹: 'Product Introduction',
+      故障排除: 'Troubleshooting',
+    }
+    if (!form.value.category.main) form.value.category.main = { TW: '', EN: '' }
+    form.value.category.main.EN = newTw ? mapping[newTw] || '' : ''
+  },
+)
 
 watch(
   () => props.show,
@@ -1099,6 +1093,18 @@ const submitForm = async () => {
     documentUrl: form.value.documentUrl,
     relatedFaqs: form.value.relatedFaqs,
   }
+  // 將 TW 自動對應 EN（若 EN 未填則用映射補齊）
+  const mapping = {
+    名詞解說: 'Glossary',
+    產品介紹: 'Product Introduction',
+    故障排除: 'Troubleshooting',
+  }
+  if (faqDataPayload?.category?.main) {
+    const tw = faqDataPayload.category.main.TW || ''
+    if (tw && !faqDataPayload.category.main.EN) {
+      faqDataPayload.category.main.EN = mapping[tw] || ''
+    }
+  }
   // 若 EN 主分類為空字串，允許省略，後端會回退 TW
   if (faqDataPayload.category?.main && !faqDataPayload.category.main.EN) {
     delete faqDataPayload.category.main.EN
@@ -1167,16 +1173,13 @@ const closeModal = () => {
   try {
     const { entityApi } = useApi()
     const faqApi = entityApi('faqs', { responseKey: 'faqs' })
-    const cats = await faqApi.getCategories()
-    if (Array.isArray(cats)) {
-      faqCategoriesTW.value = cats
-      faqCategoriesEN.value = cats
-    } else {
-      faqCategoriesTW.value = cats.categoriesTW || []
-      faqCategoriesEN.value = cats.categoriesEN || []
-    }
+    faqCategoriesTW.value = await faqApi.getCategories()
   } catch (e) {
     console.warn('載入 FAQ 分類清單失敗', e?.message || e)
   }
 })()
+</script>
+<script>
+// 在 <script setup> 外新增一段輔助對應（不影響 setup 區塊）
+// 說明：此段不會執行任何程式碼，只是避免 diff 工具誤刪結尾標記。
 </script>
