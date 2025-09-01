@@ -32,6 +32,10 @@ const faqSchema = new Schema(
 					enum: ["Glossary", "Product Introduction", "Troubleshooting"],
 					trim: true
 				}
+			},
+			sub: {
+				TW: { type: String, trim: true },
+				EN: { type: String, trim: true }
 			}
 		},
 		isActive: {

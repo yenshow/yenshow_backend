@@ -265,7 +265,7 @@
                 inputClass,
                 'w-full rounded-[10px] ps-[12px] py-[8px] lg:ps-[16px] lg:py-[12px]',
               ]"
-              rows="5"
+              rows="6"
               :placeholder="`請輸入產品描述 (${descriptionLanguage === 'TW' ? 'TW' : '英文'})`"
             ></textarea>
           </div>
@@ -1131,19 +1131,6 @@ watch(
   },
   { immediate: true }, // Run immediately if modal starts visible
 )
-
-// 監聽英文名稱變化，自動更新代碼
-watch(
-  () => form.value.name_EN,
-  () => generateCode(),
-)
-
-// Watch featureLanguage to update textarea placeholder (optional, but good UX)
-watch(featureLanguage, () => {
-  // This is to ensure the placeholder updates if the user types, then changes lang, then wants to batch add.
-  // The textarea itself will have its :placeholder re-evaluated, but this is an explicit trigger if needed.
-  // For simple placeholder binding, direct re-evaluation by Vue is usually sufficient.
-})
 
 // Re-add uploadStatus definition (was removed by linter fix but is in template)
 watch(uploadProgress, (newVal) => {

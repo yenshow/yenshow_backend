@@ -111,7 +111,7 @@
               </div>
               <!-- Category (Bilingual) -->
               <div>
-                <label for="faqCategoryMainTW" class="block mb-3 theme-text">主分類 (TW) *</label>
+                <label for="faqCategoryMainTW" class="block mb-3 theme-text">主分類 *</label>
                 <select
                   id="faqCategoryMainTW"
                   v-model="form.category.main.TW"
@@ -135,6 +135,63 @@
                 </p>
               </div>
               <!-- 英文分類自動對應，不顯示於表單 -->
+
+              <!-- 子分類 (可選，雙語，使用切換) -->
+              <div class="space-y-2">
+                <div class="flex justify-between items-center mb-2">
+                  <label class="block theme-text">子分類</label>
+                  <div class="flex items-center space-x-1">
+                    <button
+                      type="button"
+                      @click="subLanguage = 'TW'"
+                      :class="[
+                        subLanguage === 'TW'
+                          ? 'bg-blue-500 text-white'
+                          : conditionalClass(
+                              'bg-gray-700 text-gray-300',
+                              'bg-gray-200 text-gray-700',
+                            ),
+                        'px-2 py-1 text-xs rounded-md',
+                      ]"
+                    >
+                      TW
+                    </button>
+                    <button
+                      type="button"
+                      @click="subLanguage = 'EN'"
+                      :class="[
+                        subLanguage === 'EN'
+                          ? 'bg-blue-500 text-white'
+                          : conditionalClass(
+                              'bg-gray-700 text-gray-300',
+                              'bg-gray-200 text-gray-700',
+                            ),
+                        'px-2 py-1 text-xs rounded-md',
+                      ]"
+                    >
+                      EN
+                    </button>
+                  </div>
+                </div>
+                <div v-show="subLanguage === 'TW'">
+                  <input
+                    id="faqCategorySubTW"
+                    v-model="form.category.sub.TW"
+                    type="text"
+                    :class="[inputClass]"
+                    placeholder="例如：安裝、設定"
+                  />
+                </div>
+                <div v-show="subLanguage === 'EN'">
+                  <input
+                    id="faqCategorySubEN"
+                    v-model="form.category.sub.EN"
+                    type="text"
+                    :class="[inputClass]"
+                    placeholder="e.g., Installation, Setup"
+                  />
+                </div>
+              </div>
 
               <!-- Publish Date -->
               <div>
@@ -263,7 +320,7 @@
               <div v-show="summaryLanguage === 'TW'">
                 <textarea
                   v-model="form.summary.TW"
-                  rows="3"
+                  rows="6"
                   :class="[inputClass]"
                   placeholder="請輸入摘要 (繁體中文)"
                 ></textarea>
@@ -271,7 +328,7 @@
               <div v-show="summaryLanguage === 'EN'">
                 <textarea
                   v-model="form.summary.EN"
-                  rows="3"
+                  rows="6"
                   :class="[inputClass]"
                   placeholder="請輸入摘要 (English)"
                 ></textarea>
@@ -765,6 +822,7 @@ const filteredAllFaqs = computed(() => {
 const questionLanguage = ref('TW')
 const summaryLanguage = ref('TW')
 const answerLanguage = ref('TW')
+const subLanguage = ref('TW')
 
 // Image upload state
 const imageFiles = ref([])
@@ -872,7 +930,7 @@ const initialFormState = () => ({
     EN: { type: 'doc', content: [{ type: 'paragraph' }] },
   },
   summary: { TW: '', EN: '' },
-  category: { main: { TW: '', EN: '' } },
+  category: { main: { TW: '', EN: '' }, sub: '' },
   author: '',
   publishDate: formatDateForInput(new Date()),
   productModel: '',
@@ -944,6 +1002,10 @@ watch(
                 typeof faqData.category?.main === 'object'
                   ? { TW: faqData.category.main.TW || '', EN: faqData.category.main.EN || '' }
                   : { TW: faqData.category?.main || '', EN: '' },
+              sub:
+                typeof faqData.category?.sub === 'object'
+                  ? { TW: faqData.category.sub.TW || '', EN: faqData.category.sub.EN || '' }
+                  : { TW: faqData.category?.sub || '', EN: '' },
             },
             author: faqData.author || '',
             publishDate: formatDateForInput(faqData.publishDate),

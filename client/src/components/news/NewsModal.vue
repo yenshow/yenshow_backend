@@ -214,14 +214,14 @@
               <textarea
                 v-show="summaryMetaLang === 'TW'"
                 v-model="form.summary.TW"
-                rows="3"
+                rows="6"
                 placeholder="請輸入摘要"
                 :class="inputClass"
               ></textarea>
               <textarea
                 v-show="summaryMetaLang === 'EN'"
                 v-model="form.summary.EN"
-                rows="3"
+                rows="6"
                 placeholder="Enter Summary"
                 :class="inputClass"
               ></textarea>
