@@ -150,7 +150,6 @@
               ]"
               required
               :disabled="specifications.length === 0"
-              @change="handleSpecificationsChange"
             >
               <option value="" disabled>請選擇產品規格</option>
               <option
@@ -667,7 +666,6 @@ const form = ref(getInitialFormState())
 const imageFiles = ref([])
 const imageInputRef = ref(null)
 
-const documentFiles = ref([])
 const documentFilesTW = ref([])
 const documentFilesEN = ref([])
 const documentInputRefTW = ref(null)
@@ -678,7 +676,6 @@ const videoInputRef = ref(null)
 
 // File modification tracking state
 const imagesModified = ref(false)
-const documentsModified = ref(false)
 const documentsByLangModified = ref(false)
 const videosModified = ref(false)
 
@@ -692,8 +689,6 @@ const documentsLanguage = ref('TW')
 
 // 批次新增產品特點
 const batchFeaturesText = ref('')
-
-const productDataForEdit = ref(null) // Store fetched product data for comparison
 
 // ===== 計算屬性 (用於獲取子分類) =====
 const subCategories = computed(() => {
@@ -726,12 +721,7 @@ const handleSubCategoriesChange = () => {
   }
 }
 
-/**
- * 處理規格變更
- */
-const handleSpecificationsChange = () => {
-  console.log('規格已選擇:', form.value.specifications)
-}
+// 規格選擇已由 v-model 控制，且無其他副作用，移除 handler
 
 /**
  * 添加新特點
@@ -923,8 +913,6 @@ const submitForm = async () => {
 
     // --- 處理附件 ---
     imageFiles.value.forEach((file) => formData.append('images', file))
-    // legacy union (if still used)
-    documentFiles.value.forEach((file) => formData.append('documents', file))
     // language-specific
     documentFilesTW.value.forEach((file) => formData.append('documents_TW', file))
     documentFilesEN.value.forEach((file) => formData.append('documents_EN', file))
@@ -946,9 +934,6 @@ const submitForm = async () => {
       if (imagesModified.value) {
         productPayload.images = form.value.images
       }
-      if (documentsModified.value) {
-        productPayload.documents = form.value.documents
-      }
       if (documentsByLangModified.value) {
         productPayload.documentsByLang = {
           TW: form.value.documentsByLang?.TW || [],
@@ -961,18 +946,16 @@ const submitForm = async () => {
 
       formData.append('productDataPayload', JSON.stringify(productPayload))
     } else {
-      // --- 新增邏輯 ---
-      formData.append('specifications', form.value.specifications)
-      formData.append('code', form.value.code)
-      if (form.value.name_TW) formData.append('name[TW]', form.value.name_TW)
-      if (form.value.name_EN) formData.append('name[EN]', form.value.name_EN)
-      if (form.value.description_TW) formData.append('description[TW]', form.value.description_TW)
-      if (form.value.description_EN) formData.append('description[EN]', form.value.description_EN)
-      const validFeatures = form.value.features.filter((f) => f.TW || f.EN)
-      if (validFeatures.length > 0) {
-        formData.append('features', JSON.stringify(validFeatures))
+      // --- 新增邏輯：與更新一致，使用 productDataPayload ---
+      const productPayload = {
+        name: { TW: form.value.name_TW, EN: form.value.name_EN },
+        code: form.value.code,
+        specifications: form.value.specifications,
+        features: form.value.features.filter((f) => f.TW || f.EN),
+        description: { TW: form.value.description_TW, EN: form.value.description_EN },
+        isActive: form.value.isActive,
       }
-      formData.append('isActive', form.value.isActive ? 'true' : 'false')
+      formData.append('productDataPayload', JSON.stringify(productPayload))
     }
 
     // 使用 products store 提交數據
@@ -1049,14 +1032,13 @@ const resetForm = () => {
 
   // Reset attachment state
   imageFiles.value = []
-  documentFiles.value = []
   documentFilesTW.value = []
   documentFilesEN.value = []
   videoFiles.value = []
 
   // Reset modification tracking
   imagesModified.value = false
-  documentsModified.value = false
+  documentsByLangModified.value = false
   videosModified.value = false
 
   // Clear file inputs
@@ -1110,23 +1092,7 @@ watch(
   () => props.visible,
   async (newValue) => {
     if (newValue) {
-      isProcessing.value = false
-      uploadStatus.value = ''
-      uploadProgress.value = 0
-      formError.value = ''
-      batchFeaturesText.value = '' // 清空批次輸入框
-
-      // Ensure form arrays are initialized
-      form.value.images = []
-      form.value.documents = []
-      form.value.documentsByLang = { TW: [], EN: [] }
-      form.value.videos = [] // Initialize for video as well
-
-      await loadProductData() // This will now populate imagePreviews and documentPreviews
-      // and set initial videoFileName if an existing video exists.
-    } else {
-      // Optionally reset form when modal closes
-      // resetForm(); // uncomment if needed
+      await loadProductData()
     }
   },
   { immediate: true }, // Run immediately if modal starts visible
@@ -1145,11 +1111,7 @@ watch(uploadProgress, (newVal) => {
 // onMounted(() => { ... })
 
 async function loadProductData() {
-  // Reset form first using the refined initial state logic
-  resetForm()
-
   if (!isEditing.value || !props.productId) {
-    productDataForEdit.value = null // Clear stored data
     // If creating a new product, pre-select first subcategory and its specs if available
     if (subCategories.value.length > 0 && !form.value.subCategoriesId) {
       form.value.subCategoriesId = subCategories.value[0]._id
@@ -1167,7 +1129,7 @@ async function loadProductData() {
     const fetchedProductData = await productsStore.fetchProductById(props.productId)
     if (!fetchedProductData) throw new Error('無法載入產品數據')
 
-    productDataForEdit.value = JSON.parse(JSON.stringify(fetchedProductData)) // Store a copy
+    // fetchedProductData 僅用於填充表單，不再暫存本地副本
 
     let foundSubCatId = ''
     let foundSpecId = ''
@@ -1261,7 +1223,6 @@ async function loadProductData() {
   } catch (error) {
     console.error('載入產品錯誤:', error)
     formError.value = '載入產品數據失敗: ' + (error.message || '未知錯誤')
-    productDataForEdit.value = null // Clear on error too
   } finally {
     loading.value = false
   }

@@ -53,7 +53,7 @@
         <div class="border-b" :class="conditionalClass('border-gray-700', 'border-gray-200')">
           <nav class="flex space-x-8" aria-label="Tabs">
             <button
-              v-for="tab in tabs.filter((t) => t.name !== 'seo')"
+              v-for="tab in tabs"
               :key="tab.name"
               type="button"
               @click="currentTab = tab.name"
@@ -589,7 +589,7 @@ const isAdmin = computed(() => userStore.isAdmin)
 
 const inputClass = computed(() => [
   themeInputClass.value,
-  'w-full rounded-[10px] ps-[12px] py-[8px] lg:ps-[16px] lg:py-[12px] text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+  'w-full rounded-[10px] ps-[12px] py-[8px] lg:ps-[16px] lg:py-[12px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
 ])
 
 // --- Component State ---

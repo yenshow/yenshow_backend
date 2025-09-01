@@ -22,7 +22,7 @@
       </button>
 
       <h2
-        class="text-[21px] lg:text-[24px] font-bold text-center mb-[12px] lg:mb-[24px] theme-text"
+        class="text-[16px] lg:text-[24px] font-bold text-center mb-[12px] lg:mb-[24px] theme-text"
       >
         {{ isEditing ? '編輯常見問題' : '新增常見問題' }}
       </h2>
@@ -779,7 +779,7 @@ const userStore = useUserStore()
 
 const inputClass = computed(() => [
   themeInputClass.value,
-  'w-full rounded-[10px] ps-[12px] py-[8px] lg:ps-[16px] lg:py-[12px] text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+  'w-full rounded-[10px] ps-[12px] py-[8px] lg:ps-[16px] lg:py-[12px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
 ])
 
 const loading = ref(false)
@@ -1240,8 +1240,4 @@ const closeModal = () => {
     console.warn('載入 FAQ 分類清單失敗', e?.message || e)
   }
 })()
-</script>
-<script>
-// 在 <script setup> 外新增一段輔助對應（不影響 setup 區塊）
-// 說明：此段不會執行任何程式碼，只是避免 diff 工具誤刪結尾標記。
 </script>
