@@ -95,7 +95,7 @@ class NewsController extends EntityController {
 			entityName: "news",
 			responseKey: "news",
 			// 調整 basicFields 移除 status
-			basicFields: ["title", "category", "isActive", "publishDate", "author", "summary", "coverImageUrl", "createdAt", "updatedAt"]
+			basicFields: ["title", "category", "isActive", "publishDate", "author", "summary", "coverImageUrl", "relatedNews", "createdAt", "updatedAt"]
 		});
 		if (this._prepareNewsData) {
 			this._prepareNewsData = this._prepareNewsData.bind(this);
@@ -138,7 +138,7 @@ class NewsController extends EntityController {
 			const skip = (pageNum - 1) * limitNum;
 
 			const total = await this.model.countDocuments(query);
-			const items = await this.model.find(query).sort(sortOption).skip(skip).limit(limitNum);
+			const items = await this.model.find(query).sort(sortOption).skip(skip).limit(limitNum).populate("relatedNews", "title.TW summary.TW slug category");
 
 			const formattedItems = items.map((item) => this.entityService.formatOutput(item));
 			this._sendResponse(res, StatusCodes.OK, `消息列表獲取成功`, {
@@ -168,7 +168,7 @@ class NewsController extends EntityController {
 				query.isActive = true;
 			}
 
-			const item = await this.model.findOne(query);
+			const item = await this.model.findOne(query).populate("relatedNews", "title.TW summary.TW slug category");
 
 			if (!item) {
 				throw new ApiError(StatusCodes.NOT_FOUND, `${this.entityName} 未找到`);

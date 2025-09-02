@@ -227,6 +227,71 @@
               ></textarea>
             </div>
 
+            <!-- 相關新聞 -->
+            <div class="mb-6">
+              <div class="flex justify-between items-center mb-3">
+                <label class="block theme-text">相關新聞</label>
+                <div class="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    @click="relatedNewsFilterCategory = null"
+                    :class="[
+                      !relatedNewsFilterCategory
+                        ? 'bg-blue-500 text-white'
+                        : conditionalClass(
+                            'bg-gray-700 text-gray-300',
+                            'bg-gray-200 text-gray-700',
+                          ),
+                      'px-3 py-1.5 text-xs rounded-md transition-colors',
+                    ]"
+                  >
+                    全部分類
+                  </button>
+                  <button
+                    v-for="cat in newsCategoriesTW"
+                    :key="cat"
+                    type="button"
+                    @click="relatedNewsFilterCategory = cat"
+                    :class="[
+                      relatedNewsFilterCategory === cat
+                        ? 'bg-blue-500 text-white'
+                        : conditionalClass(
+                            'bg-gray-700 text-gray-300',
+                            'bg-gray-200 text-gray-700',
+                          ),
+                      'px-3 py-1.5 text-xs rounded-md transition-colors',
+                    ]"
+                  >
+                    {{ cat }}
+                  </button>
+                </div>
+              </div>
+              <div
+                class="max-h-48 overflow-y-auto rounded-md border p-3"
+                :class="conditionalClass('border-gray-600', 'border-gray-300')"
+              >
+                <div v-if="filteredAllNews.length === 0" class="text-sm text-gray-500">
+                  沒有其他新聞可供關聯
+                </div>
+                <div
+                  v-for="news in filteredAllNews"
+                  :key="news._id"
+                  class="flex items-center space-x-3 py-2"
+                >
+                  <input
+                    :id="`news-${news._id}`"
+                    type="checkbox"
+                    :value="news._id"
+                    v-model="form.relatedNews"
+                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label :for="`news-${news._id}`" class="theme-text text-sm cursor-pointer">
+                    {{ news.title.TW }}
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <!-- 主要圖片 -->
             <div class="mb-6">
               <label class="block mb-3 theme-text">封面圖片 *</label>
@@ -572,6 +637,7 @@ const DocumentBlockEditor = defineAsyncComponent(
 const props = defineProps({
   show: { type: Boolean, default: false },
   newsItem: { type: Object, default: null },
+  allNews: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['update:show', 'saved'])
@@ -591,6 +657,27 @@ const inputClass = computed(() => [
   themeInputClass.value,
   'w-full rounded-[10px] ps-[12px] py-[8px] lg:ps-[16px] lg:py-[12px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
 ])
+
+// News categories for filtering
+const newsCategoriesTW = ['智慧方案', '產品介紹', '品牌新聞']
+
+// Filtered news for related news selection
+const filteredAllNews = computed(() => {
+  if (!props.allNews || props.allNews.length === 0) return []
+
+  let filtered = props.allNews.filter(
+    (news) => news._id !== form.value._id, // 排除當前編輯的新聞
+  )
+
+  if (relatedNewsFilterCategory.value) {
+    filtered = filtered.filter((news) => {
+      // News 的分類是直接的字串，不是物件結構
+      return news.category === relatedNewsFilterCategory.value
+    })
+  }
+
+  return filtered
+})
 
 // --- Component State ---
 const loading = ref(false)
@@ -616,6 +703,9 @@ const imagePreview = ref(null)
 // Add Block Menu State
 const showAddBlockMenu = ref(false)
 
+// Related News State
+const relatedNewsFilterCategory = ref(null)
+
 // --- Form Data ---
 const initialFormState = () => ({
   _id: null,
@@ -627,6 +717,7 @@ const initialFormState = () => ({
   coverImageUrl: null,
   publishDate: formatDateForInput(new Date()),
   isActive: false,
+  relatedNews: [],
 })
 const form = ref(initialFormState())
 
@@ -982,6 +1073,7 @@ const submitForm = async () => {
     coverImageUrl: form.value.coverImageUrl,
     publishDate: form.value.publishDate ? new Date(form.value.publishDate).toISOString() : null,
     isActive: form.value.isActive,
+    relatedNews: form.value.relatedNews,
   }
   if (isEditing.value && form.value._id) {
     newsDataPayload._id = form.value._id
@@ -1068,6 +1160,7 @@ const resetAndInitializeForm = async () => {
   formError.value = ''
   clearValidationErrors()
   isProcessing.value = false
+  relatedNewsFilterCategory.value = null // 重置相關新聞篩選器
 
   if (imagePreview.value && imagePreview.value.startsWith('blob:')) {
     URL.revokeObjectURL(imagePreview.value)
@@ -1104,6 +1197,7 @@ const resetAndInitializeForm = async () => {
     form.value.coverImageUrl = item.coverImageUrl || null
     form.value.publishDate = formatDateForInput(item.publishDate)
     form.value.isActive = item.isActive || false
+    form.value.relatedNews = item.relatedNews?.map((news) => news._id || news) || []
 
     if (form.value.coverImageUrl) {
       imagePreview.value = form.value.coverImageUrl

@@ -83,7 +83,13 @@ const newsSchema = new Schema(
 			unique: true,
 			sparse: true, // 允許多個文件沒有 slug (雖然我們的目標是都有)
 			lowercase: true
-		}
+		},
+		relatedNews: [
+			{
+				type: Schema.Types.ObjectId,
+				ref: "News"
+			}
+		]
 	},
 	{
 		timestamps: true

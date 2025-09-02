@@ -611,6 +611,7 @@
       v-if="activeTab === 'news'"
       v-model:show="showModal"
       :news-item="editingItem"
+      :all-news="allNewsForSelection"
       @saved="handleNewsUpdate"
     />
     <FaqModal
@@ -647,6 +648,9 @@ const error = ref('')
 const activeTab = ref('news') // 'news' or 'faq'
 const showModal = ref(false)
 const editingItem = ref(null) // 正在編輯的項目 (News 或 Faq)
+
+// 相關新聞選擇器需要的所有新聞資料
+const allNewsForSelection = ref([])
 
 // 分類篩選相關狀態
 const categoryDropdownRef = ref(null)
@@ -822,6 +826,10 @@ onMounted(async () => {
   } catch (e) {
     console.warn('載入分類清單失敗', e?.message || e)
   }
+
+  // 載入所有新聞（用於相關新聞選擇器）
+  await loadAllNewsForSelection()
+
   document.addEventListener('click', handleClickOutside)
 })
 
@@ -843,6 +851,18 @@ const handleClickOutside = (event) => {
   }
   if (sortDropdownRef.value && !sortDropdownRef.value.contains(event.target)) {
     isSortDropdownOpen.value = false
+  }
+}
+
+// 載入所有新聞（用於相關新聞選擇器）
+const loadAllNewsForSelection = async () => {
+  try {
+    const params = { limit: 1000 } // 載入大量新聞
+    await newsStore.fetchAll(params)
+    allNewsForSelection.value = newsStore.items || []
+  } catch (error) {
+    console.error('載入所有新聞失敗:', error)
+    allNewsForSelection.value = []
   }
 }
 
