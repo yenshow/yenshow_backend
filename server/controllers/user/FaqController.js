@@ -66,7 +66,7 @@ class FaqController extends EntityController {
 			const skip = (pageNum - 1) * limitNum;
 
 			const total = await this.model.countDocuments(query);
-			const items = await this.model.find(query).sort(sortOption).skip(skip).limit(limitNum).populate("relatedFaqs", "question.TW question.EN slug");
+			const items = await this.model.find(query).sort(sortOption).skip(skip).limit(limitNum).populate("relatedFaqs", "question.TW question.EN imageUrl slug");
 
 			const formattedItems = items.map((item) => this.entityService.formatOutput(item));
 			this._sendResponse(res, StatusCodes.OK, `常見問題列表獲取成功`, {
@@ -88,7 +88,7 @@ class FaqController extends EntityController {
 				query.isActive = true;
 			}
 
-			const item = await this.model.findOne(query).populate("relatedFaqs", "question.TW question.EN slug");
+			const item = await this.model.findOne(query).populate("relatedFaqs", "question.TW question.EN imageUrl slug");
 			if (!item) {
 				throw new ApiError(StatusCodes.NOT_FOUND, `${this.entityName} 未找到`);
 			}
