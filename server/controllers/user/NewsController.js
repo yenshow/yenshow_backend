@@ -138,7 +138,12 @@ class NewsController extends EntityController {
 			const skip = (pageNum - 1) * limitNum;
 
 			const total = await this.model.countDocuments(query);
-			const items = await this.model.find(query).sort(sortOption).skip(skip).limit(limitNum).populate("relatedNews", "title.TW summary.TW slug category");
+			const items = await this.model
+				.find(query)
+				.sort(sortOption)
+				.skip(skip)
+				.limit(limitNum)
+				.populate("relatedNews", "title.TW title.EN summary.TW summary.EN slug category");
 
 			const formattedItems = items.map((item) => this.entityService.formatOutput(item));
 			this._sendResponse(res, StatusCodes.OK, `消息列表獲取成功`, {
@@ -168,7 +173,7 @@ class NewsController extends EntityController {
 				query.isActive = true;
 			}
 
-			const item = await this.model.findOne(query).populate("relatedNews", "title.TW summary.TW slug category");
+			const item = await this.model.findOne(query).populate("relatedNews", "title.TW title.EN summary.TW summary.EN slug category");
 
 			if (!item) {
 				throw new ApiError(StatusCodes.NOT_FOUND, `${this.entityName} 未找到`);
