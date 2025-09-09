@@ -805,6 +805,7 @@ const filteredAllFaqs = computed(() => {
   if (isEditing.value) {
     faqs = faqs.filter((faq) => faq._id !== props.faqItem._id)
   }
+  faqs = faqs.filter((faq) => faq?.isActive)
 
   // 2. 根據分類篩選
   if (relatedFaqFilterCategory.value) {

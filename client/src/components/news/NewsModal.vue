@@ -668,6 +668,7 @@ const filteredAllNews = computed(() => {
   let filtered = props.allNews.filter(
     (news) => news._id !== form.value._id, // 排除當前編輯的新聞
   )
+  filtered = filtered.filter((news) => news?.isActive)
 
   if (relatedNewsFilterCategory.value) {
     filtered = filtered.filter((news) => {
