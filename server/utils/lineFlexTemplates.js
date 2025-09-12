@@ -103,7 +103,7 @@ export const createProductListMessage = (productList) => {
 		const productName = product.name?.TW || "未命名產品";
 		const productCode = product.code || "";
 		const imageUrl = product.images?.[0] || "https://via.placeholder.com/500x250.png?text=No+Image";
-		const baseProductUrl = `https://www.yenshow.com/products/${product._id}`;
+		const baseProductUrl = `https://www.yenshow.com/products/${product.code}`;
 		const productUrl = `${baseProductUrl}?utm_source=line&utm_medium=official_account&utm_campaign=product_carousel`;
 
 		return {
