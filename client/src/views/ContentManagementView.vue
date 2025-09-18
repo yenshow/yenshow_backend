@@ -722,18 +722,8 @@ const filteredItems = computed(() => {
 
 // 依據 activeTab 決定分頁資料來源
 const pagedItems = computed(() => {
-  const list = filteredItems.value
-  if (activeTab.value === 'news') {
-    // 後端已分頁，直接使用
-    return list
-  }
-  if (activeTab.value === 'faq') {
-    // FAQ 由後端分頁，直接使用
-    return list
-  }
-  const start = (pagination.value.currentPage - 1) * pagination.value.itemsPerPage
-  const end = start + pagination.value.itemsPerPage
-  return list.slice(start, end)
+  // 兩種類型都使用後端分頁，直接返回過濾後的項目
+  return filteredItems.value
 })
 
 // 切換分頁
@@ -741,12 +731,7 @@ const changePage = (page) => {
   if (page < 1 || page > pagination.value.totalPages || page === pagination.value.currentPage)
     return
   pagination.value.currentPage = page
-  if (activeTab.value === 'news') {
-    // 後端分頁
-    fetchData()
-  } else if (activeTab.value === 'faq') {
-    fetchData()
-  }
+  fetchData()
 }
 
 // 根據 activeTab 獲取對應的 store
@@ -777,9 +762,7 @@ const selectNewsCategory = (category) => {
   selectedNewsCategory.value = category
   isCategoryDropdownOpen.value = false
   pagination.value.currentPage = 1 // 篩選後回到第一頁
-  if (activeTab.value === 'news') {
-    fetchData()
-  }
+  fetchData()
 }
 
 // FAQ 分類下拉選單操作
@@ -791,9 +774,7 @@ const selectFaqCategory = (category) => {
   selectedFaqCategory.value = category
   isFaqCategoryDropdownOpen.value = false
   pagination.value.currentPage = 1 // 篩選後回到第一頁
-  if (activeTab.value === 'faq') {
-    fetchData()
-  }
+  fetchData()
 }
 
 // 排序下拉選單操作
@@ -805,15 +786,14 @@ const setSort = (sortValue) => {
   currentSort.value = sortValue
   isSortDropdownOpen.value = false
   pagination.value.currentPage = 1 // 排序後回到第一頁
-  if (activeTab.value === 'news') {
-    fetchData()
-  } else if (activeTab.value === 'faq') {
-    fetchData()
-  }
+  fetchData()
 }
 
 // 初始化載入
 onMounted(async () => {
+  // 確保初始載入時使用正確的分頁設定
+  pagination.value.currentPage = 1
+  pagination.value.itemsPerPage = 10
   await fetchData()
   // 初次加載全量分類（避免下拉選項隨列表改變）
   try {
@@ -857,9 +837,12 @@ const handleClickOutside = (event) => {
 // 載入所有新聞（用於相關新聞選擇器）
 const loadAllNewsForSelection = async () => {
   try {
-    const params = { limit: 1000 } // 載入大量新聞
-    await newsStore.fetchAll(params)
-    allNewsForSelection.value = newsStore.items || []
+    // 直接使用 API 而不是透過 store，避免覆蓋主要的 items
+    const { useApi } = await import('@/composables/axios')
+    const { entityApi } = useApi()
+    const api = entityApi('news', { responseKey: 'news' })
+    const result = await api.getAll({ limit: 1000 })
+    allNewsForSelection.value = result.items || []
   } catch (error) {
     console.error('載入所有新聞失敗:', error)
     allNewsForSelection.value = []
@@ -874,35 +857,24 @@ const fetchData = async () => {
   const entityName = activeTab.value === 'news' ? '最新消息' : '常見問題'
 
   try {
-    if (activeTab.value === 'news') {
-      const params = {
-        page: pagination.value.currentPage,
-        limit: pagination.value.itemsPerPage,
-        ...(selectedNewsCategory.value ? { category: selectedNewsCategory.value } : {}),
-        sort: currentSort.value.field,
-        sortDirection: currentSort.value.order,
-      }
-      await store.fetchAll(params)
-      // 同步後端分頁資訊到 UI 狀態
-      const p = store.pagination || {}
-      pagination.value.currentPage = p.page || 1
-      pagination.value.itemsPerPage = p.limit || pagination.value.itemsPerPage
-      pagination.value.totalPages = p.pages || 1
-    } else {
-      // FAQ
-      const params = {
-        page: pagination.value.currentPage,
-        limit: pagination.value.itemsPerPage,
-        ...(selectedFaqCategory.value ? { category: selectedFaqCategory.value } : {}),
-        sort: currentSort.value.field,
-        sortDirection: currentSort.value.order,
-      }
-      await store.fetchAll(params)
-      const p = store.pagination || {}
-      pagination.value.currentPage = p.page || 1
-      pagination.value.itemsPerPage = p.limit || pagination.value.itemsPerPage
-      pagination.value.totalPages = p.pages || 1
+    // 構建通用參數
+    const selectedCategory =
+      activeTab.value === 'news' ? selectedNewsCategory.value : selectedFaqCategory.value
+    const params = {
+      page: pagination.value.currentPage,
+      limit: pagination.value.itemsPerPage,
+      ...(selectedCategory ? { category: selectedCategory } : {}),
+      sort: currentSort.value.field,
+      sortDirection: currentSort.value.order,
     }
+
+    await store.fetchAll(params)
+
+    // 同步後端分頁資訊到 UI 狀態
+    const p = store.pagination || {}
+    pagination.value.currentPage = p.page || 1
+    pagination.value.totalPages = p.pages || 1
+
     if (!store.items || store.items.length === 0) {
       notify.notifyInfo(`目前沒有任何${entityName}`)
     }
