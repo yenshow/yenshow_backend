@@ -76,7 +76,7 @@ services:
       context: ./client
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=http://backend:4000
+        - VITE_API_URL=
     ports:
       - "${DOCKER_CLIENT_PORT:-3000}:80"
     networks:
