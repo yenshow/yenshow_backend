@@ -39,8 +39,11 @@ export const handleContactForm = async (req, res, next) => {
 			return errorResponse(res, StatusCodes.BAD_REQUEST, "無效的 Email 格式");
 		}
 
+		// 從請求中獲取網站資訊 (可以從 header 或 body 中獲取)
+		const site = req.headers["x-app-context"] || req.body.site || "yenshow";
+
 		// 調用 Email Service
-		await sendContactEmail(formData, files);
+		await sendContactEmail(formData, files, site);
 
 		// 郵件寄送成功後，刪除暫存檔案
 		// 注意：如果 Email Service 內部有錯誤處理並 throw，這裡可能不會執行

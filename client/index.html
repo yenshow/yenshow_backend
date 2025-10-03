@@ -5,8 +5,76 @@
     <link rel="icon" href="/yenshow-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>遠岫後台系統</title>
+    <style>
+      /* 防止頁面載入時的閃爍 */
+      #app-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #212a37;
+        z-index: 9999;
+        transition: opacity 0.5s ease;
+        opacity: 1;
+      }
+
+      #app-loading.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* 深色模式支援 */
+      @media (prefers-color-scheme: dark) {
+        #app-loading {
+          background-color: #0f172a;
+        }
+      }
+
+      /* 載入動畫 */
+      .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        border-left-color: #0284c7;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .loading-spinner {
+          border-color: rgba(255, 255, 255, 0.1);
+          border-left-color: #0ea5e9;
+        }
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* 應用淡入效果 */
+      #app {
+        opacity: 0;
+        transition: opacity 0.5s ease;
+      }
+
+      #app.fade-in {
+        opacity: 1;
+      }
+    </style>
   </head>
   <body>
+    <!-- 載入畫面 -->
+    <div id="app-loading">
+      <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Vue 應用 -->
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

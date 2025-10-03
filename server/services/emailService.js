@@ -3,18 +3,25 @@ import { ApiError } from "../utils/responseHandler.js";
 import fs from "fs/promises"; // 需要讀取檔案內容
 
 // --- Resend 設定 ---
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const YENSHOW_RESEND_API_KEY = process.env.YENSHOW_RESEND_API_KEY;
+const COMEO_RESEND_API_KEY = process.env.COMEO_RESEND_API_KEY;
 
-if (!RESEND_API_KEY) {
-	console.error("錯誤：缺少 Resend API 金鑰 (RESEND_API_KEY)。無法初始化郵件服務。");
+// 初始化 Resend 客戶端
+let yenshowResend = null;
+let comeoResend = null;
+
+if (YENSHOW_RESEND_API_KEY) {
+	yenshowResend = new Resend(YENSHOW_RESEND_API_KEY);
+	console.log("Yenshow Resend Client 初始化完成。");
+} else {
+	console.warn("警告：未設定 Yenshow Resend API 金鑰，Yenshow 郵件功能將無法使用。");
 }
 
-let resend;
-if (RESEND_API_KEY) {
-	resend = new Resend(RESEND_API_KEY);
-	console.log("Resend Client 初始化完成。");
+if (COMEO_RESEND_API_KEY) {
+	comeoResend = new Resend(COMEO_RESEND_API_KEY);
+	console.log("Comeo Resend Client 初始化完成。");
 } else {
-	console.warn("警告：未設定 Resend API 金鑰，郵件功能將無法使用。");
+	console.warn("警告：未設定 Comeo Resend API 金鑰，Comeo 郵件功能將無法使用。");
 }
 // --- Resend 設定結束 ---
 
@@ -22,21 +29,32 @@ if (RESEND_API_KEY) {
  * 使用 Resend 寄送聯絡表單 Email
  * @param {object} contactFormData - 表單資料
  * @param {Array<object>} files - 上傳的檔案 (multer file objects)
+ * @param {string} site - 網站類型 ('yenshow' 或 'comeo')
  */
-export const sendContactEmail = async (contactFormData, files = []) => {
+export const sendContactEmail = async (contactFormData, files = [], site = "yenshow") => {
+	// 根據網站選擇對應的 Resend 客戶端
+	const resend = site === "comeo" ? comeoResend : yenshowResend;
+
 	if (!resend) {
-		throw new ApiError(500, "Resend 郵件服務未正確設定，無法寄送郵件");
+		throw new ApiError(500, `${site === "comeo" ? "Comeo" : "Yenshow"} Resend 郵件服務未正確設定，無法寄送郵件`);
 	}
 
 	const { name, email, phone, company, subject, type, details } = contactFormData;
 
+	// 根據網站選擇對應的環境變數
+	const sitePrefix = site === "comeo" ? "COMEO_" : "YENSHOW_";
+	const contactEmailRecipient = process.env[`${sitePrefix}CONTACT_EMAIL_RECIPIENT`];
+	const emailFromAddress = process.env[`${sitePrefix}EMAIL_FROM_ADDRESS_RESEND`];
+	const emailFromName = process.env[`${sitePrefix}EMAIL_FROM_NAME_RESEND`];
+	const contactEmailCC = process.env[`${sitePrefix}CONTACT_EMAIL_CC`];
+
 	// 驗證必要的環境變數 (收件人、寄件人)
-	if (!process.env.CONTACT_EMAIL_RECIPIENT || !process.env.EMAIL_FROM_ADDRESS_RESEND) {
-		console.error("錯誤：缺少 CONTACT_EMAIL_RECIPIENT 或 EMAIL_FROM_ADDRESS_RESEND 環境變數。");
+	if (!contactEmailRecipient || !emailFromAddress) {
+		console.error(`錯誤：缺少 ${sitePrefix}CONTACT_EMAIL_RECIPIENT 或 ${sitePrefix}EMAIL_FROM_ADDRESS_RESEND 環境變數。`);
 		throw new ApiError(500, "郵件服務設定不完整，無法寄送郵件");
 	}
 
-	const fromEmail = `"${process.env.EMAIL_FROM_NAME_RESEND || "Yenshow 網站"}" <${process.env.EMAIL_FROM_ADDRESS_RESEND}>`;
+	const fromEmail = `"${emailFromName || `${site === "comeo" ? "Comeo" : "Yenshow"} 網站`}" <${emailFromAddress}>`;
 
 	const mailSubject = `聯絡表單: ${subject}`;
 	const mailText = `
@@ -81,8 +99,8 @@ export const sendContactEmail = async (contactFormData, files = []) => {
 	try {
 		const { data, error } = await resend.emails.send({
 			from: fromEmail,
-			to: [process.env.CONTACT_EMAIL_RECIPIENT], // 收件人地址，Resend 接受陣列
-			cc: process.env.CONTACT_EMAIL_CC ? process.env.CONTACT_EMAIL_CC.split(",").map((e) => e.trim()) : undefined,
+			to: [contactEmailRecipient], // 收件人地址，Resend 接受陣列
+			cc: contactEmailCC ? contactEmailCC.split(",").map((e) => e.trim()) : undefined,
 			subject: mailSubject,
 			html: mailHtml,
 			text: mailText,

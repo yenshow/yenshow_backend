@@ -39,24 +39,6 @@ export const useLanguageStore = defineStore('language', {
 
         return translation
       },
-
-    // 簡化的多語言字段獲取函數
-    getLocalizedField: (state) => (entity, field) => {
-      if (!entity || !entity[field]) return ''
-
-      // 當field是多語言對象時 (標準格式: { TW: "值", EN: "值" })
-      if (typeof entity[field] === 'object' && entity[field][state.currentLang]) {
-        return entity[field][state.currentLang]
-      }
-
-      // 嘗試使用預設語言
-      if (typeof entity[field] === 'object' && entity[field]['TW']) {
-        return entity[field]['TW']
-      }
-
-      // 回傳原始值
-      return entity[field]
-    },
   },
 
   actions: {

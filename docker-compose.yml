@@ -20,6 +20,7 @@ services:
       retries: 3
       start_period: 5s
 
+  # 統一後端服務 (支援 Yenshow 和 Comeo)
   backend:
     build:
       context: ./server
@@ -29,7 +30,6 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - PORT=4000
-      - DB_URL=mongodb://${MONGO_USER:-user}:${MONGO_PASSWORD:-pass}@mongodb:27017/yenshow?directConnection=true&authSource=admin
       - MONGO_URI=mongodb://${MONGO_USER:-user}:${MONGO_PASSWORD:-pass}@mongodb:27017/yenshow?directConnection=true&authSource=admin
       - JWT_SECRET=${JWT_SECRET:-qwiektfgjwqeinjgmqiprhgnjqipw}
       - CORS_ORIGIN=${LAN_CORS_ORIGINS}
@@ -37,15 +37,24 @@ services:
       - FILES_ROOT=/app/storage
       - API_BASE_URL=http://localhost:${DOCKER_API_PORT:-4000}
       - PUBLIC_BASE_URL=https://api.yenshow.com
-      - RESEND_API_KEY=${RESEND_API_KEY}
-      - EMAIL_FROM_ADDRESS_RESEND=${EMAIL_FROM_ADDRESS_RESEND}
-      - EMAIL_FROM_NAME_RESEND=${EMAIL_FROM_NAME_RESEND}
-      - CONTACT_EMAIL_RECIPIENT=${CONTACT_EMAIL_RECIPIENT}
-      - CONTACT_EMAIL_CC=${CONTACT_EMAIL_CC}
-      - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
-      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
-      - GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID}
-      - GA_API_SECRET=${GA_API_SECRET}
+      # Yenshow 專用環境變數
+      - YENSHOW_RESEND_API_KEY=${YENSHOW_RESEND_API_KEY}
+      - YENSHOW_EMAIL_FROM_ADDRESS_RESEND=${YENSHOW_EMAIL_FROM_ADDRESS_RESEND}
+      - YENSHOW_EMAIL_FROM_NAME_RESEND=${YENSHOW_EMAIL_FROM_NAME_RESEND}
+      - YENSHOW_CONTACT_EMAIL_RECIPIENT=${YENSHOW_CONTACT_EMAIL_RECIPIENT}
+      - YENSHOW_CONTACT_EMAIL_CC=${YENSHOW_CONTACT_EMAIL_CC}
+      - YENSHOW_LINE_CHANNEL_SECRET=${YENSHOW_LINE_CHANNEL_SECRET}
+      - YENSHOW_LINE_CHANNEL_ACCESS_TOKEN=${YENSHOW_LINE_CHANNEL_ACCESS_TOKEN}
+      - YENSHOW_GA_MEASUREMENT_ID=${YENSHOW_GA_MEASUREMENT_ID}
+      - YENSHOW_GA_API_SECRET=${YENSHOW_GA_API_SECRET}
+      # Comeo 專用環境變數
+      - COMEO_RESEND_API_KEY=${COMEO_RESEND_API_KEY}
+      - COMEO_EMAIL_FROM_ADDRESS_RESEND=${COMEO_EMAIL_FROM_ADDRESS_RESEND}
+      - COMEO_EMAIL_FROM_NAME_RESEND=${COMEO_EMAIL_FROM_NAME_RESEND}
+      - COMEO_CONTACT_EMAIL_RECIPIENT=${COMEO_CONTACT_EMAIL_RECIPIENT}
+      - COMEO_CONTACT_EMAIL_CC=${COMEO_CONTACT_EMAIL_CC}
+      - COMEO_GA_MEASUREMENT_ID=${COMEO_GA_MEASUREMENT_ID}
+      - COMEO_GA_API_SECRET=${COMEO_GA_API_SECRET}
     volumes:
       - /home/yenshoweb-server/yenshow_storage:/app/storage
       # - D:/storage:/app/storage
@@ -67,8 +76,7 @@ services:
       context: ./client
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=/api
-        - VITE_API=/api
+        - VITE_API_URL=http://backend:4000
     ports:
       - "${DOCKER_CLIENT_PORT:-3000}:80"
     networks:
@@ -80,10 +88,21 @@ services:
       - /home/yenshoweb-server/yenshow_storage:/storage:ro
       # - D:/storage:/storage:ro
 
-  cloudflared:
+  # Yenshow Cloudflare Tunnel
+  cloudflared-yenshow:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run --token ${YENSHOW_CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - app-network
+    depends_on:
+      - backend
+
+  # Comeo Cloudflare Tunnel
+  cloudflared-comeo:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${COMEO_CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - app-network
     depends_on:

@@ -53,3 +53,28 @@ app.use(Toast, toastOptions)
 
 // 掛載應用
 app.mount('#app')
+
+// 移除載入畫面並讓應用淡入（平滑過渡）
+const showApp = () => {
+  const appElement = document.getElementById('app')
+  const loadingElement = document.getElementById('app-loading')
+
+  // 同時觸發：應用淡入 + 載入畫面淡出
+  if (appElement) {
+    appElement.classList.add('fade-in')
+  }
+
+  if (loadingElement) {
+    loadingElement.classList.add('fade-out')
+    // 等待動畫完成後移除載入元素
+    setTimeout(() => {
+      loadingElement.remove()
+    }, 500) // 與 CSS transition 時間一致
+  }
+}
+
+// 等待 Vue 完全掛載後再顯示應用
+router.isReady().then(() => {
+  // 給一點時間讓首屏內容渲染
+  setTimeout(showApp, 100)
+})

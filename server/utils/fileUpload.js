@@ -8,6 +8,7 @@ const MAX_TOTAL_NEWS_IMAGES = 20; // 新聞總圖片數上限 (封面+內容)
 const MAX_NEWS_CONTENT_IMAGES = MAX_TOTAL_NEWS_IMAGES - 1; // 內容圖片上限
 const MAX_NEWS_CONTENT_VIDEOS = 5; // 新增：內容影片上限 (可根據需求調整)
 const MAX_NEWS_CONTENT_DOCUMENTS = 5; // 新增：內容文件上限 (可根據需求調整)
+const MAX_CASE_STUDY_IMAGES = 10; // 案例圖片上限
 
 /**
  * 檔案上傳工具類
@@ -41,11 +42,11 @@ class FileUpload {
 			// 定義檔案類型驗證規則
 			const fileTypeRules = {
 				// 圖片欄位
-				imageFields: ["contentImages", "images", "faqImages", "coverImage"],
+				imageFields: ["contentImages", "images", "faqImages", "coverImage", "caseStudyImages"],
 				// 文件欄位
-				documentFields: ["contentDocuments", "documents", "documents_TW", "documents_EN", "faqDocuments", "contentDocuments"],
+				documentFields: ["contentDocuments", "documents", "documents_TW", "documents_EN", "faqDocuments", "contentDocuments", "caseStudyDocuments"],
 				// 影片欄位
-				videoFields: ["contentVideos", "videos", "faqVideos"]
+				videoFields: ["contentVideos", "videos", "faqVideos", "caseStudyVideos"]
 			};
 
 			// 檢查檔案類型
@@ -399,69 +400,68 @@ class FileUpload {
 	}
 
 	/**
-	 * 儲存新聞資產 (封面, 內容圖片, 內容影片)
+	 * 通用實體資產儲存方法
 	 * @param {Buffer} fileBuffer - 檔案內容
-	 * @param {String} newsId - 新聞 ID
-	 * @param {String} newsTitleTw - 新聞標題
+	 * @param {String} entityType - 實體類型 ('news', 'faqs', 'case-studies')
+	 * @param {String} entityId - 實體 ID
+	 * @param {String} entityName - 實體名稱
 	 * @param {String} originalFileName - 原始檔案名
-	 * @param {String} assetCategory - 資產類別 ('covers', 'images', 'videos')
+	 * @param {String} assetCategory - 資產類別 ('images', 'videos', 'documents', 'covers')
 	 * @returns {String} 檔案的虛擬路徑
+	 */
+	saveEntityAsset(fileBuffer, entityType, entityId, entityName, originalFileName, assetCategory) {
+		if (!entityId || !originalFileName || !assetCategory) {
+			throw new ApiError(400, `儲存${entityType}資產缺少 entityId, originalFileName, 或 assetCategory`);
+		}
+		const entityContext = { id: entityId, name: entityName };
+		const assetPrefix = assetCategory.slice(0, -1); // 移除複數 's'
+		return this.saveAsset(fileBuffer, entityType, entityContext, assetCategory, originalFileName, assetPrefix);
+	}
+
+	/**
+	 * 通用實體目錄刪除方法
+	 * @param {String} entityType - 實體類型 ('news', 'faqs', 'case-studies')
+	 * @param {String} entityId - 實體 ID
+	 * @param {String} entityName - 實體名稱
+	 * @returns {Boolean} 是否成功刪除
+	 */
+	deleteEntityDirectoryByType(entityType, entityId, entityName) {
+		if (!entityId) {
+			console.error(`刪除${entityType}目錄缺少 entityId`);
+			return false;
+		}
+		const entityContext = { id: entityId, name: entityName };
+		return this.deleteEntityDirectory(entityType, entityContext);
+	}
+
+	// === 向後兼容的包裝方法 ===
+
+	/**
+	 * 儲存新聞資產 (向後兼容)
 	 */
 	saveNewsAsset(fileBuffer, newsId, newsTitleTw, originalFileName, assetCategory) {
-		if (!newsId || !originalFileName || !assetCategory) {
-			throw new ApiError(400, "儲存新聞資產缺少 newsId, originalFileName, 或 assetCategory");
-		}
-		const entityContext = { id: newsId, name: newsTitleTw };
-		const assetPrefix = assetCategory.slice(0, -1); // 'cover', 'image', 'video'
-		return this.saveAsset(fileBuffer, "news", entityContext, assetCategory, originalFileName, assetPrefix);
+		return this.saveEntityAsset(fileBuffer, "news", newsId, newsTitleTw, originalFileName, assetCategory);
 	}
 
 	/**
-	 * 刪除整筆新聞的目錄
-	 * @param {String} newsId - 新聞 ID
-	 * @param {String} newsTitleTw - 新聞標題
-	 * @returns {Boolean} 是否成功刪除
+	 * 刪除新聞目錄 (向後兼容)
 	 */
 	deleteNewsDirectory(newsId, newsTitleTw) {
-		if (!newsId) {
-			console.error("刪除新聞目錄缺少 newsId");
-			return false;
-		}
-		const entityContext = { id: newsId, name: newsTitleTw };
-		return this.deleteEntityDirectory("news", entityContext);
+		return this.deleteEntityDirectoryByType("news", newsId, newsTitleTw);
 	}
 
 	/**
-	 * 儲存 FAQ 資產 (圖片, 影片, 文件)
-	 * @param {Buffer} fileBuffer - 檔案內容
-	 * @param {String} faqId - FAQ ID
-	 * @param {String} faqQuestionTw - FAQ 問題
-	 * @param {String} originalFileName - 原始檔案名
-	 * @param {String} assetCategory - 資產類別 ('images', 'videos', 'documents')
-	 * @returns {String} 檔案的虛擬路徑
+	 * 儲存 FAQ 資產 (向後兼容)
 	 */
 	saveFaqAsset(fileBuffer, faqId, faqQuestionTw, originalFileName, assetCategory) {
-		if (!faqId || !originalFileName || !assetCategory) {
-			throw new ApiError(400, "儲存 FAQ 資產缺少 faqId, originalFileName, 或 assetCategory");
-		}
-		const entityContext = { id: faqId, name: faqQuestionTw };
-		const assetPrefix = assetCategory.slice(0, -1); // 'image', 'video', 'document'
-		return this.saveAsset(fileBuffer, "faqs", entityContext, assetCategory, originalFileName, assetPrefix);
+		return this.saveEntityAsset(fileBuffer, "faqs", faqId, faqQuestionTw, originalFileName, assetCategory);
 	}
 
 	/**
-	 * 刪除整筆 FAQ 的目錄
-	 * @param {String} faqId - FAQ ID
-	 * @param {String} faqQuestionTw - FAQ 問題
-	 * @returns {Boolean} 是否成功刪除
+	 * 刪除 FAQ 目錄 (向後兼容)
 	 */
 	deleteFaqDirectory(faqId, faqQuestionTw) {
-		if (!faqId) {
-			console.error("刪除 FAQ 目錄缺少 faqId");
-			return false;
-		}
-		const entityContext = { id: faqId, name: faqQuestionTw };
-		return this.deleteEntityDirectory("faqs", entityContext);
+		return this.deleteEntityDirectoryByType("faqs", faqId, faqQuestionTw);
 	}
 
 	// --- 泛用實體資產處理 ---
@@ -566,6 +566,32 @@ class FileUpload {
 			console.error(`刪除 ${entityType} 目錄失敗 (context: ${JSON.stringify(entityContext)}):`, error);
 			return false;
 		}
+	}
+
+	/**
+	 * 獲取案例研究檔案上傳中間件
+	 * @returns {Function} Multer 中間件
+	 */
+	getCaseStudyUploadMiddleware() {
+		return this.upload.fields([
+			{ name: "images", maxCount: MAX_CASE_STUDY_IMAGES },
+			{ name: "documents", maxCount: 5 },
+			{ name: "videos", maxCount: 3 }
+		]);
+	}
+
+	/**
+	 * 儲存案例研究資產 (向後兼容)
+	 */
+	saveCaseStudyAsset(fileBuffer, caseStudyId, caseStudyTitle, originalFileName, assetCategory) {
+		return this.saveEntityAsset(fileBuffer, "case-studies", caseStudyId, caseStudyTitle, originalFileName, assetCategory);
+	}
+
+	/**
+	 * 刪除案例研究目錄 (向後兼容)
+	 */
+	deleteCaseStudyDirectory(caseStudyId, caseStudyTitle) {
+		return this.deleteEntityDirectoryByType("case-studies", caseStudyId, caseStudyTitle);
 	}
 }
 

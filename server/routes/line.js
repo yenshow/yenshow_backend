@@ -4,10 +4,10 @@ import * as lineController from "../controllers/lineController.js";
 
 const router = express.Router();
 
-// 從環境變數讀取 LINE 配置
+// 從環境變數讀取 LINE 配置 - 使用 Yenshow 配置作為預設
 const config = {
-	channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-	channelSecret: process.env.LINE_CHANNEL_SECRET
+	channelAccessToken: process.env.YENSHOW_LINE_CHANNEL_ACCESS_TOKEN,
+	channelSecret: process.env.YENSHOW_LINE_CHANNEL_SECRET
 };
 
 // LINE 的簽名驗證中介軟體

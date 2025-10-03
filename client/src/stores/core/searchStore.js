@@ -153,7 +153,7 @@ export const useSearchStore = defineStore('search', {
           categoriesStore.search(keyword).catch(() => []),
           subCategoriesStore.search(keyword).catch(() => []),
           specificationsStore.search(keyword).catch(() => []),
-          productsStore.searchProducts(keyword).catch(() => []),
+          productsStore.search(keyword).catch(() => []),
         ])
 
         // 更新結果

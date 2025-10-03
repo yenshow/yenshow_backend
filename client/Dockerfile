@@ -8,9 +8,7 @@ RUN apk add --no-cache git
 
 # 接收額外的構建參數
 ARG VITE_API_URL
-ARG VITE_API
 ENV VITE_API_URL=${VITE_API_URL}
-ENV VITE_API=${VITE_API}
 
 # 複製 package*.json 檔案
 COPY package*.json ./

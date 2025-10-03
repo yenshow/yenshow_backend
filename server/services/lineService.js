@@ -4,10 +4,10 @@ import { createProductNavigationMessage, createProductListMessage } from "../uti
 import { transformProductImagePaths } from "../utils/urlTransformer.js";
 import { trackEvent } from "./analyticsService.js";
 
-// Initialize LINE SDK Client
+// Initialize LINE SDK Client - 使用 Yenshow 配置作為預設
 const client = new Client({
-	channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-	channelSecret: process.env.LINE_CHANNEL_SECRET
+	channelAccessToken: process.env.YENSHOW_LINE_CHANNEL_ACCESS_TOKEN,
+	channelSecret: process.env.YENSHOW_LINE_CHANNEL_SECRET
 });
 
 /**

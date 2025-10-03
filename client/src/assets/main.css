@@ -4,6 +4,11 @@
 * {
   box-sizing: border-box;
 }
+
+/* 防止 Vue 編譯前的內容閃爍 */
+[v-cloak] {
+  display: none !important;
+}
 html,
 body {
   overflow-y: auto;
@@ -121,4 +126,28 @@ body {
 .theme-primary {
   background-color: var(--primary-color);
   color: var(--primary-color-text);
+}
+
+/* 頁面切換動畫 - 柔和的淡入淡出效果 */
+.fade-enter-active,
+.fade-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.fade-enter-to,
+.fade-leave-from {
+  opacity: 1;
+  transform: translateY(0);
 }

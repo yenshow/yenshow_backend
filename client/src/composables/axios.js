@@ -2,53 +2,142 @@ import axios from 'axios'
 import { useUserStore } from '@/stores/userStore'
 import { useNotifications } from '@/composables/notificationCenter'
 import { useLanguageStore } from '@/stores/core/languageStore'
-// 建立實例
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API,
-  timeout: 30000, // 30秒超時
-})
-const apiAuth = axios.create({
-  baseURL: import.meta.env.VITE_API,
-  timeout: 30000, // 30秒超時
-})
+import { useSiteStore } from '@/stores/siteStore'
 
-// 在每個請求中自動加上 JWT Token
-apiAuth.interceptors.request.use((config) => {
-  const user = useUserStore()
-  config.headers.Authorization = 'Bearer ' + user.token
-  config.headers['X-App-Context'] = 'admin'
+// 延遲初始化的 API 實例
+let api = null
+let apiAuth = null
 
-  // 如果是檔案上傳，增加超時時間
-  if (config.data instanceof FormData) {
-    config.timeout = 300000 // 5分鐘超時
+// 建立動態 API 實例
+const createApiInstance = () => {
+  const siteStore = useSiteStore()
+  // 開發環境不設 baseURL，使用 Vite 代理
+  // 生產環境使用 siteStore 中的 API URL
+  return axios.create({
+    baseURL: import.meta.env.DEV ? '' : siteStore.currentApiUrl,
+    timeout: 30000, // 30秒超時
+  })
+}
+
+// 獲取或建立 API 實例
+const getApi = () => {
+  if (!api) {
+    api = createApiInstance()
+    setupApiInterceptors()
   }
+  return api
+}
 
-  return config
-})
+const getApiAuth = () => {
+  if (!apiAuth) {
+    apiAuth = createApiInstance()
+    setupApiAuthInterceptors()
+  }
+  return apiAuth
+}
 
-// 處理回應錯誤，特別是處理登入過期的情況
-apiAuth.interceptors.response.use(
-  (res) => {
-    return res
-  },
-  async (error) => {
-    if (error.response) {
-      if (error.response.data.message === '登入過期' && error.config.url !== '/user/extend') {
-        const user = useUserStore()
-        try {
-          const { data } = await apiAuth.patch('/user/extend')
-          user.token = data.result
-          error.config.headers.Authorization = 'Bearer ' + user.token
-          return axios(error.config)
-        } catch (error) {
-          user.logout()
-          return Promise.reject(error)
-        }
+// 重置 API 實例（用於切換網站時）
+export const resetApiInstances = () => {
+  api = null
+  apiAuth = null
+}
+
+// 重新創建 API 實例（用於切換網站時）
+export const recreateApiInstances = () => {
+  resetApiInstances()
+  return {
+    api: getApi(),
+    apiAuth: getApiAuth(),
+  }
+}
+
+// 設置 api 的攔截器（語言）
+const setupApiInterceptors = () => {
+  // 請求攔截器 - 自動添加語言參數
+  api.interceptors.request.use((config) => {
+    const languageStore = useLanguageStore()
+
+    // 為GET請求添加語言參數
+    if (config.method?.toLowerCase() === 'get') {
+      config.params = {
+        ...(config.params || {}),
+        lang: languageStore.currentLang,
       }
     }
-    return Promise.reject(error)
-  },
-)
+    // 為其他請求在數據中添加語言參數
+    else if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
+      config.data = {
+        ...config.data,
+        lang: languageStore.currentLang,
+      }
+    }
+
+    return config
+  })
+}
+
+// 設置 apiAuth 的攔截器
+const setupApiAuthInterceptors = () => {
+  // 攔截器 1: 添加語言參數
+  apiAuth.interceptors.request.use((config) => {
+    const languageStore = useLanguageStore()
+
+    // 為GET請求添加語言參數
+    if (config.method?.toLowerCase() === 'get') {
+      config.params = {
+        ...(config.params || {}),
+        lang: languageStore.currentLang,
+      }
+    }
+    // 為其他請求在數據中添加語言參數
+    else if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
+      config.data = {
+        ...config.data,
+        lang: languageStore.currentLang,
+      }
+    }
+
+    return config
+  })
+
+  // 攔截器 2: 添加 JWT Token
+  apiAuth.interceptors.request.use((config) => {
+    const user = useUserStore()
+    config.headers.Authorization = 'Bearer ' + user.token
+    config.headers['X-App-Context'] = 'admin'
+
+    // 如果是檔案上傳，增加超時時間
+    if (config.data instanceof FormData) {
+      config.timeout = 300000 // 5分鐘超時
+    }
+
+    return config
+  })
+
+  // 處理回應錯誤，特別是處理登入過期的情況
+  apiAuth.interceptors.response.use(
+    (res) => {
+      return res
+    },
+    async (error) => {
+      if (error.response) {
+        if (error.response.data.message === '登入過期' && error.config.url !== '/user/extend') {
+          const user = useUserStore()
+          try {
+            const { data } = await apiAuth.patch('/user/extend')
+            user.token = data.result
+            error.config.headers.Authorization = 'Bearer ' + user.token
+            return axios(error.config)
+          } catch (error) {
+            user.logout()
+            return Promise.reject(error)
+          }
+        }
+      }
+      return Promise.reject(error)
+    },
+  )
+}
 
 // 批次請求隊列
 const batchQueue = []
@@ -64,6 +153,9 @@ function processBatchQueue() {
   const requests = [...batchQueue]
   batchQueue.length = 0
 
+  // 獲取 API 實例
+  const apiInstance = getApi()
+
   // 檢查是否可以使用批次API
   if (requests.length > 1 && requests.every((req) => req.method === 'GET')) {
     // 建立一個批次請求，假設後端有支援批次API
@@ -74,7 +166,7 @@ function processBatchQueue() {
       })),
     }
 
-    api
+    apiInstance
       .post('/batch', batchRequestBody)
       .then((response) => {
         // 假設批次API返回的是一個陣列，按請求順序返回結果
@@ -94,14 +186,14 @@ function processBatchQueue() {
         console.error('批次請求失敗，改為單獨請求:', error.message)
         requests.forEach((req) => {
           const { method, url, params, data, resolve, reject } = req
-          api({ method, url, params, data }).then(resolve).catch(reject)
+          apiInstance({ method, url, params, data }).then(resolve).catch(reject)
         })
       })
   } else {
     // 無法批次處理，個別執行
     requests.forEach((req) => {
       const { method, url, params, data, resolve, reject } = req
-      api({ method, url, params, data }).then(resolve).catch(reject)
+      apiInstance({ method, url, params, data }).then(resolve).catch(reject)
     })
   }
 
@@ -112,6 +204,9 @@ function processBatchQueue() {
  * 增強版API，支援批次請求和優化
  */
 export const useApi = () => {
+  // 延遲獲取 API 實例
+  const api = getApi()
+  const apiAuth = getApiAuth()
   /**
    * 批次處理API請求
    * @param {string} method - 請求方法
@@ -162,59 +257,7 @@ export const useApi = () => {
     }
   }
 
-  // 1. 添加語言攔截器
-  const setupLanguageInterceptor = () => {
-    // 請求拦截器 - 自動添加語言參數
-    api.interceptors.request.use((config) => {
-      const languageStore = useLanguageStore()
-
-      // 為GET請求添加語言參數
-      if (config.method?.toLowerCase() === 'get') {
-        config.params = {
-          ...(config.params || {}),
-          lang: languageStore.currentLang,
-        }
-      }
-      // 為其他請求在數據中添加語言參數
-      else if (
-        config.data &&
-        typeof config.data === 'object' &&
-        !(config.data instanceof FormData)
-      ) {
-        config.data = {
-          ...config.data,
-          lang: languageStore.currentLang,
-        }
-      }
-
-      return config
-    })
-
-    // 同樣為 apiAuth 添加語言攔截器
-    apiAuth.interceptors.request.use((config) => {
-      const languageStore = useLanguageStore()
-
-      if (config.method?.toLowerCase() === 'get') {
-        config.params = {
-          ...(config.params || {}),
-          lang: languageStore.currentLang,
-        }
-      } else if (
-        config.data &&
-        typeof config.data === 'object' &&
-        !(config.data instanceof FormData)
-      ) {
-        config.data = {
-          ...config.data,
-          lang: languageStore.currentLang,
-        }
-      }
-
-      return config
-    })
-  }
-
-  // 2. 添加響應格式處理
+  // 添加響應格式處理
   const handleSuccessResponse = (response) => {
     // 處理後端成功響應格式
     if (response.data && response.data.success === true) {
@@ -334,19 +377,20 @@ export const useApi = () => {
     },
   }
 
-  // 初始化時設置語言攔截器
-  setupLanguageInterceptor()
+  // 確保使用最新的 API 實例
+  const currentApi = getApi()
+  const currentApiAuth = getApiAuth()
 
   return {
     // 現有功能
-    api,
-    apiAuth,
+    api: currentApi,
+    apiAuth: currentApiAuth,
     batchableApi: {
       get: (url, params) => batchableApi('GET', url, params),
-      post: (url, data) => api.post(url, data),
-      put: (url, data) => api.put(url, data),
-      patch: (url, data) => api.patch(url, data),
-      delete: (url) => api.delete(url),
+      post: (url, data) => currentApi.post(url, data),
+      put: (url, data) => currentApi.put(url, data),
+      patch: (url, data) => currentApi.patch(url, data),
+      delete: (url) => currentApi.delete(url),
     },
     safeApiCall,
 
