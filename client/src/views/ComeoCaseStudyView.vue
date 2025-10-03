@@ -216,18 +216,6 @@
                   >
                     {{ caseStudy.isActive ? '已發布' : '未發布' }}
                   </span>
-                  <span
-                    v-if="caseStudy.isFeatured"
-                    class="px-2 py-1 rounded-full text-sm whitespace-nowrap"
-                    :class="
-                      conditionalClass(
-                        'bg-yellow-500/30 text-yellow-300',
-                        'bg-yellow-100 text-yellow-700',
-                      )
-                    "
-                  >
-                    精選
-                  </span>
                 </div>
               </td>
               <td class="py-3 px-4 lg:px-6">

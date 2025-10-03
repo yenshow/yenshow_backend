@@ -118,26 +118,6 @@ export const useCaseStudyStore = defineStore('caseStudy', {
       }
     },
 
-    // 切換狀態
-    async toggleStatus(id) {
-      try {
-        const { apiAuth } = useApi()
-        const { data } = await apiAuth.patch(`/api/case-studies/${id}/toggle-status`)
-
-        // 更新本地狀態
-        const item = this.items.find((item) => item._id === id)
-        if (item) {
-          item.isActive = data.caseStudy.isActive
-        }
-
-        return data.caseStudy
-      } catch (error) {
-        console.error('切換狀態失敗:', error)
-        this.error = error.message || '切換狀態失敗'
-        throw error
-      }
-    },
-
     // 清除錯誤
     clearError() {
       this.error = null

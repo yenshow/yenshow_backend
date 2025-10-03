@@ -83,26 +83,6 @@ const caseStudySchema = new Schema(
 			type: Date,
 			default: Date.now,
 			index: true
-		},
-
-		// 額外欄位
-		tags: [
-			{
-				type: String,
-				trim: true
-			}
-		],
-
-		// 排序和精選
-		featuredOrder: {
-			type: Number,
-			default: 0
-		},
-
-		isFeatured: {
-			type: Boolean,
-			default: false,
-			index: true
 		}
 	},
 	{
@@ -114,7 +94,6 @@ const caseStudySchema = new Schema(
 // 建立複合索引
 caseStudySchema.index({ projectType: 1, isActive: 1 });
 caseStudySchema.index({ publishDate: -1, isActive: 1 });
-caseStudySchema.index({ isFeatured: -1, featuredOrder: 1 });
 
 // 生成 slug 的 pre-save hook
 caseStudySchema.pre("save", async function (next) {
@@ -165,11 +144,6 @@ caseStudySchema.statics.findByProjectType = function (projectType, options = {})
 	return this.find(query, null, options);
 };
 
-// 靜態方法：查詢精選案例
-caseStudySchema.statics.findFeatured = function (limit = 6) {
-	return this.find({ isFeatured: true, isActive: true }).sort({ featuredOrder: 1, publishDate: -1 }).limit(limit);
-};
-
 // 靜態方法：搜尋案例
 caseStudySchema.statics.search = function (searchTerm, options = {}) {
 	const query = {
@@ -178,8 +152,7 @@ caseStudySchema.statics.search = function (searchTerm, options = {}) {
 			{ title: { $regex: searchTerm, $options: "i" } },
 			{ description: { $regex: searchTerm, $options: "i" } },
 			{ solutions: { $in: [new RegExp(searchTerm, "i")] } },
-			{ results: { $in: [new RegExp(searchTerm, "i")] } },
-			{ tags: { $in: [new RegExp(searchTerm, "i")] } }
+			{ results: { $in: [new RegExp(searchTerm, "i")] } }
 		]
 	};
 	return this.find(query, null, options);

@@ -38,6 +38,32 @@
       </div>
 
       <form v-else @submit.prevent="submitForm" class="space-y-[12px] lg:space-y-[24px]">
+        <!-- 頁籤導航 -->
+        <div class="border-b" :class="conditionalClass('border-gray-700', 'border-gray-200')">
+          <nav class="flex space-x-8" aria-label="Tabs">
+            <button
+              v-for="tab in tabs"
+              :key="tab.name"
+              type="button"
+              @click="currentTab = tab.name"
+              :class="[
+                currentTab === tab.name
+                  ? conditionalClass(
+                      'border-blue-500 text-blue-400',
+                      'border-blue-600 text-blue-700',
+                    )
+                  : conditionalClass(
+                      'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500',
+                      'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                    ),
+                'pb-3 px-1 border-b-2 text-sm cursor-pointer',
+              ]"
+            >
+              {{ tab.label }}
+            </button>
+          </nav>
+        </div>
+
         <div
           v-if="formError"
           class="bg-red-500/20 border border-red-500 text-red-100 px-4 py-3 rounded-md mb-4"
@@ -45,181 +71,245 @@
           {{ formError }}
         </div>
 
-        <!-- 基本資訊 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- 標題 -->
-          <div>
-            <label class="block mb-3 theme-text">標題 *</label>
-            <input
-              v-model="formData.title"
-              type="text"
-              required
-              :class="[inputClass, validationErrors.title ? 'border-red-500' : '']"
-              placeholder="輸入案例標題"
-            />
-            <p v-if="validationErrors.title" class="text-red-500 text-xs mt-1">
-              {{ validationErrors.title }}
-            </p>
-          </div>
+        <!-- 頁籤內容 -->
+        <div class="space-y-[12px] lg:space-y-[24px] overflow-y-auto flex-grow min-h-[400px]">
+          <!-- 基本資訊 -->
+          <div v-show="currentTab === 'general'">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- 標題 -->
+              <div>
+                <label class="block mb-3 theme-text">標題 *</label>
+                <input
+                  v-model="formData.title"
+                  type="text"
+                  required
+                  :class="[inputClass, validationErrors.title ? 'border-red-500' : '']"
+                  placeholder="輸入案例標題"
+                />
+                <p v-if="validationErrors.title" class="text-red-500 text-xs mt-1">
+                  {{ validationErrors.title }}
+                </p>
+              </div>
 
-          <!-- 專案類型 -->
-          <div>
-            <label class="block mb-3 theme-text">專案類型 *</label>
-            <select
-              v-model="formData.projectType"
-              required
-              :class="[inputClass, validationErrors.projectType ? 'border-red-500' : '']"
-            >
-              <option value="">選擇專案類型</option>
-              <option value="智慧製造">智慧製造</option>
-              <option value="數位轉型">數位轉型</option>
-              <option value="系統整合">系統整合</option>
-              <option value="數據分析">數據分析</option>
-              <option value="物聯網">物聯網</option>
-              <option value="人工智慧">人工智慧</option>
-              <option value="其他">其他</option>
-            </select>
-            <p v-if="validationErrors.projectType" class="text-red-500 text-xs mt-1">
-              {{ validationErrors.projectType }}
-            </p>
-          </div>
+              <!-- 專案類型 -->
+              <div>
+                <label class="block mb-3 theme-text">專案類型 *</label>
+                <select
+                  v-model="formData.projectType"
+                  required
+                  :class="[inputClass, validationErrors.projectType ? 'border-red-500' : '']"
+                >
+                  <option value="">選擇專案類型</option>
+                  <option value="智慧製造">智慧製造</option>
+                  <option value="數位轉型">數位轉型</option>
+                  <option value="系統整合">系統整合</option>
+                  <option value="數據分析">數據分析</option>
+                  <option value="物聯網">物聯網</option>
+                  <option value="人工智慧">人工智慧</option>
+                  <option value="其他">其他</option>
+                </select>
+                <p v-if="validationErrors.projectType" class="text-red-500 text-xs mt-1">
+                  {{ validationErrors.projectType }}
+                </p>
+              </div>
 
-          <!-- 作者 -->
-          <div>
-            <label class="block mb-3 theme-text">作者 *</label>
-            <input
-              v-model="formData.author"
-              type="text"
-              required
-              :class="[inputClass, validationErrors.author ? 'border-red-500' : '']"
-              placeholder="輸入作者名稱"
-            />
-            <p v-if="validationErrors.author" class="text-red-500 text-xs mt-1">
-              {{ validationErrors.author }}
-            </p>
-          </div>
+              <!-- 作者 -->
+              <div>
+                <label class="block mb-3 theme-text">作者 *</label>
+                <input
+                  v-model="formData.author"
+                  type="text"
+                  required
+                  :class="[inputClass, validationErrors.author ? 'border-red-500' : '']"
+                  placeholder="輸入作者名稱"
+                />
+                <p v-if="validationErrors.author" class="text-red-500 text-xs mt-1">
+                  {{ validationErrors.author }}
+                </p>
+              </div>
 
-          <!-- 發布日期 -->
-          <div>
-            <label class="block mb-3 theme-text">發布日期</label>
-            <input
-              v-model="formData.publishDate"
-              type="date"
-              :class="[inputClass, validationErrors.publishDate ? 'border-red-500' : '']"
-            />
-            <p v-if="validationErrors.publishDate" class="text-red-500 text-xs mt-1">
-              {{ validationErrors.publishDate }}
-            </p>
-          </div>
-        </div>
+              <!-- 發布日期 -->
+              <div>
+                <label class="block mb-3 theme-text">發布日期</label>
+                <input
+                  v-model="formData.publishDate"
+                  type="date"
+                  :class="[inputClass, validationErrors.publishDate ? 'border-red-500' : '']"
+                />
+                <p v-if="validationErrors.publishDate" class="text-red-500 text-xs mt-1">
+                  {{ validationErrors.publishDate }}
+                </p>
+              </div>
+            </div>
 
-        <!-- 描述 -->
-        <div>
-          <label class="block mb-3 theme-text">描述 *</label>
-          <textarea
-            v-model="formData.description"
-            required
-            rows="4"
-            :class="[inputClass, validationErrors.description ? 'border-red-500' : '']"
-            placeholder="輸入案例描述"
-          ></textarea>
-          <p v-if="validationErrors.description" class="text-red-500 text-xs mt-1">
-            {{ validationErrors.description }}
-          </p>
-        </div>
+            <!-- 描述 -->
+            <div>
+              <label class="block mb-3 theme-text">描述 *</label>
+              <textarea
+                v-model="formData.description"
+                required
+                rows="4"
+                :class="[inputClass, validationErrors.description ? 'border-red-500' : '']"
+                placeholder="輸入案例描述"
+              ></textarea>
+              <p v-if="validationErrors.description" class="text-red-500 text-xs mt-1">
+                {{ validationErrors.description }}
+              </p>
+            </div>
 
-        <!-- 解決方案 -->
-        <div>
-          <label class="block mb-3 theme-text">解決方案 *</label>
-          <div v-for="(solution, index) in formData.solutions" :key="index" class="flex gap-2 mb-2">
-            <input
-              v-model="formData.solutions[index]"
-              type="text"
-              required
-              :class="[inputClass, 'flex-1']"
-              placeholder="輸入解決方案"
-            />
-            <button
-              v-if="formData.solutions.length > 1"
-              @click="removeSolution(index)"
-              type="button"
-              class="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-            >
-              移除
-            </button>
-          </div>
-          <button
-            @click="addSolution"
-            type="button"
-            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-          >
-            新增解決方案
-          </button>
-        </div>
-
-        <!-- 成效 -->
-        <div>
-          <label class="block mb-3 theme-text">成效 *</label>
-          <div v-for="(result, index) in formData.results" :key="index" class="flex gap-2 mb-2">
-            <input
-              v-model="formData.results[index]"
-              type="text"
-              required
-              :class="[inputClass, 'flex-1']"
-              placeholder="輸入成效"
-            />
-            <button
-              v-if="formData.results.length > 1"
-              @click="removeResult(index)"
-              type="button"
-              class="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-            >
-              移除
-            </button>
-          </div>
-          <button
-            @click="addResult"
-            type="button"
-            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-          >
-            新增成效
-          </button>
-        </div>
-
-        <!-- 標籤 -->
-        <div>
-          <label class="block mb-3 theme-text">標籤</label>
-          <div class="flex flex-wrap gap-2 mb-2">
-            <span
-              v-for="(tag, index) in formData.tags"
-              :key="index"
-              class="inline-flex items-center px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-full text-sm"
-            >
-              {{ tag }}
-              <button
-                @click="removeTag(index)"
-                type="button"
-                class="ml-2 text-gray-500 hover:text-gray-700"
+            <!-- 解決方案 -->
+            <div>
+              <label class="block mb-3 theme-text">解決方案 *</label>
+              <div
+                v-for="(solution, index) in formData.solutions"
+                :key="index"
+                class="flex gap-2 mb-2"
               >
-                ×
+                <input
+                  v-model="formData.solutions[index]"
+                  type="text"
+                  required
+                  :class="[inputClass, 'flex-1']"
+                  placeholder="輸入解決方案"
+                />
+                <button
+                  v-if="formData.solutions.length > 1"
+                  @click="removeSolution(index)"
+                  type="button"
+                  class="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                >
+                  移除
+                </button>
+              </div>
+              <button
+                @click="addSolution"
+                type="button"
+                class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              >
+                新增解決方案
               </button>
-            </span>
+            </div>
+
+            <!-- 成效 -->
+            <div>
+              <label class="block mb-3 theme-text">成效 *</label>
+              <div v-for="(result, index) in formData.results" :key="index" class="flex gap-2 mb-2">
+                <input
+                  v-model="formData.results[index]"
+                  type="text"
+                  required
+                  :class="[inputClass, 'flex-1']"
+                  placeholder="輸入成效"
+                />
+                <button
+                  v-if="formData.results.length > 1"
+                  @click="removeResult(index)"
+                  type="button"
+                  class="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                >
+                  移除
+                </button>
+              </div>
+              <button
+                @click="addResult"
+                type="button"
+                class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              >
+                新增成效
+              </button>
+            </div>
           </div>
-          <div class="flex gap-2">
-            <input
-              v-model="newTag"
-              type="text"
-              @keyup.enter="addTag"
-              :class="[inputClass, 'flex-1']"
-              placeholder="輸入標籤後按 Enter"
-            />
-            <button
-              @click="addTag"
-              type="button"
-              class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
-            >
-              新增標籤
-            </button>
+
+          <!-- 附加檔案 -->
+          <div v-show="currentTab === 'attachments'">
+            <!-- 圖片上傳 -->
+            <div class="mb-6">
+              <label class="block mb-3 theme-text">圖片 (可上傳多張)</label>
+              <div
+                class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
+                :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                @click="triggerImageInput"
+              >
+                <div class="space-y-1 text-center">
+                  <svg
+                    class="mx-auto h-12 w-12"
+                    :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                    stroke="currentColor"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                      d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                    />
+                  </svg>
+                  <div
+                    class="flex text-sm"
+                    :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                  >
+                    <p class="pl-1">點擊或拖曳以上傳圖片</p>
+                  </div>
+                  <p class="text-xs" :class="conditionalClass('text-gray-600', 'text-gray-500')">
+                    PNG, JPG, GIF, WEBP, SVG
+                  </p>
+                </div>
+                <input
+                  ref="imageInputRef"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  class="hidden"
+                  @change="handleImageFiles"
+                />
+              </div>
+              <!-- 預覽區域 -->
+              <div
+                v-if="formData.images.length > 0 || imageFiles.length > 0"
+                class="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+              >
+                <!-- 現有圖片 -->
+                <div
+                  v-for="(url, index) in formData.images"
+                  :key="`existing-${index}`"
+                  class="relative group"
+                >
+                  <img
+                    :src="url"
+                    alt="Existing image"
+                    class="w-full h-24 object-cover rounded-md"
+                  />
+                  <button
+                    type="button"
+                    @click.stop="removeExistingImage(index)"
+                    class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs opacity-75 group-hover:opacity-100"
+                  >
+                    &#x2715;
+                  </button>
+                </div>
+                <!-- 新上傳圖片 -->
+                <div
+                  v-for="(file, index) in imageFiles"
+                  :key="`new-${index}`"
+                  class="relative group"
+                >
+                  <img
+                    :src="file.previewUrl"
+                    alt="New image"
+                    class="w-full h-24 object-cover rounded-md"
+                  />
+                  <button
+                    type="button"
+                    @click.stop="removeNewImage(index)"
+                    class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs opacity-75 group-hover:opacity-100"
+                  >
+                    &#x2715;
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -228,10 +318,6 @@
           <label class="flex items-center">
             <input v-model="formData.isActive" type="checkbox" class="mr-2" />
             <span class="text-sm theme-text">啟用</span>
-          </label>
-          <label class="flex items-center">
-            <input v-model="formData.isFeatured" type="checkbox" class="mr-2" />
-            <span class="text-sm theme-text">精選</span>
           </label>
         </div>
 
@@ -291,7 +377,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onBeforeUnmount } from 'vue'
 import { useApi } from '@/composables/axios'
 import { useNotifications } from '@/composables/notificationCenter'
 import { useThemeClass } from '@/composables/useThemeClass'
@@ -326,7 +412,17 @@ const isEdit = computed(() => !!props.caseStudy)
 const isSubmitting = ref(false)
 const loading = ref(false)
 const formError = ref('')
-const newTag = ref('')
+
+// 分頁相關
+const currentTab = ref('general')
+const tabs = [
+  { name: 'general', label: '基本資訊' },
+  { name: 'attachments', label: '附加檔案' },
+]
+
+// 圖片上傳相關
+const imageFiles = ref([])
+const imageInputRef = ref(null)
 
 const inputClass = computed(() => [
   themeInputClass.value,
@@ -342,10 +438,7 @@ const formData = ref({
   images: [],
   author: '',
   publishDate: new Date().toISOString().split('T')[0],
-  tags: [],
   isActive: false,
-  isFeatured: false,
-  featuredOrder: 0,
 })
 
 const resetForm = () => {
@@ -358,16 +451,15 @@ const resetForm = () => {
     images: [],
     author: '',
     publishDate: new Date().toISOString().split('T')[0],
-    tags: [],
     isActive: false,
-    isFeatured: false,
-    featuredOrder: 0,
   }
-  newTag.value = ''
+  imageFiles.value = []
+  if (imageInputRef.value) imageInputRef.value.value = ''
   clearErrors()
   formError.value = ''
   isSubmitting.value = false
   loading.value = false
+  currentTab.value = 'general'
 }
 
 // 監聽案例資料變化
@@ -386,10 +478,7 @@ watch(
         publishDate: newCaseStudy.publishDate
           ? newCaseStudy.publishDate.split('T')[0]
           : new Date().toISOString().split('T')[0],
-        tags: newCaseStudy.tags || [],
         isActive: newCaseStudy.isActive || false,
-        isFeatured: newCaseStudy.isFeatured || false,
-        featuredOrder: newCaseStudy.featuredOrder || 0,
       }
     } else {
       resetForm()
@@ -418,21 +507,38 @@ const removeResult = (index) => {
   }
 }
 
-const addTag = () => {
-  if (newTag.value.trim() && !formData.value.tags.includes(newTag.value.trim())) {
-    formData.value.tags.push(newTag.value.trim())
-    newTag.value = ''
-  }
+// 圖片上傳相關函數
+const triggerImageInput = () => imageInputRef.value?.click()
+
+const handleImageFiles = (event) => {
+  const files = Array.from(event.target.files)
+  files.forEach((file) => {
+    const fileWithPreview = Object.assign(file, {
+      previewUrl: URL.createObjectURL(file),
+    })
+    imageFiles.value.push(fileWithPreview)
+  })
+  if (imageInputRef.value) imageInputRef.value.value = ''
 }
 
-const removeTag = (index) => {
-  formData.value.tags.splice(index, 1)
+const removeNewImage = (index) => {
+  URL.revokeObjectURL(imageFiles.value[index].previewUrl)
+  imageFiles.value.splice(index, 1)
+}
+
+const removeExistingImage = (index) => {
+  formData.value.images.splice(index, 1)
 }
 
 const closeModal = () => {
   emit('update:modelValue', false)
   resetForm()
 }
+
+// 清理預覽 URL
+onBeforeUnmount(() => {
+  imageFiles.value.forEach((file) => URL.revokeObjectURL(file.previewUrl))
+})
 
 const validateForm = () => {
   clearErrors()
@@ -493,10 +599,34 @@ const submitForm = async () => {
     const filteredSolutions = formData.value.solutions.filter((s) => s.trim())
     const filteredResults = formData.value.results.filter((r) => r.trim())
 
-    const submitData = {
-      ...formData.value,
-      solutions: filteredSolutions,
-      results: filteredResults,
+    const hasNewFiles = imageFiles.value.length > 0
+
+    let submitData
+    if (hasNewFiles) {
+      // 如果有新檔案，使用 FormData
+      const formDataPayload = new FormData()
+
+      // 添加新圖片
+      imageFiles.value.forEach((file) => {
+        formDataPayload.append('images', file)
+      })
+
+      // 添加其他表單資料
+      const caseStudyData = {
+        ...formData.value,
+        solutions: filteredSolutions,
+        results: filteredResults,
+      }
+      formDataPayload.append('caseStudyData', JSON.stringify(caseStudyData))
+
+      submitData = formDataPayload
+    } else {
+      // 沒有新檔案，直接傳送 JSON
+      submitData = {
+        ...formData.value,
+        solutions: filteredSolutions,
+        results: filteredResults,
+      }
     }
 
     console.log('提交案例數據:', submitData)
@@ -504,10 +634,14 @@ const submitForm = async () => {
     console.log('用戶角色:', userStore.role)
 
     if (isEdit.value) {
-      await apiAuth.put(`/api/case-studies/${props.caseStudy._id}`, submitData)
+      await apiAuth.put(`/api/case-studies/${props.caseStudy._id}`, submitData, {
+        headers: hasNewFiles ? { 'Content-Type': 'multipart/form-data' } : {},
+      })
       notify.notifySuccess('案例更新成功')
     } else {
-      await apiAuth.post('/api/case-studies', submitData)
+      await apiAuth.post('/api/case-studies', submitData, {
+        headers: hasNewFiles ? { 'Content-Type': 'multipart/form-data' } : {},
+      })
       notify.notifySuccess('案例建立成功')
     }
 

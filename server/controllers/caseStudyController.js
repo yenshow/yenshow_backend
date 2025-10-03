@@ -1,7 +1,6 @@
 import CaseStudy from "../models/caseStudy.js";
 import { StatusCodes } from "http-status-codes";
 import { ApiError, successResponse, errorResponse } from "../utils/responseHandler.js";
-import { trackEvent } from "../services/analyticsService.js";
 import fileUpload from "../utils/fileUpload.js";
 
 class CaseStudyController {
@@ -10,13 +9,12 @@ class CaseStudyController {
 	 */
 	async getAll(req, res, next) {
 		try {
-			const { page = 1, limit = 10, projectType, isActive, isFeatured, search, sort = "-publishDate" } = req.query;
+			const { page = 1, limit = 10, projectType, isActive, search, sort = "-publishDate" } = req.query;
 
 			// 建立查詢條件
 			const filter = {};
 			if (projectType) filter.projectType = projectType;
 			if (isActive !== undefined) filter.isActive = isActive === "true";
-			if (isFeatured !== undefined) filter.isFeatured = isFeatured === "true";
 
 			// 搜尋功能
 			let query = CaseStudy.find(filter);
@@ -32,21 +30,6 @@ class CaseStudyController {
 
 			// 執行查詢
 			const [caseStudies, total] = await Promise.all([query.lean(), search ? CaseStudy.countDocuments(filter) : CaseStudy.countDocuments(filter)]);
-
-			// 從請求中獲取網站資訊
-			const site = req.headers["x-app-context"] || "comeo";
-
-			// GA 追蹤
-			await trackEvent(
-				req.user?.id || "anonymous",
-				"case_studies_view",
-				{
-					page: parseInt(page),
-					projectType: projectType || "all",
-					search_term: search || null
-				},
-				site
-			);
 
 			return successResponse(res, StatusCodes.OK, "獲取合作案例成功", {
 				caseStudies,
@@ -73,21 +56,6 @@ class CaseStudyController {
 				throw new ApiError(StatusCodes.NOT_FOUND, "合作案例不存在");
 			}
 
-			// GA 追蹤
-			// 從請求中獲取網站資訊
-			const site = req.headers["x-app-context"] || "comeo";
-
-			await trackEvent(
-				req.user?.id || "anonymous",
-				"case_study_view",
-				{
-					case_id: caseStudy._id,
-					case_title: caseStudy.title,
-					project_type: caseStudy.projectType
-				},
-				site
-			);
-
 			return successResponse(res, StatusCodes.OK, "獲取合作案例成功", { caseStudy });
 		} catch (error) {
 			next(error);
@@ -106,36 +74,7 @@ class CaseStudyController {
 				throw new ApiError(StatusCodes.NOT_FOUND, "合作案例不存在");
 			}
 
-			// GA 追蹤
-			// 從請求中獲取網站資訊
-			const site = req.headers["x-app-context"] || "comeo";
-
-			await trackEvent(
-				req.user?.id || "anonymous",
-				"case_study_view",
-				{
-					case_id: caseStudy._id,
-					case_title: caseStudy.title,
-					project_type: caseStudy.projectType
-				},
-				site
-			);
-
 			return successResponse(res, StatusCodes.OK, "獲取合作案例成功", { caseStudy });
-		} catch (error) {
-			next(error);
-		}
-	}
-
-	/**
-	 * 獲取精選案例
-	 */
-	async getFeatured(req, res, next) {
-		try {
-			const { limit = 6 } = req.query;
-			const caseStudies = await CaseStudy.findFeatured(parseInt(limit));
-
-			return successResponse(res, StatusCodes.OK, "獲取精選案例成功", { caseStudies });
 		} catch (error) {
 			next(error);
 		}
@@ -165,20 +104,7 @@ class CaseStudyController {
 	 */
 	async create(req, res, next) {
 		try {
-			const {
-				title,
-				description,
-				projectType,
-				solutions,
-				results,
-				images,
-				isActive = false,
-				author,
-				publishDate,
-				tags = [],
-				isFeatured = false,
-				featuredOrder = 0
-			} = req.body;
+			const { title, description, projectType, solutions, results, isActive = false, author, publishDate } = req.body;
 
 			// 驗證必填欄位
 			if (!title || !description || !projectType || !author) {
@@ -204,15 +130,12 @@ class CaseStudyController {
 				images: [],
 				isActive,
 				author,
-				publishDate: publishDate ? new Date(publishDate) : new Date(),
-				tags,
-				isFeatured,
-				featuredOrder
+				publishDate: publishDate ? new Date(publishDate) : new Date()
 			});
 
 			await caseStudy.save();
 
-			// 處理檔案上傳
+			// 處理檔案上傳 - 整合到主要創建流程中
 			if (req.files && req.files.images && req.files.images.length > 0) {
 				const entityContext = { id: caseStudy._id.toString(), name: caseStudy.title };
 				const uploadedImages = [];
@@ -226,13 +149,6 @@ class CaseStudyController {
 				await caseStudy.save();
 			}
 
-			// GA 追蹤
-			await trackEvent(req.user.id, "case_study_create", {
-				case_id: caseStudy._id,
-				project_type: caseStudy.projectType,
-				solutions_count: caseStudy.solutions.length
-			});
-
 			return successResponse(res, StatusCodes.CREATED, "合作案例建立成功", { caseStudy });
 		} catch (error) {
 			next(error);
@@ -245,7 +161,7 @@ class CaseStudyController {
 	async update(req, res, next) {
 		try {
 			const { id } = req.params;
-			const updateData = req.body;
+			const updateData = { ...req.body };
 
 			// 移除不允許更新的欄位
 			delete updateData._id;
@@ -257,17 +173,48 @@ class CaseStudyController {
 				updateData.slug = undefined;
 			}
 
-			const caseStudy = await CaseStudy.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
-
-			if (!caseStudy) {
+			// 獲取現有案例以處理圖片更新
+			const existingCaseStudy = await CaseStudy.findById(id);
+			if (!existingCaseStudy) {
 				throw new ApiError(StatusCodes.NOT_FOUND, "合作案例不存在");
 			}
 
-			// GA 追蹤
-			await trackEvent(req.user.id, "case_study_update", {
-				case_id: caseStudy._id,
-				project_type: caseStudy.projectType
-			});
+			// 處理圖片更新
+			if (req.files && req.files.images && req.files.images.length > 0) {
+				const entityContext = { id: existingCaseStudy._id.toString(), name: existingCaseStudy.title };
+				const uploadedImages = [];
+
+				// 刪除舊圖片
+				if (existingCaseStudy.images && existingCaseStudy.images.length > 0) {
+					for (const oldImageUrl of existingCaseStudy.images) {
+						if (oldImageUrl && oldImageUrl.startsWith("/storage")) {
+							try {
+								fileUpload.deleteFileByWebPath(oldImageUrl);
+							} catch (deleteError) {
+								console.error("刪除舊圖片失敗:", oldImageUrl, deleteError);
+							}
+						}
+					}
+				}
+
+				// 上傳新圖片
+				for (const file of req.files.images) {
+					const imageUrl = fileUpload.saveAsset(file.buffer, "case-studies", entityContext, "images", file.originalname, "case_study");
+					uploadedImages.push(imageUrl);
+				}
+
+				updateData.images = uploadedImages;
+			}
+
+			// 處理狀態更新 - 整合狀態管理功能
+			if (updateData.isActive !== undefined) {
+				// 驗證 isActive 欄位
+				if (typeof updateData.isActive !== "boolean") {
+					throw new ApiError(StatusCodes.BAD_REQUEST, "isActive 欄位必須是布林值");
+				}
+			}
+
+			const caseStudy = await CaseStudy.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
 
 			return successResponse(res, StatusCodes.OK, "合作案例更新成功", { caseStudy });
 		} catch (error) {
@@ -294,120 +241,7 @@ class CaseStudyController {
 			const entityContext = { id, name: caseStudy.title };
 			fileUpload.deleteEntityDirectory("case-studies", entityContext);
 
-			// GA 追蹤
-			await trackEvent(req.user.id, "case_study_delete", {
-				case_id: caseStudy._id,
-				project_type: caseStudy.projectType
-			});
-
 			return successResponse(res, StatusCodes.OK, "合作案例刪除成功");
-		} catch (error) {
-			next(error);
-		}
-	}
-
-	/**
-	 * 切換案例啟用狀態
-	 */
-	async toggleStatus(req, res, next) {
-		try {
-			const { id } = req.params;
-			const caseStudy = await CaseStudy.findById(id);
-
-			if (!caseStudy) {
-				throw new ApiError(StatusCodes.NOT_FOUND, "合作案例不存在");
-			}
-
-			caseStudy.isActive = !caseStudy.isActive;
-			await caseStudy.save();
-
-			// GA 追蹤
-			await trackEvent(req.user.id, "case_study_toggle_status", {
-				case_id: caseStudy._id,
-				new_status: caseStudy.isActive
-			});
-
-			return successResponse(res, StatusCodes.OK, `案例已${caseStudy.isActive ? "啟用" : "停用"}`, { caseStudy });
-		} catch (error) {
-			next(error);
-		}
-	}
-
-	/**
-	 * 上傳案例圖片
-	 */
-	async uploadImages(req, res, next) {
-		try {
-			const { id } = req.params;
-			const files = req.files;
-
-			if (!files || files.length === 0) {
-				throw new ApiError(StatusCodes.BAD_REQUEST, "請選擇要上傳的圖片");
-			}
-
-			const caseStudy = await CaseStudy.findById(id);
-			if (!caseStudy) {
-				throw new ApiError(StatusCodes.NOT_FOUND, "合作案例不存在");
-			}
-
-			const newImages = [];
-
-			// 使用統一的檔案處理邏輯
-			for (const file of files) {
-				const imageUrl = fileUpload.saveAsset(
-					file.buffer,
-					"case-studies", // entityType
-					{ id, name: caseStudy.title }, // entityContext
-					"images", // assetCategory
-					file.originalname,
-					"case_study" // assetPrefix
-				);
-				newImages.push(imageUrl);
-			}
-
-			// 將新圖片加入現有圖片陣列
-			caseStudy.images.push(...newImages);
-			await caseStudy.save();
-
-			// GA 追蹤
-			await trackEvent(req.user.id, "case_study_upload_images", {
-				case_id: caseStudy._id,
-				images_count: newImages.length
-			});
-
-			return successResponse(res, StatusCodes.OK, "圖片上傳成功", { caseStudy });
-		} catch (error) {
-			next(error);
-		}
-	}
-
-	/**
-	 * 刪除案例圖片
-	 */
-	async deleteImage(req, res, next) {
-		try {
-			const { id, imageUrl } = req.params;
-			const caseStudy = await CaseStudy.findById(id);
-
-			if (!caseStudy) {
-				throw new ApiError(StatusCodes.NOT_FOUND, "合作案例不存在");
-			}
-
-			// 使用統一的檔案刪除邏輯
-			const deleted = fileUpload.deleteFileByWebPath(imageUrl);
-
-			if (deleted) {
-				// 從資料庫中移除圖片 URL
-				caseStudy.images = caseStudy.images.filter((img) => img !== imageUrl);
-				await caseStudy.save();
-			}
-
-			// GA 追蹤
-			await trackEvent(req.user.id, "case_study_delete_image", {
-				case_id: caseStudy._id
-			});
-
-			return successResponse(res, StatusCodes.OK, "圖片刪除成功", { caseStudy });
 		} catch (error) {
 			next(error);
 		}
@@ -430,20 +264,6 @@ class CaseStudyController {
 				skip,
 				limit: parseInt(limit)
 			});
-
-			// 從請求中獲取網站資訊
-			const site = req.headers["x-app-context"] || "comeo";
-
-			// GA 追蹤
-			await trackEvent(
-				req.user?.id || "anonymous",
-				"case_study_search",
-				{
-					search_term: q.trim(),
-					results_count: caseStudies.length
-				},
-				site
-			);
 
 			return successResponse(res, StatusCodes.OK, "搜尋完成", {
 				caseStudies,
