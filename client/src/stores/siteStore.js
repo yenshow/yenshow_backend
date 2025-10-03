@@ -6,14 +6,14 @@ export const useSiteStore = defineStore('site', {
     sites: {
       yenshow: {
         name: 'Yenshow',
-        apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:4001',
+        apiUrl: import.meta.env.VITE_API || 'http://localhost:4001',
         theme: 'yenshow-theme',
         color: 'blue',
         logo: '/yenshow-icon.svg',
       },
       comeo: {
         name: 'Comeo',
-        apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:4001',
+        apiUrl: import.meta.env.VITE_API || 'http://localhost:4001',
         theme: 'comeo-theme',
         color: 'green',
         logo: '/comeo-icon.png',

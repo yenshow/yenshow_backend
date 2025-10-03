@@ -11,9 +11,8 @@ let apiAuth = null
 // 建立動態 API 實例
 const createApiInstance = () => {
   const siteStore = useSiteStore()
-  // 開發環境和生產環境都使用空 baseURL，依賴代理
   return axios.create({
-    baseURL: '',
+    baseURL: siteStore.currentApiUrl,
     timeout: 30000, // 30秒超時
   })
 }
