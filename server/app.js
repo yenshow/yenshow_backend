@@ -176,6 +176,11 @@ const configureRoutes = (app) => {
 		next(err);
 	});
 
+	// 調試路由 - 放在認證中間件之前
+	app.get("/api/ping", (req, res) => {
+		res.status(200).send("pong");
+	});
+
 	// API 路由
 	app.use("/api/users", userRoutes);
 	app.use("/api", hierarchyRoutes);
@@ -183,11 +188,6 @@ const configureRoutes = (app) => {
 	app.use("/api/news", newsRoutes);
 	app.use("/api", contactRoutes);
 	app.use("/api", caseStudyRoutes);
-
-	// 調試路由 - 修改路徑
-	app.get("/api/ping", (req, res) => {
-		res.status(200).send("pong");
-	});
 
 	// 提供靜態資源
 	app.use(
