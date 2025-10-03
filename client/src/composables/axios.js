@@ -11,10 +11,10 @@ let apiAuth = null
 // 建立動態 API 實例
 const createApiInstance = () => {
   const siteStore = useSiteStore()
-  // 開發環境不設 baseURL，使用 Vite 代理 (localhost:4001)
-  // 生產環境使用 siteStore 中的 API URL (backend:4000)
+  // 開發環境不設 baseURL，使用 Vite 代理
+  // 生產環境使用 siteStore 中的 API URL
   return axios.create({
-    baseURL: import.meta.env.DEV ? '' : siteStore.currentApiUrl || 'http://backend:4000',
+    baseURL: import.meta.env.DEV ? '' : siteStore.currentApiUrl || '',
     timeout: 30000, // 30秒超時
   })
 }

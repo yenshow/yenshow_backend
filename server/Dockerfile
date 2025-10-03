@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+# 安裝 wget 用於健康檢查
+RUN apk add --no-cache wget
+
 WORKDIR /app
 
 # 使用 package.json 作為緩存依據
@@ -15,7 +18,7 @@ RUN chmod -R 755 /app/storage /app/uploads
 
 # 健康檢查
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:4000/ping || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:4000/api/ping || exit 1
 
 # 環境變數配置
 ENV PORT=4000
