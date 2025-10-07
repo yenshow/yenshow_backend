@@ -104,20 +104,16 @@ class CaseStudyController {
 	 */
 	async create(req, res, next) {
 		try {
-			const { title, description, projectType, solutions, results, isActive = false, author, publishDate } = req.body;
+			const { title, description, projectType, solutions, isActive = false, author, publishDate } = req.body;
 
 			// 驗證必填欄位
 			if (!title || !description || !projectType || !author) {
 				throw new ApiError(StatusCodes.BAD_REQUEST, "標題、描述、專案類型和作者為必填欄位");
 			}
 
-			// 驗證 solutions 和 results 陣列
+			// 驗證 solutions 陣列
 			if (!solutions || !Array.isArray(solutions) || solutions.length === 0) {
 				throw new ApiError(StatusCodes.BAD_REQUEST, "解決方案不能為空");
-			}
-
-			if (!results || !Array.isArray(results) || results.length === 0) {
-				throw new ApiError(StatusCodes.BAD_REQUEST, "成效不能為空");
 			}
 
 			// 建立案例
@@ -126,7 +122,6 @@ class CaseStudyController {
 				description,
 				projectType,
 				solutions,
-				results,
 				images: [],
 				isActive,
 				author,

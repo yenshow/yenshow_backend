@@ -77,7 +77,7 @@
           <div v-show="currentTab === 'general'">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <!-- 標題 -->
-              <div>
+              <div class="mb-2">
                 <label class="block mb-3 theme-text">標題 *</label>
                 <input
                   v-model="formData.title"
@@ -92,29 +92,89 @@
               </div>
 
               <!-- 專案類型 -->
-              <div>
+              <div class="mb-2">
                 <label class="block mb-3 theme-text">專案類型 *</label>
-                <select
-                  v-model="formData.projectType"
-                  required
-                  :class="[inputClass, validationErrors.projectType ? 'border-red-500' : '']"
-                >
-                  <option value="">選擇專案類型</option>
-                  <option value="智慧製造">智慧製造</option>
-                  <option value="數位轉型">數位轉型</option>
-                  <option value="系統整合">系統整合</option>
-                  <option value="數據分析">數據分析</option>
-                  <option value="物聯網">物聯網</option>
-                  <option value="人工智慧">人工智慧</option>
-                  <option value="其他">其他</option>
-                </select>
+                <div class="relative" ref="projectTypeDropdownRef">
+                  <button
+                    type="button"
+                    @click="toggleProjectTypeDropdown"
+                    class="flex items-center justify-between w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
+                    :class="[
+                      inputClass,
+                      validationErrors.projectType ? 'border-red-500' : '',
+                      conditionalClass(
+                        'border-2 border-[#3F5069] hover:bg-[#3a434c]',
+                        'border-2 border-slate-300 bg-white hover:bg-slate-50',
+                      ),
+                    ]"
+                  >
+                    <span>{{ formData.projectType || '選擇專案類型' }}</span>
+                    <svg
+                      class="w-4 h-4 transition-transform"
+                      :class="{ 'rotate-180': isProjectTypeDropdownOpen }"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M19 9l-7 7-7-7"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <div
+                    v-if="isProjectTypeDropdownOpen"
+                    :class="[
+                      cardClass,
+                      'absolute left-0 right-0 z-20 mt-2 rounded-lg shadow-xl max-h-60 overflow-y-auto text-left',
+                    ]"
+                  >
+                    <div
+                      :class="conditionalClass('bg-gray-800/80', 'bg-white/80')"
+                      class="backdrop-blur-sm rounded-lg"
+                    >
+                      <button
+                        type="button"
+                        @click="selectProjectType('')"
+                        class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
+                        :class="
+                          conditionalClass(
+                            'hover:bg-white/10 text-white',
+                            'hover:bg-slate-100 text-slate-700',
+                          )
+                        "
+                      >
+                        <span>選擇專案類型</span>
+                        <span v-if="!formData.projectType" class="text-blue-400">✓</span>
+                      </button>
+                      <button
+                        v-for="type in projectTypes"
+                        :key="type"
+                        type="button"
+                        @click="selectProjectType(type)"
+                        class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
+                        :class="
+                          conditionalClass(
+                            'hover:bg-white/10 text-white',
+                            'hover:bg-slate-100 text-slate-700',
+                          )
+                        "
+                      >
+                        <span>{{ type }}</span>
+                        <span v-if="formData.projectType === type" class="text-blue-400">✓</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <p v-if="validationErrors.projectType" class="text-red-500 text-xs mt-1">
                   {{ validationErrors.projectType }}
                 </p>
               </div>
 
               <!-- 作者 -->
-              <div>
+              <div class="mb-6">
                 <label class="block mb-3 theme-text">作者 *</label>
                 <input
                   v-model="formData.author"
@@ -129,7 +189,7 @@
               </div>
 
               <!-- 發布日期 -->
-              <div>
+              <div class="mb-6">
                 <label class="block mb-3 theme-text">發布日期</label>
                 <input
                   v-model="formData.publishDate"
@@ -143,7 +203,7 @@
             </div>
 
             <!-- 描述 -->
-            <div>
+            <div class="mb-6">
               <label class="block mb-3 theme-text">描述 *</label>
               <textarea
                 v-model="formData.description"
@@ -158,64 +218,56 @@
             </div>
 
             <!-- 解決方案 -->
-            <div>
+            <div class="mb-6">
               <label class="block mb-3 theme-text">解決方案 *</label>
+
               <div
                 v-for="(solution, index) in formData.solutions"
                 :key="index"
-                class="flex gap-2 mb-2"
+                class="flex items-center mb-3"
               >
                 <input
                   v-model="formData.solutions[index]"
                   type="text"
                   required
-                  :class="[inputClass, 'flex-1']"
-                  placeholder="輸入解決方案"
+                  :class="[
+                    inputClass,
+                    'w-full rounded-[10px] ps-[12px] py-[8px] lg:ps-[16px] lg:py-[12px]',
+                  ]"
+                  placeholder="請輸入解決方案"
                 />
-                <button
-                  v-if="formData.solutions.length > 1"
-                  @click="removeSolution(index)"
-                  type="button"
-                  class="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-                >
-                  移除
-                </button>
+                <div class="flex ml-2">
+                  <button
+                    type="button"
+                    @click="removeSolution(index)"
+                    class="p-2 text-red-500 hover:text-red-400 cursor-pointer"
+                    title="移除解決方案"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      ></path>
+                    </svg>
+                  </button>
+                </div>
               </div>
               <button
+                type="button"
                 @click="addSolution"
-                type="button"
-                class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                class="mt-3 flex items-center text-[#3490dc] hover:text-[#2779bd] cursor-pointer"
               >
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  ></path>
+                </svg>
                 新增解決方案
-              </button>
-            </div>
-
-            <!-- 成效 -->
-            <div>
-              <label class="block mb-3 theme-text">成效 *</label>
-              <div v-for="(result, index) in formData.results" :key="index" class="flex gap-2 mb-2">
-                <input
-                  v-model="formData.results[index]"
-                  type="text"
-                  required
-                  :class="[inputClass, 'flex-1']"
-                  placeholder="輸入成效"
-                />
-                <button
-                  v-if="formData.results.length > 1"
-                  @click="removeResult(index)"
-                  type="button"
-                  class="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-                >
-                  移除
-                </button>
-              </div>
-              <button
-                @click="addResult"
-                type="button"
-                class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-              >
-                新增成效
               </button>
             </div>
           </div>
@@ -314,11 +366,20 @@
         </div>
 
         <!-- 狀態設定 -->
-        <div class="flex items-center space-x-6">
-          <label class="flex items-center">
-            <input v-model="formData.isActive" type="checkbox" class="mr-2" />
-            <span class="text-sm theme-text">啟用</span>
-          </label>
+        <div class="mb-6 flex items-center">
+          <input
+            id="caseStudyIsActive"
+            type="checkbox"
+            v-model="formData.isActive"
+            class="h-4 w-4 rounded mr-2"
+            :class="
+              conditionalClass(
+                'border-gray-600 text-blue-500 bg-gray-700 focus:ring-blue-600',
+                'border-gray-300 text-blue-600 bg-blue-100 focus:ring-blue-500 focus:border-blue-500',
+              )
+            "
+          />
+          <label for="caseStudyIsActive" class="theme-text font-medium">啟用案例</label>
         </div>
 
         <!-- 按鈕 -->
@@ -377,7 +438,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onBeforeUnmount } from 'vue'
+import { ref, watch, computed, onBeforeUnmount, onMounted } from 'vue'
 import { useApi } from '@/composables/axios'
 import { useNotifications } from '@/composables/notificationCenter'
 import { useThemeClass } from '@/composables/useThemeClass'
@@ -424,6 +485,19 @@ const tabs = [
 const imageFiles = ref([])
 const imageInputRef = ref(null)
 
+// 專案類型下拉選單相關
+const projectTypeDropdownRef = ref(null)
+const isProjectTypeDropdownOpen = ref(false)
+const projectTypes = ref([
+  '智慧製造',
+  '數位轉型',
+  '系統整合',
+  '數據分析',
+  '物聯網',
+  '人工智慧',
+  '其他',
+])
+
 const inputClass = computed(() => [
   themeInputClass.value,
   'w-full rounded-[10px] ps-[12px] py-[8px] lg:ps-[16px] lg:py-[12px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
@@ -434,7 +508,6 @@ const formData = ref({
   description: '',
   projectType: '',
   solutions: [''],
-  results: [''],
   images: [],
   author: '',
   publishDate: new Date().toISOString().split('T')[0],
@@ -447,7 +520,6 @@ const resetForm = () => {
     description: '',
     projectType: '',
     solutions: [''],
-    results: [''],
     images: [],
     author: '',
     publishDate: new Date().toISOString().split('T')[0],
@@ -472,7 +544,6 @@ watch(
         description: newCaseStudy.description || '',
         projectType: newCaseStudy.projectType || '',
         solutions: newCaseStudy.solutions?.length ? [...newCaseStudy.solutions] : [''],
-        results: newCaseStudy.results?.length ? [...newCaseStudy.results] : [''],
         images: newCaseStudy.images || [],
         author: newCaseStudy.author || '',
         publishDate: newCaseStudy.publishDate
@@ -494,17 +565,19 @@ const addSolution = () => {
 const removeSolution = (index) => {
   if (formData.value.solutions.length > 1) {
     formData.value.solutions.splice(index, 1)
+  } else {
+    formData.value.solutions = ['']
   }
 }
 
-const addResult = () => {
-  formData.value.results.push('')
+// 專案類型下拉選單操作函數
+const toggleProjectTypeDropdown = () => {
+  isProjectTypeDropdownOpen.value = !isProjectTypeDropdownOpen.value
 }
 
-const removeResult = (index) => {
-  if (formData.value.results.length > 1) {
-    formData.value.results.splice(index, 1)
-  }
+const selectProjectType = (type) => {
+  formData.value.projectType = type
+  isProjectTypeDropdownOpen.value = false
 }
 
 // 圖片上傳相關函數
@@ -535,9 +608,22 @@ const closeModal = () => {
   resetForm()
 }
 
+// 點擊外部關閉下拉選單
+const handleClickOutside = (event) => {
+  if (projectTypeDropdownRef.value && !projectTypeDropdownRef.value.contains(event.target)) {
+    isProjectTypeDropdownOpen.value = false
+  }
+}
+
 // 清理預覽 URL
 onBeforeUnmount(() => {
   imageFiles.value.forEach((file) => URL.revokeObjectURL(file.previewUrl))
+  document.removeEventListener('click', handleClickOutside)
+})
+
+// 添加事件監聽器
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
 })
 
 const validateForm = () => {
@@ -564,14 +650,9 @@ const validateForm = () => {
     isValid = false
   }
 
-  // 驗證解決方案和成效
+  // 驗證解決方案
   if (formData.value.solutions.every((s) => !s.trim())) {
     setError('solutions', '請至少填寫一個解決方案')
-    isValid = false
-  }
-
-  if (formData.value.results.every((r) => !r.trim())) {
-    setError('results', '請至少填寫一個成效')
     isValid = false
   }
 
@@ -595,9 +676,8 @@ const submitForm = async () => {
   formError.value = ''
 
   try {
-    // 過濾空的解決方案和成效
+    // 過濾空的解決方案
     const filteredSolutions = formData.value.solutions.filter((s) => s.trim())
-    const filteredResults = formData.value.results.filter((r) => r.trim())
 
     const hasNewFiles = imageFiles.value.length > 0
 
@@ -615,7 +695,6 @@ const submitForm = async () => {
       const caseStudyData = {
         ...formData.value,
         solutions: filteredSolutions,
-        results: filteredResults,
       }
       formDataPayload.append('caseStudyData', JSON.stringify(caseStudyData))
 
@@ -625,7 +704,6 @@ const submitForm = async () => {
       submitData = {
         ...formData.value,
         solutions: filteredSolutions,
-        results: filteredResults,
       }
     }
 

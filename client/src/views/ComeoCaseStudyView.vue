@@ -117,7 +117,7 @@
                   </div>
                 </div>
               </th>
-              <th class="py-3 px-4 relative" ref="sortDropdownRef">
+              <th class="py-3 px-4 lg:px-6 relative" ref="sortDropdownRef">
                 <button
                   @click="toggleSortDropdown"
                   class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
@@ -196,6 +196,13 @@
                 {{ caseStudy.title }}
               </td>
               <td class="py-3 px-4 lg:px-6 theme-text">{{ caseStudy.projectType || '-' }}</td>
+              <td class="py-3 px-4 lg:px-6 theme-text">
+                {{
+                  formatDate(
+                    currentSort.field === 'createdAt' ? caseStudy.createdAt : caseStudy.publishDate,
+                  )
+                }}
+              </td>
               <td class="py-3 px-4 lg:px-6 theme-text">{{ caseStudy.author || '-' }}</td>
               <td
                 class="py-3 px-4 lg:px-6"
@@ -242,7 +249,7 @@
             </tr>
             <tr v-if="!caseStudies || caseStudies.length === 0">
               <td
-                colspan="6"
+                colspan="7"
                 class="text-center py-6"
                 :class="conditionalClass('text-gray-400', 'text-slate-500')"
               >
@@ -531,6 +538,17 @@ onMounted(async () => {
   await loadCaseStudies()
   document.addEventListener('click', handleClickOutside)
 })
+
+// 格式化日期
+const formatDate = (dateString) => {
+  if (!dateString) return '-'
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleDateString() // 使用本地化日期格式
+  } catch {
+    return dateString // 如果轉換失敗，返回原始字串
+  }
+}
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)

@@ -37,16 +37,7 @@ const caseStudySchema = new Schema(
 			}
 		],
 
-		// 5. results - 成效
-		results: [
-			{
-				type: String,
-				required: [true, "成效不能為空"],
-				trim: true
-			}
-		],
-
-		// 6. images - 圖片
+		// 5. images - 圖片
 		images: [
 			{
 				type: String,
@@ -129,11 +120,6 @@ caseStudySchema.virtual("solutionsText").get(function () {
 	return this.solutions.join("、");
 });
 
-// 虛擬欄位：成效字串
-caseStudySchema.virtual("resultsText").get(function () {
-	return this.results.join("、");
-});
-
 // 確保虛擬欄位在 JSON 輸出中包含
 caseStudySchema.set("toJSON", { virtuals: true });
 caseStudySchema.set("toObject", { virtuals: true });
@@ -151,8 +137,7 @@ caseStudySchema.statics.search = function (searchTerm, options = {}) {
 		$or: [
 			{ title: { $regex: searchTerm, $options: "i" } },
 			{ description: { $regex: searchTerm, $options: "i" } },
-			{ solutions: { $in: [new RegExp(searchTerm, "i")] } },
-			{ results: { $in: [new RegExp(searchTerm, "i")] } }
+			{ solutions: { $in: [new RegExp(searchTerm, "i")] } }
 		]
 	};
 	return this.find(query, null, options);
