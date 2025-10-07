@@ -3,7 +3,7 @@
     <div
       :class="[
         cardClass,
-        'w-full max-w-4xl rounded-lg shadow-xl p-6 max-h-[90vh] overflow-y-auto relative',
+        'w-full max-w-3xl rounded-lg shadow-xl p-6 max-h-[90vh] overflow-y-auto relative',
       ]"
     >
       <button
