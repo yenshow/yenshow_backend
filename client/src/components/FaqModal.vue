@@ -931,7 +931,7 @@ const initialFormState = () => ({
     EN: { type: 'doc', content: [{ type: 'paragraph' }] },
   },
   summary: { TW: '', EN: '' },
-  category: { main: { TW: '', EN: '' }, sub: '' },
+  category: { main: { TW: '', EN: '' }, sub: { TW: '', EN: '' } },
   author: '',
   publishDate: formatDateForInput(new Date()),
   productModel: '',
@@ -957,7 +957,9 @@ const resetForm = () => {
   formError.value = ''
   isProcessing.value = false
   questionLanguage.value = 'TW'
+  summaryLanguage.value = 'TW'
   answerLanguage.value = 'TW'
+  subLanguage.value = 'TW'
 }
 
 // 當 TW 類別變更時，自動同步 EN 類別（不顯示 EN 下拉）
