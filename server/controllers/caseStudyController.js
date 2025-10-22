@@ -104,7 +104,21 @@ class CaseStudyController {
 	 */
 	async create(req, res, next) {
 		try {
-			const { title, description, projectType, solutions, isActive = false, author, publishDate } = req.body;
+			// 處理不同的數據格式：FormData 或 JSON
+			let caseStudyData;
+			if (req.body.caseStudyData) {
+				// 如果有 caseStudyData，表示是 FormData 格式
+				try {
+					caseStudyData = JSON.parse(req.body.caseStudyData);
+				} catch (parseError) {
+					throw new ApiError(StatusCodes.BAD_REQUEST, "無效的案例數據格式");
+				}
+			} else {
+				// 直接從 req.body 獲取數據
+				caseStudyData = req.body;
+			}
+
+			const { title, description, projectType, solutions, isActive = false, author, publishDate } = caseStudyData;
 
 			// 驗證必填欄位
 			if (!title || !description || !projectType || !author) {
@@ -156,7 +170,20 @@ class CaseStudyController {
 	async update(req, res, next) {
 		try {
 			const { id } = req.params;
-			const updateData = { ...req.body };
+
+			// 處理不同的數據格式：FormData 或 JSON
+			let updateData;
+			if (req.body.caseStudyData) {
+				// 如果有 caseStudyData，表示是 FormData 格式
+				try {
+					updateData = JSON.parse(req.body.caseStudyData);
+				} catch (parseError) {
+					throw new ApiError(StatusCodes.BAD_REQUEST, "無效的案例數據格式");
+				}
+			} else {
+				// 直接從 req.body 獲取數據
+				updateData = { ...req.body };
+			}
 
 			// 移除不允許更新的欄位
 			delete updateData._id;

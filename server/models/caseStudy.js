@@ -22,7 +22,7 @@ const caseStudySchema = new Schema(
 			type: String,
 			required: [true, "專案類型為必填"],
 			enum: {
-				values: ["智慧製造", "數位轉型", "系統整合", "數據分析", "物聯網", "人工智慧", "其他"],
+				values: ["智慧建築", "系統整合", "安全監控"],
 				message: "專案類型必須是有效的選項"
 			},
 			index: true

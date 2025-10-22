@@ -904,7 +904,8 @@ const validateForm = () => {
   }
 
   if (!isValid && !formError.value) {
-    const firstErrorKey = Object.keys(validationErrors.value)[0]
+    const errorKeys = validationErrors.value ? Object.keys(validationErrors.value) : []
+    const firstErrorKey = errorKeys[0]
     if (firstErrorKey) {
       // Auto-switch to the tab with the first error
       if (firstErrorKey.startsWith('content')) {

@@ -657,7 +657,9 @@ const validateForm = () => {
   }
 
   if (!isValid && !formError.value) {
-    const firstErrorKey = Object.keys(validationErrors.value)[0]
+    // 安全地獲取第一個錯誤鍵
+    const errorKeys = validationErrors.value ? Object.keys(validationErrors.value) : []
+    const firstErrorKey = errorKeys[0]
     if (firstErrorKey) {
       formError.value = validationErrors.value[firstErrorKey] || '表單包含錯誤，請檢查。'
     }

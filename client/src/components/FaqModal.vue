@@ -1098,7 +1098,8 @@ const validateForm = () => {
   }
 
   if (!isValid && !formError.value) {
-    const firstErrorKey = Object.keys(validationErrors.value)[0]
+    const errorKeys = validationErrors.value ? Object.keys(validationErrors.value) : []
+    const firstErrorKey = errorKeys[0]
     if (firstErrorKey) {
       if (firstErrorKey.includes('question.EN')) {
         questionLanguage.value = 'EN'

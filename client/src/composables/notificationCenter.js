@@ -115,7 +115,8 @@ export const useNotificationStore = defineStore('notification', () => {
 
     // 處理後端返回的驗證錯誤
     if (typeof validationErrors === 'object' && validationErrors !== null) {
-      Object.keys(validationErrors).forEach((field) => {
+      const errorKeys = Object.keys(validationErrors)
+      errorKeys.forEach((field) => {
         errors[field] = Array.isArray(validationErrors[field])
           ? validationErrors[field][0]
           : validationErrors[field]
