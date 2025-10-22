@@ -332,15 +332,7 @@ const selectedCaseStudy = ref(null)
 const deletingItem = ref(null)
 
 // 專案類型列表
-const projectTypes = ref([
-  '智慧製造',
-  '數位轉型',
-  '系統整合',
-  '數據分析',
-  '物聯網',
-  '人工智慧',
-  '其他',
-])
+const projectTypes = ref(['智慧建築', '系統整合', '安全監控'])
 
 // 專案類型篩選
 const projectTypeDropdownRef = ref(null)

@@ -488,15 +488,7 @@ const imageInputRef = ref(null)
 // 專案類型下拉選單相關
 const projectTypeDropdownRef = ref(null)
 const isProjectTypeDropdownOpen = ref(false)
-const projectTypes = ref([
-  '智慧製造',
-  '數位轉型',
-  '系統整合',
-  '數據分析',
-  '物聯網',
-  '人工智慧',
-  '其他',
-])
+const projectTypes = ref(['智慧建築', '系統整合', '安全監控'])
 
 const inputClass = computed(() => [
   themeInputClass.value,
