@@ -574,6 +574,7 @@ class FileUpload {
 	 */
 	getCaseStudyUploadMiddleware() {
 		return this.upload.fields([
+			{ name: "coverImage", maxCount: 1 },
 			{ name: "images", maxCount: MAX_CASE_STUDY_IMAGES },
 			{ name: "documents", maxCount: 5 },
 			{ name: "videos", maxCount: 3 }
