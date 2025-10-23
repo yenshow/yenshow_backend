@@ -118,7 +118,7 @@ class CaseStudyController {
 				caseStudyData = req.body;
 			}
 
-			const { title, description, projectType, solutions, isActive = false, author, publishDate } = caseStudyData;
+			const { title, description, projectType, solutions, coverImageUrl, isActive = false, author, publishDate } = caseStudyData;
 
 			// 驗證必填欄位
 			if (!title || !description || !projectType || !author) {
@@ -136,6 +136,7 @@ class CaseStudyController {
 				description,
 				projectType,
 				solutions,
+				coverImageUrl,
 				images: [],
 				isActive,
 				author,
@@ -143,6 +144,22 @@ class CaseStudyController {
 			});
 
 			await caseStudy.save();
+
+			// 處理封面圖上傳
+			if (req.files && req.files.coverImage && req.files.coverImage.length > 0) {
+				const entityContext = { id: caseStudy._id.toString(), name: caseStudy.title };
+				const coverImageFile = req.files.coverImage[0];
+				const coverImageUrl = fileUpload.saveAsset(
+					coverImageFile.buffer,
+					"case-studies",
+					entityContext,
+					"cover",
+					coverImageFile.originalname,
+					"case_study_cover"
+				);
+				caseStudy.coverImageUrl = coverImageUrl;
+				await caseStudy.save();
+			}
 
 			// 處理檔案上傳 - 整合到主要創建流程中
 			if (req.files && req.files.images && req.files.images.length > 0) {
@@ -201,6 +218,32 @@ class CaseStudyController {
 				throw new ApiError(StatusCodes.NOT_FOUND, "合作案例不存在");
 			}
 
+			// 處理封面圖更新
+			if (req.files && req.files.coverImage && req.files.coverImage.length > 0) {
+				const entityContext = { id: existingCaseStudy._id.toString(), name: existingCaseStudy.title };
+				const coverImageFile = req.files.coverImage[0];
+
+				// 刪除舊封面圖
+				if (existingCaseStudy.coverImageUrl && existingCaseStudy.coverImageUrl.startsWith("/storage")) {
+					try {
+						fileUpload.deleteFileByWebPath(existingCaseStudy.coverImageUrl);
+					} catch (deleteError) {
+						console.error("刪除舊封面圖失敗:", existingCaseStudy.coverImageUrl, deleteError);
+					}
+				}
+
+				// 上傳新封面圖
+				const coverImageUrl = fileUpload.saveAsset(
+					coverImageFile.buffer,
+					"case-studies",
+					entityContext,
+					"cover",
+					coverImageFile.originalname,
+					"case_study_cover"
+				);
+				updateData.coverImageUrl = coverImageUrl;
+			}
+
 			// 處理圖片更新
 			if (req.files && req.files.images && req.files.images.length > 0) {
 				const entityContext = { id: existingCaseStudy._id.toString(), name: existingCaseStudy.title };
@@ -254,6 +297,15 @@ class CaseStudyController {
 
 			if (!caseStudy) {
 				throw new ApiError(StatusCodes.NOT_FOUND, "合作案例不存在");
+			}
+
+			// 刪除封面圖
+			if (caseStudy.coverImageUrl && caseStudy.coverImageUrl.startsWith("/storage")) {
+				try {
+					fileUpload.deleteFileByWebPath(caseStudy.coverImageUrl);
+				} catch (deleteError) {
+					console.error("刪除封面圖失敗:", caseStudy.coverImageUrl, deleteError);
+				}
 			}
 
 			// 從資料庫刪除

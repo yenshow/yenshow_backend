@@ -274,6 +274,67 @@
 
           <!-- 附加檔案 -->
           <div v-show="currentTab === 'attachments'">
+            <!-- 封面圖上傳 -->
+            <div class="mb-6">
+              <label class="block mb-3 theme-text">封面圖片</label>
+              <div
+                class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
+                :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                @click="triggerCoverImageInput"
+              >
+                <div class="space-y-1 text-center">
+                  <svg
+                    class="mx-auto h-12 w-12"
+                    :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                    stroke="currentColor"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                      d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                    />
+                  </svg>
+                  <div
+                    class="flex text-sm"
+                    :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                  >
+                    <p class="pl-1">點擊上傳封面圖片</p>
+                  </div>
+                  <p class="text-xs" :class="conditionalClass('text-gray-600', 'text-gray-500')">
+                    PNG, JPG, GIF, WEBP, SVG
+                  </p>
+                </div>
+                <input
+                  ref="coverImageInputRef"
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  @change="handleCoverImageFile"
+                />
+              </div>
+              <!-- 封面圖預覽 -->
+              <div v-if="formData.coverImageUrl || coverImageFile" class="mt-4">
+                <div class="relative inline-block">
+                  <img
+                    :src="coverImageFile ? coverImageFile.previewUrl : formData.coverImageUrl"
+                    alt="Cover image"
+                    class="w-32 h-24 object-cover rounded-md"
+                  />
+                  <button
+                    type="button"
+                    @click="removeCoverImage"
+                    class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs opacity-75 hover:opacity-100"
+                  >
+                    &#x2715;
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <!-- 圖片上傳 -->
             <div class="mb-6">
               <label class="block mb-3 theme-text">圖片 (可上傳多張)</label>
@@ -485,6 +546,10 @@ const tabs = [
 const imageFiles = ref([])
 const imageInputRef = ref(null)
 
+// 封面圖上傳相關
+const coverImageFile = ref(null)
+const coverImageInputRef = ref(null)
+
 // 專案類型下拉選單相關
 const projectTypeDropdownRef = ref(null)
 const isProjectTypeDropdownOpen = ref(false)
@@ -500,6 +565,7 @@ const formData = ref({
   description: '',
   projectType: '',
   solutions: [''],
+  coverImageUrl: '',
   images: [],
   author: '',
   publishDate: new Date().toISOString().split('T')[0],
@@ -512,13 +578,16 @@ const resetForm = () => {
     description: '',
     projectType: '',
     solutions: [''],
+    coverImageUrl: '',
     images: [],
     author: '',
     publishDate: new Date().toISOString().split('T')[0],
     isActive: false,
   }
   imageFiles.value = []
+  coverImageFile.value = null
   if (imageInputRef.value) imageInputRef.value.value = ''
+  if (coverImageInputRef.value) coverImageInputRef.value.value = ''
   clearErrors()
   formError.value = ''
   isSubmitting.value = false
@@ -536,6 +605,7 @@ watch(
         description: newCaseStudy.description || '',
         projectType: newCaseStudy.projectType || '',
         solutions: newCaseStudy.solutions?.length ? [...newCaseStudy.solutions] : [''],
+        coverImageUrl: newCaseStudy.coverImageUrl || '',
         images: newCaseStudy.images || [],
         author: newCaseStudy.author || '',
         publishDate: newCaseStudy.publishDate
@@ -570,6 +640,28 @@ const toggleProjectTypeDropdown = () => {
 const selectProjectType = (type) => {
   formData.value.projectType = type
   isProjectTypeDropdownOpen.value = false
+}
+
+// 封面圖上傳相關函數
+const triggerCoverImageInput = () => coverImageInputRef.value?.click()
+
+const handleCoverImageFile = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    const fileWithPreview = Object.assign(file, {
+      previewUrl: URL.createObjectURL(file),
+    })
+    coverImageFile.value = fileWithPreview
+  }
+  if (coverImageInputRef.value) coverImageInputRef.value.value = ''
+}
+
+const removeCoverImage = () => {
+  if (coverImageFile.value) {
+    URL.revokeObjectURL(coverImageFile.value.previewUrl)
+    coverImageFile.value = null
+  }
+  formData.value.coverImageUrl = ''
 }
 
 // 圖片上傳相關函數
@@ -673,12 +765,17 @@ const submitForm = async () => {
     // 過濾空的解決方案
     const filteredSolutions = formData.value.solutions.filter((s) => s.trim())
 
-    const hasNewFiles = imageFiles.value.length > 0
+    const hasNewFiles = imageFiles.value.length > 0 || coverImageFile.value
 
     let submitData
     if (hasNewFiles) {
       // 如果有新檔案，使用 FormData
       const formDataPayload = new FormData()
+
+      // 添加封面圖
+      if (coverImageFile.value) {
+        formDataPayload.append('coverImage', coverImageFile.value)
+      }
 
       // 添加新圖片
       imageFiles.value.forEach((file) => {

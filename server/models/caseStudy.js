@@ -37,7 +37,13 @@ const caseStudySchema = new Schema(
 			}
 		],
 
-		// 5. images - 圖片
+		// 5. coverImageUrl - 封面圖片 URL
+		coverImageUrl: {
+			type: String,
+			trim: true
+		},
+
+		// 6. images - 圖片
 		images: [
 			{
 				type: String,
@@ -45,14 +51,14 @@ const caseStudySchema = new Schema(
 			}
 		],
 
-		// 7. isActive - 是否啟用
+		// 8. isActive - 是否啟用
 		isActive: {
 			type: Boolean,
 			default: false,
 			index: true
 		},
 
-		// 8. slug - URL 友好字串
+		// 9. slug - URL 友好字串
 		slug: {
 			type: String,
 			unique: true,
@@ -62,14 +68,14 @@ const caseStudySchema = new Schema(
 			trim: true
 		},
 
-		// 9. author - 作者
+		// 10. author - 作者
 		author: {
 			type: String,
 			required: [true, "作者為必填"],
 			trim: true
 		},
 
-		// 10. publishDate - 發布日期
+		// 11. publishDate - 發布日期
 		publishDate: {
 			type: Date,
 			default: Date.now,
@@ -110,8 +116,13 @@ caseStudySchema.pre("save", async function (next) {
 	next();
 });
 
-// 虛擬欄位：主要圖片
+// 虛擬欄位：主要圖片（優先使用封面圖片）
 caseStudySchema.virtual("mainImage").get(function () {
+	// 如果有封面圖片，優先使用封面圖片
+	if (this.coverImageUrl) {
+		return this.coverImageUrl;
+	}
+	// 否則使用第一張圖片
 	return this.images.length > 0 ? this.images[0] : null;
 });
 
