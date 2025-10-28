@@ -139,11 +139,11 @@ class CaseStudyController {
 				caseStudyData = req.body;
 			}
 
-			const { title, description, projectType, solutions, coverImageUrl, isActive = false, author, publishDate } = caseStudyData;
+			const { title, companyName, description, projectType, solutions, coverImageUrl, isActive = false, author, publishDate } = caseStudyData;
 
 			// 驗證必填欄位
-			if (!title || !description || !projectType || !author) {
-				throw new ApiError(StatusCodes.BAD_REQUEST, "標題、描述、專案類型和作者為必填欄位");
+			if (!title || !companyName || !description || !projectType || !author) {
+				throw new ApiError(StatusCodes.BAD_REQUEST, "標題、公司名稱、描述、專案類型和作者為必填欄位");
 			}
 
 			// 驗證 solutions 陣列
@@ -154,6 +154,7 @@ class CaseStudyController {
 			// 建立案例
 			const caseStudy = new CaseStudy({
 				title,
+				companyName,
 				description,
 				projectType,
 				solutions,

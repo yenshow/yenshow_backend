@@ -631,6 +631,7 @@ import { useFaqStore } from '@/stores/faqStore'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { useNotifications } from '@/composables/notificationCenter'
 import { useLanguageStore } from '@/stores/core/languageStore'
+import { useApi } from '@/composables/axios'
 import NewsModal from '@/components/news/NewsModal.vue'
 import FaqModal from '@/components/FaqModal.vue'
 
@@ -641,10 +642,14 @@ const notify = useNotifications()
 const { cardClass, conditionalClass } = useThemeClass()
 
 // 本地狀態
-const loading = ref(false)
+const error = ref('')
 const showLoading = ref(false)
 let loadingTimer = null
-const error = ref('')
+// 從 store 獲取 loading 狀態
+const loading = computed(() => {
+  const store = currentStore()
+  return store ? store.isLoading : false
+})
 const activeTab = ref('news') // 'news' or 'faq'
 const showModal = ref(false)
 const editingItem = ref(null) // 正在編輯的項目 (News 或 Faq)
@@ -797,7 +802,6 @@ onMounted(async () => {
   await fetchData()
   // 初次加載全量分類（避免下拉選項隨列表改變）
   try {
-    const { useApi } = await import('@/composables/axios')
     const { entityApi } = useApi()
     const api = entityApi('news', { responseKey: 'news' })
     allNewsCategories.value = await api.getCategories()
@@ -838,7 +842,6 @@ const handleClickOutside = (event) => {
 const loadAllNewsForSelection = async () => {
   try {
     // 直接使用 API 而不是透過 store，避免覆蓋主要的 items
-    const { useApi } = await import('@/composables/axios')
     const { entityApi } = useApi()
     const api = entityApi('news', { responseKey: 'news' })
     const result = await api.getAll({ limit: 1000 })
@@ -851,7 +854,6 @@ const loadAllNewsForSelection = async () => {
 
 // 獲取數據
 const fetchData = async () => {
-  loading.value = true
   error.value = ''
   const store = currentStore()
   const entityName = activeTab.value === 'news' ? '最新消息' : '常見問題'
@@ -874,17 +876,11 @@ const fetchData = async () => {
     const p = store.pagination || {}
     pagination.value.currentPage = p.page || 1
     pagination.value.totalPages = p.pages || 1
-
-    if (!store.items || store.items.length === 0) {
-      notify.notifyInfo(`目前沒有任何${entityName}`)
-    }
   } catch (err) {
     console.error(`載入${entityName}失敗：`, err)
     const message = err.message || `載入${entityName}失敗，請重新整理頁面`
     error.value = message
     notify.notifyError(message)
-  } finally {
-    loading.value = false
   }
 }
 

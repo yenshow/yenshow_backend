@@ -432,7 +432,7 @@ const { cardClass, conditionalClass } = useThemeClass()
 
 // 本地狀態
 const userList = ref([])
-const loading = ref(false)
+const loading = computed(() => userStore.loading)
 const error = ref('')
 const showCreateUserModal = ref(false)
 const activeTab = ref('all') // 新增：當前標籤頁，預設為全部用戶
@@ -523,7 +523,6 @@ onMounted(async () => {
 
 // 獲取用戶列表
 const fetchUsers = async () => {
-  loading.value = true
   error.value = ''
 
   try {
@@ -538,8 +537,6 @@ const fetchUsers = async () => {
     console.error('載入用戶列表失敗：', err)
     error.value = typeof err === 'string' ? err : '載入用戶列表失敗，請重新整理頁面'
     notify.notifyError(error.value)
-  } finally {
-    loading.value = false
   }
 }
 

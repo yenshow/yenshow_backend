@@ -321,19 +321,18 @@ const siteStore = useSiteStore()
 const caseStudyStore = useCaseStudyStore()
 
 // 響應式資料
-const loading = ref(false)
-const showLoading = ref(false)
-let loadingTimer = null
 const error = ref('')
 const caseStudies = computed(() => caseStudyStore.items)
+const loading = computed(() => caseStudyStore.isLoading)
+const showLoading = ref(false)
+let loadingTimer = null
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const selectedCaseStudy = ref(null)
 const deletingItem = ref(null)
 
-// 專案類型列表（從後端動態獲取）
-const allProjectTypes = ref([])
-const projectTypes = computed(() => allProjectTypes.value)
+// 專案類型列表（靜態定義，避免額外請求）
+const projectTypes = ref(['智慧建築', '系統整合', '安全監控'])
 
 // 專案類型篩選
 const projectTypeDropdownRef = ref(null)
@@ -373,7 +372,6 @@ const pagination = ref({
 // 載入案例列表
 const loadCaseStudies = async () => {
   try {
-    loading.value = true
     error.value = ''
 
     const params = {
@@ -389,17 +387,11 @@ const loadCaseStudies = async () => {
     // 更新分頁資訊
     pagination.value.currentPage = caseStudyStore.pagination.current || 1
     pagination.value.totalPages = caseStudyStore.pagination.total || 1
-
-    if (!caseStudyStore.items || caseStudyStore.items.length === 0) {
-      notify.notifyInfo('目前沒有任何合作案例')
-    }
   } catch (err) {
     console.error('載入案例失敗：', err)
     const message = err.message || '載入案例失敗，請重新整理頁面'
     error.value = message
     notify.notifyError(message)
-  } finally {
-    loading.value = false
   }
 }
 
@@ -522,25 +514,11 @@ onMounted(async () => {
   // 確保設置為 comeo site
   siteStore.setSite('comeo')
 
-  // 重新創建 API 實例以使用新的 baseURL 和正確的攔截器
-  const { recreateApiInstances } = await import('@/composables/axios')
-  recreateApiInstances()
-
-  // 載入專案類型選項
-  try {
-    const { useApi } = await import('@/composables/axios')
-    const { apiRequest } = useApi()
-    const result = await apiRequest('/case-studies/project-types', 'GET')
-    allProjectTypes.value = result.projectTypes || []
-  } catch (e) {
-    console.warn('載入專案類型清單失敗，使用預設值', e?.message || e)
-    // 如果 API 失敗，使用預設值
-    allProjectTypes.value = ['智慧建築', '系統整合', '安全監控']
-  }
-
+  // 設定分頁並載入資料（一次請求）
   pagination.value.currentPage = 1
   pagination.value.itemsPerPage = 10
   await loadCaseStudies()
+
   document.addEventListener('click', handleClickOutside)
 })
 

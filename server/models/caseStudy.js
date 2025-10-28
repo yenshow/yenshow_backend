@@ -10,14 +10,22 @@ const caseStudySchema = new Schema(
 			trim: true
 		},
 
-		// 2. description - 案例描述
+		// 2. companyName - 公司名稱
+		companyName: {
+			type: String,
+			required: [true, "公司名稱為必填"],
+			trim: true,
+			index: true
+		},
+
+		// 3. description - 案例描述
 		description: {
 			type: String,
 			required: [true, "案例描述為必填"],
 			trim: true
 		},
 
-		// 3. projectType - 專案類型（用於分類）
+		// 4. projectType - 專案類型（用於分類）
 		projectType: {
 			type: String,
 			required: [true, "專案類型為必填"],
@@ -28,7 +36,7 @@ const caseStudySchema = new Schema(
 			index: true
 		},
 
-		// 4. solutions - 解決方案（手動填入，如：智慧門禁、可視對講等）
+		// 5. solutions - 解決方案（手動填入，如：智慧門禁、可視對講等）
 		solutions: [
 			{
 				type: String,
@@ -37,13 +45,13 @@ const caseStudySchema = new Schema(
 			}
 		],
 
-		// 5. coverImageUrl - 封面圖片 URL
+		// 6. coverImageUrl - 封面圖片 URL
 		coverImageUrl: {
 			type: String,
 			trim: true
 		},
 
-		// 6. images - 圖片
+		// 7. images - 圖片
 		images: [
 			{
 				type: String,
