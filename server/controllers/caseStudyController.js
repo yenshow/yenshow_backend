@@ -2,6 +2,7 @@ import CaseStudy from "../models/caseStudy.js";
 import { StatusCodes } from "http-status-codes";
 import { ApiError, successResponse, errorResponse } from "../utils/responseHandler.js";
 import fileUpload from "../utils/fileUpload.js";
+import { performSearch } from "../utils/searchHelper.js";
 
 class CaseStudyController {
 	/**
@@ -34,30 +35,29 @@ class CaseStudyController {
 			// 解析排序
 			const allowedSortFields = ["publishDate", "createdAt"];
 			const sortField = allowedSortFields.includes(sort) ? sort : "publishDate";
-			const order = sortDirection === "asc" ? 1 : -1; // 預設 desc
-			const sortOption = sortField === "createdAt" ? { createdAt: order } : { [sortField]: order, createdAt: -1 };
+			const sortDir = sortDirection === "asc" ? "asc" : "desc"; // 預設 desc
 
-			// 搜尋功能
-			let query = CaseStudy.find(filter);
-			if (search) {
-				query = CaseStudy.search(search, { sort: sortOption });
-			} else {
-				query = query.sort(sortOption);
-			}
+			// 定義搜尋欄位：標題、描述、解決方案
+			const searchFields = ["title", "description", "solutions"];
 
-			// 分頁設定
-			const skip = (parseInt(page) - 1) * parseInt(limit);
-			query = query.skip(skip).limit(parseInt(limit));
-
-			// 執行查詢
-			const [caseStudies, total] = await Promise.all([query.lean(), search ? CaseStudy.countDocuments(filter) : CaseStudy.countDocuments(filter)]);
+			// 使用統一的 performSearch
+			const searchResults = await performSearch({
+				model: CaseStudy,
+				keyword: search,
+				additionalConditions: filter,
+				searchFields: searchFields,
+				sort: sortField,
+				sortDirection: sortDir,
+				page: parseInt(page),
+				limit: parseInt(limit)
+			});
 
 			return successResponse(res, StatusCodes.OK, "獲取合作案例成功", {
-				caseStudies,
+				caseStudies: searchResults.items,
 				pagination: {
 					current: parseInt(page),
-					total: Math.ceil(total / parseInt(limit)),
-					count: total
+					total: Math.ceil(searchResults.total / parseInt(limit)),
+					count: searchResults.total
 				}
 			});
 		} catch (error) {
@@ -107,14 +107,26 @@ class CaseStudyController {
 	async getByProjectType(req, res, next) {
 		try {
 			const { projectType } = req.params;
-			const { limit = 10, sort = "-publishDate" } = req.query;
+			const { limit = 10, sort = "publishDate" } = req.query;
 
-			const caseStudies = await CaseStudy.findByProjectType(projectType, {
-				sort,
+			// 建立查詢條件
+			const filter = { projectType, isActive: true };
+
+			// 使用統一的 performSearch（不需要關鍵字搜尋）
+			const searchResults = await performSearch({
+				model: CaseStudy,
+				keyword: null,
+				additionalConditions: filter,
+				searchFields: ["title", "description", "solutions"],
+				sort: sort,
+				sortDirection: "desc",
+				page: 1,
 				limit: parseInt(limit)
 			});
 
-			return successResponse(res, StatusCodes.OK, "獲取專案類型案例成功", { caseStudies });
+			return successResponse(res, StatusCodes.OK, "獲取專案類型案例成功", {
+				caseStudies: searchResults.items
+			});
 		} catch (error) {
 			next(error);
 		}
@@ -357,19 +369,28 @@ class CaseStudyController {
 				throw new ApiError(StatusCodes.BAD_REQUEST, "搜尋關鍵字不能為空");
 			}
 
-			const skip = (parseInt(page) - 1) * parseInt(limit);
-			const caseStudies = await CaseStudy.search(q.trim(), {
-				sort: "-publishDate",
-				skip,
+			// 定義搜尋欄位：標題、描述、解決方案
+			const searchFields = ["title", "description", "solutions"];
+
+			// 使用統一的 performSearch
+			const searchResults = await performSearch({
+				model: CaseStudy,
+				keyword: q.trim(),
+				additionalConditions: { isActive: true },
+				searchFields: searchFields,
+				sort: "publishDate",
+				sortDirection: "desc",
+				page: parseInt(page),
 				limit: parseInt(limit)
 			});
 
 			return successResponse(res, StatusCodes.OK, "搜尋完成", {
-				caseStudies,
+				caseStudies: searchResults.items,
 				searchTerm: q.trim(),
 				pagination: {
 					current: parseInt(page),
-					limit: parseInt(limit)
+					total: Math.ceil(searchResults.total / parseInt(limit)),
+					count: searchResults.total
 				}
 			});
 		} catch (error) {

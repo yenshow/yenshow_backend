@@ -162,23 +162,4 @@ caseStudySchema.set("toObject", transformOptions);
 caseStudySchema.set("toJSON", transformOptions);
 // --- 配置結束 ---
 
-// 靜態方法：根據專案類型查詢
-caseStudySchema.statics.findByProjectType = function (projectType, options = {}) {
-	const query = { projectType, isActive: true };
-	return this.find(query, null, options);
-};
-
-// 靜態方法：搜尋案例
-caseStudySchema.statics.search = function (searchTerm, options = {}) {
-	const query = {
-		isActive: true,
-		$or: [
-			{ title: { $regex: searchTerm, $options: "i" } },
-			{ description: { $regex: searchTerm, $options: "i" } },
-			{ solutions: { $in: [new RegExp(searchTerm, "i")] } }
-		]
-	};
-	return this.find(query, null, options);
-};
-
 export default model("CaseStudy", caseStudySchema);
