@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose";
+import slugify from "slugify";
 
 const caseStudySchema = new Schema(
 	{
@@ -93,18 +94,16 @@ caseStudySchema.index({ publishDate: -1, isActive: 1 });
 // 生成 slug 的 pre-save hook
 caseStudySchema.pre("save", async function (next) {
 	if ((this.isModified("title") || this.isNew) && this.title) {
-		const slugify = (text) =>
-			text
-				.toString()
-				.toLowerCase()
-				.replace(/\s+/g, "-") // 使用連字號替換空格
-				.replace(/[^\w\-]+/g, "") // 移除所有非單詞字符（除了連字號）
-				.replace(/\-\-+/g, "-") // 將多個連字號替換為單個
-				.replace(/^-+/, "") // 從開頭移除連字號
-				.replace(/-+$/, ""); // 從結尾移除連字號
-
 		const Model = this.constructor;
-		const baseSlug = slugify(this.title);
+
+		// 使用 slugify 套件處理中文和其他多語言字符
+		const baseSlug = slugify(this.title, {
+			lower: true,
+			strict: true,
+			locale: "zh",
+			trim: true
+		});
+
 		let slug = baseSlug;
 		let counter = 1;
 

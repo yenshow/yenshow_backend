@@ -7,6 +7,7 @@ import CaseStudyController from "../controllers/caseStudyController.js";
 const router = express.Router();
 
 // 公開路由 - 任何人都可訪問
+router.get("/case-studies/project-types", CaseStudyController.getProjectTypes);
 router.get("/case-studies", CaseStudyController.getAll);
 router.get("/case-studies/slug/:slug", CaseStudyController.getBySlug);
 router.get("/case-studies/project-type/:projectType", CaseStudyController.getByProjectType);

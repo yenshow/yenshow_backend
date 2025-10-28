@@ -5,23 +5,44 @@ import fileUpload from "../utils/fileUpload.js";
 
 class CaseStudyController {
 	/**
+	 * 獲取專案類型列表
+	 */
+	async getProjectTypes(req, res, next) {
+		try {
+			// 從 Schema 獲取 enum 值
+			const projectTypeEnum = CaseStudy.schema.path("projectType").enumValues || [];
+			return successResponse(res, StatusCodes.OK, "獲取專案類型成功", {
+				projectTypes: projectTypeEnum
+			});
+		} catch (error) {
+			next(error);
+		}
+	}
+
+	/**
 	 * 獲取所有合作案例
 	 */
 	async getAll(req, res, next) {
 		try {
-			const { page = 1, limit = 10, projectType, isActive, search, sort = "-publishDate" } = req.query;
+			const { page = 1, limit = 10, projectType, isActive, search, sort, sortDirection } = req.query;
 
 			// 建立查詢條件
 			const filter = {};
 			if (projectType) filter.projectType = projectType;
 			if (isActive !== undefined) filter.isActive = isActive === "true";
 
+			// 解析排序
+			const allowedSortFields = ["publishDate", "createdAt"];
+			const sortField = allowedSortFields.includes(sort) ? sort : "publishDate";
+			const order = sortDirection === "asc" ? 1 : -1; // 預設 desc
+			const sortOption = sortField === "createdAt" ? { createdAt: order } : { [sortField]: order, createdAt: -1 };
+
 			// 搜尋功能
 			let query = CaseStudy.find(filter);
 			if (search) {
-				query = CaseStudy.search(search, { sort });
+				query = CaseStudy.search(search, { sort: sortOption });
 			} else {
-				query = query.sort(sort);
+				query = query.sort(sortOption);
 			}
 
 			// 分頁設定

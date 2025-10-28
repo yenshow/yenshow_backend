@@ -331,8 +331,9 @@ const showEditModal = ref(false)
 const selectedCaseStudy = ref(null)
 const deletingItem = ref(null)
 
-// 專案類型列表
-const projectTypes = ref(['智慧建築', '系統整合', '安全監控'])
+// 專案類型列表（從後端動態獲取）
+const allProjectTypes = ref([])
+const projectTypes = computed(() => allProjectTypes.value)
 
 // 專案類型篩選
 const projectTypeDropdownRef = ref(null)
@@ -408,7 +409,7 @@ watch(loading, (val) => {
     if (loadingTimer) clearTimeout(loadingTimer)
     loadingTimer = setTimeout(() => {
       showLoading.value = true
-    }, 200) // 200ms 後仍在載入才顯示
+    }, 100) // 100ms 後仍在載入才顯示
   } else {
     if (loadingTimer) {
       clearTimeout(loadingTimer)
@@ -524,6 +525,18 @@ onMounted(async () => {
   // 重新創建 API 實例以使用新的 baseURL 和正確的攔截器
   const { recreateApiInstances } = await import('@/composables/axios')
   recreateApiInstances()
+
+  // 載入專案類型選項
+  try {
+    const { useApi } = await import('@/composables/axios')
+    const { apiRequest } = useApi()
+    const result = await apiRequest('/case-studies/project-types', 'GET')
+    allProjectTypes.value = result.projectTypes || []
+  } catch (e) {
+    console.warn('載入專案類型清單失敗，使用預設值', e?.message || e)
+    // 如果 API 失敗，使用預設值
+    allProjectTypes.value = ['智慧建築', '系統整合', '安全監控']
+  }
 
   pagination.value.currentPage = 1
   pagination.value.itemsPerPage = 10
