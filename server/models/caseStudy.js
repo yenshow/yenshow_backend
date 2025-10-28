@@ -1,5 +1,4 @@
 import { Schema, model } from "mongoose";
-import slugify from "slugify";
 
 const caseStudySchema = new Schema(
 	{
@@ -63,9 +62,7 @@ const caseStudySchema = new Schema(
 			type: String,
 			unique: true,
 			sparse: true,
-			lowercase: true,
-			index: true,
-			trim: true
+			lowercase: true
 		},
 
 		// 10. author - 作者
@@ -92,30 +89,42 @@ const caseStudySchema = new Schema(
 caseStudySchema.index({ projectType: 1, isActive: 1 });
 caseStudySchema.index({ publishDate: -1, isActive: 1 });
 
+// --- HOOKS ---
 // 生成 slug 的 pre-save hook
 caseStudySchema.pre("save", async function (next) {
-	// 只有在標題改變且沒有 slug 時才生成
-	if (this.isModified("title") && !this.slug) {
-		const baseSlug = slugify(this.title, {
-			lower: true,
-			strict: true,
-			locale: "zh"
-		});
+	if ((this.isModified("title") || this.isNew) && this.title) {
+		const slugify = (text) =>
+			text
+				.toString()
+				.toLowerCase()
+				.replace(/\s+/g, "-") // 使用連字號替換空格
+				.replace(/[^\w\-]+/g, "") // 移除所有非單詞字符（除了連字號）
+				.replace(/\-\-+/g, "-") // 將多個連字號替換為單個
+				.replace(/^-+/, "") // 從開頭移除連字號
+				.replace(/-+$/, ""); // 從結尾移除連字號
 
+		const Model = this.constructor;
+		const baseSlug = slugify(this.title);
 		let slug = baseSlug;
 		let counter = 1;
 
 		// 確保 slug 唯一性
-		while (await this.constructor.findOne({ slug })) {
-			slug = `${baseSlug}-${counter}`;
+		while (true) {
+			const existingDoc = await Model.findOne({ slug: slug });
+			// 如果沒有文件存在，或現有文件就是當前文件，則 slug 是唯一的
+			if (!existingDoc || existingDoc._id.equals(this._id)) {
+				break;
+			}
+			// 否則，slug 已被使用，生成新的
 			counter++;
+			slug = `${baseSlug}-${counter}`;
 		}
-
 		this.slug = slug;
 	}
 	next();
 });
 
+// --- VIRTUALS ---
 // 虛擬欄位：主要圖片（優先使用封面圖片）
 caseStudySchema.virtual("mainImage").get(function () {
 	// 如果有封面圖片，優先使用封面圖片
@@ -131,9 +140,21 @@ caseStudySchema.virtual("solutionsText").get(function () {
 	return this.solutions.join("、");
 });
 
-// 確保虛擬欄位在 JSON 輸出中包含
-caseStudySchema.set("toJSON", { virtuals: true });
-caseStudySchema.set("toObject", { virtuals: true });
+// --- 添加轉換配置 ---
+const transformOptions = {
+	virtuals: true,
+	versionKey: false,
+	transform: function (doc, ret) {
+		// 轉換 _id 為字符串
+		if (ret._id) {
+			ret._id = ret._id.toString();
+		}
+		return ret;
+	}
+};
+caseStudySchema.set("toObject", transformOptions);
+caseStudySchema.set("toJSON", transformOptions);
+// --- 配置結束 ---
 
 // 靜態方法：根據專案類型查詢
 caseStudySchema.statics.findByProjectType = function (projectType, options = {}) {

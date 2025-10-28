@@ -207,11 +207,6 @@ class CaseStudyController {
 			delete updateData.createdAt;
 			delete updateData.updatedAt;
 
-			// 如果更新標題，清除 slug 讓它重新生成
-			if (updateData.title) {
-				updateData.slug = undefined;
-			}
-
 			// 獲取現有案例以處理圖片更新
 			const existingCaseStudy = await CaseStudy.findById(id);
 			if (!existingCaseStudy) {
@@ -279,7 +274,15 @@ class CaseStudyController {
 				}
 			}
 
-			const caseStudy = await CaseStudy.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+			// 套用更新到現有案例
+			Object.keys(updateData).forEach((key) => {
+				if (updateData[key] !== undefined) {
+					existingCaseStudy[key] = updateData[key];
+				}
+			});
+
+			// 使用 save() 以觸發 pre-save hook（會自動重新生成 slug）
+			const caseStudy = await existingCaseStudy.save();
 
 			return successResponse(res, StatusCodes.OK, "合作案例更新成功", { caseStudy });
 		} catch (error) {
