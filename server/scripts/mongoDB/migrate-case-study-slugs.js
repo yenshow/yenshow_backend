@@ -17,7 +17,9 @@ dotenv.config({ path: join(__dirname, "../../.env") });
 async function migrateCaseStudySlugs() {
 	try {
 		// 連接資料庫
-		const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/yenshow";
+		// 預設使用虛擬機內部 IP
+		const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || "mongodb://192.168.1.24:27017/yenshow";
+		console.log(`🔗 嘗試連接到: ${mongoUri}`);
 		await mongoose.connect(mongoUri);
 		console.log("✅ 已連接到 MongoDB");
 
