@@ -173,6 +173,21 @@
                 </p>
               </div>
 
+              <!-- 公司名稱 -->
+              <div class="mb-2">
+                <label class="block mb-3 theme-text">公司名稱 *</label>
+                <input
+                  v-model="formData.companyName"
+                  type="text"
+                  required
+                  :class="[inputClass, validationErrors.companyName ? 'border-red-500' : '']"
+                  placeholder="輸入公司名稱"
+                />
+                <p v-if="validationErrors.companyName" class="text-red-500 text-xs mt-1">
+                  {{ validationErrors.companyName }}
+                </p>
+              </div>
+
               <!-- 作者 -->
               <div class="mb-6">
                 <label class="block mb-3 theme-text">作者 *</label>
@@ -190,7 +205,7 @@
 
               <!-- 發布日期 -->
               <div class="mb-6">
-                <label class="block mb-3 theme-text">發布日期</label>
+                <label class="block mb-3 theme-text">發布日期 *</label>
                 <input
                   v-model="formData.publishDate"
                   type="date"
@@ -199,6 +214,27 @@
                 <p v-if="validationErrors.publishDate" class="text-red-500 text-xs mt-1">
                   {{ validationErrors.publishDate }}
                 </p>
+              </div>
+
+              <!-- 發布狀態 -->
+              <div class="mb-6">
+                <label for="caseStudyIsActive" class="block mb-3 theme-text">發布狀態 *</label>
+                <div v-if="isAdmin">
+                  <select id="caseStudyIsActive" v-model="formData.isActive" :class="[inputClass]">
+                    <option :value="false" class="text-black/70">未發布</option>
+                    <option :value="true" class="text-black/70">已發布</option>
+                  </select>
+                </div>
+                <div v-else-if="isEdit && !isAdmin">
+                  <p :class="[inputClass, 'bg-opacity-50 cursor-not-allowed']">
+                    {{ formData.isActive ? '已發布' : '未發布' }}
+                  </p>
+                </div>
+                <div v-else>
+                  <p :class="[inputClass, 'bg-opacity-50 cursor-not-allowed']">
+                    未發布 (提交後將由管理員審核)
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -426,23 +462,6 @@
           </div>
         </div>
 
-        <!-- 狀態設定 -->
-        <div class="mb-6 flex items-center">
-          <input
-            id="caseStudyIsActive"
-            type="checkbox"
-            v-model="formData.isActive"
-            class="h-4 w-4 rounded mr-2"
-            :class="
-              conditionalClass(
-                'border-gray-600 text-blue-500 bg-gray-700 focus:ring-blue-600',
-                'border-gray-300 text-blue-600 bg-blue-100 focus:ring-blue-500 focus:border-blue-500',
-              )
-            "
-          />
-          <label for="caseStudyIsActive" class="theme-text font-medium">啟用案例</label>
-        </div>
-
         <!-- 按鈕 -->
         <div
           class="flex justify-end space-x-3 pt-4 border-t"
@@ -531,6 +550,7 @@ const userStore = useUserStore()
 siteStore.setSite('comeo')
 
 const isEdit = computed(() => !!props.caseStudy)
+const isAdmin = computed(() => userStore.isAdmin)
 const isSubmitting = ref(false)
 const loading = ref(false)
 const formError = ref('')
@@ -562,6 +582,7 @@ const inputClass = computed(() => [
 
 const formData = ref({
   title: '',
+  companyName: '',
   description: '',
   projectType: '',
   solutions: [''],
@@ -575,6 +596,7 @@ const formData = ref({
 const resetForm = () => {
   formData.value = {
     title: '',
+    companyName: '',
     description: '',
     projectType: '',
     solutions: [''],
@@ -602,6 +624,7 @@ watch(
     if (newCaseStudy) {
       formData.value = {
         title: newCaseStudy.title || '',
+        companyName: newCaseStudy.companyName || '',
         description: newCaseStudy.description || '',
         projectType: newCaseStudy.projectType || '',
         solutions: newCaseStudy.solutions?.length ? [...newCaseStudy.solutions] : [''],
@@ -716,6 +739,11 @@ const validateForm = () => {
 
   if (!formData.value.title?.trim()) {
     setError('title', '標題為必填項')
+    isValid = false
+  }
+
+  if (!formData.value.companyName?.trim()) {
+    setError('companyName', '公司名稱為必填項')
     isValid = false
   }
 

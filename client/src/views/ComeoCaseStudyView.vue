@@ -46,6 +46,7 @@
           <thead :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')">
             <tr>
               <th class="py-3 px-4 lg:px-6 theme-text opacity-50">案例標題</th>
+              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">公司名稱</th>
               <th class="py-3 px-4 relative" ref="projectTypeDropdownRef">
                 <button
                   @click="toggleProjectTypeDropdown"
@@ -192,8 +193,11 @@
               :key="caseStudy._id"
               :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
             >
-              <td class="py-3 px-4 lg:px-6 theme-text max-w-[450px] truncate">
+              <td class="py-3 px-4 lg:px-6 theme-text max-w-[300px] truncate">
                 {{ caseStudy.title }}
+              </td>
+              <td class="py-3 px-4 lg:px-6 theme-text max-w-[250px] truncate">
+                {{ caseStudy.companyName || '-' }}
               </td>
               <td class="py-3 px-4 lg:px-6 theme-text">{{ caseStudy.projectType || '-' }}</td>
               <td class="py-3 px-4 lg:px-6 theme-text">
@@ -249,7 +253,7 @@
             </tr>
             <tr v-if="!caseStudies || caseStudies.length === 0">
               <td
-                colspan="7"
+                colspan="8"
                 class="text-center py-6"
                 :class="conditionalClass('text-gray-400', 'text-slate-500')"
               >
@@ -308,7 +312,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useNotifications } from '@/composables/notificationCenter'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { useSiteStore } from '@/stores/siteStore'
