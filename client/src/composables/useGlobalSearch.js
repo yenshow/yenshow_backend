@@ -48,7 +48,7 @@ export function useGlobalSearch() {
     await searchStore.search(keyword)
   }
 
-  // 防抖搜尋，延遲 300ms
+  // 防抖搜尋，延遲 50ms
   let searchTimeout = null
   function debouncedSearch(keyword) {
     inputKeyword.value = keyword
@@ -59,7 +59,7 @@ export function useGlobalSearch() {
 
     searchTimeout = setTimeout(() => {
       performSearch(keyword)
-    }, 300)
+    }, 50)
   }
 
   // 點擊搜尋結果進行導航

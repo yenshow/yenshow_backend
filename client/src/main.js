@@ -76,5 +76,5 @@ const showApp = () => {
 // 等待 Vue 完全掛載後再顯示應用
 router.isReady().then(() => {
   // 給一點時間讓首屏內容渲染
-  setTimeout(showApp, 100)
+  setTimeout(showApp, 50)
 })

@@ -409,7 +409,7 @@ watch(loading, (val) => {
     if (loadingTimer) clearTimeout(loadingTimer)
     loadingTimer = setTimeout(() => {
       showLoading.value = true
-    }, 100) // 100ms 後仍在載入才顯示
+    }, 50) // 50ms 後仍在載入才顯示
   } else {
     if (loadingTimer) {
       clearTimeout(loadingTimer)

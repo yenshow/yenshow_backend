@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import slugify from "slugify";
+import { slugify } from "transliteration";
 
 const caseStudySchema = new Schema(
 	{
@@ -96,11 +96,10 @@ caseStudySchema.pre("save", async function (next) {
 	if ((this.isModified("title") || this.isNew) && this.title) {
 		const Model = this.constructor;
 
-		// 使用 slugify 套件處理中文和其他多語言字符
+		// 使用 transliteration 套件處理中文轉拼音
 		const baseSlug = slugify(this.title, {
-			lower: true,
-			strict: true,
-			locale: "zh",
+			lowercase: true,
+			separator: "-",
 			trim: true
 		});
 
