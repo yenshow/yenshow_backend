@@ -13,8 +13,8 @@
       <button @click="error = ''" class="float-right text-red-100 hover:text-white">&times;</button>
     </div>
 
-    <!-- 載入中提示（延遲顯示，減少閃爍） -->
-    <div v-if="showLoading" class="flex flex-col items-center justify-center py-12">
+    <!-- 載入中提示 -->
+    <div v-if="loading" class="flex flex-col items-center justify-center py-12">
       <div
         class="animate-spin rounded-full h-12 w-12 border-b-2 border-t-2 mb-4"
         :class="conditionalClass('border-white', 'border-blue-600')"
@@ -324,8 +324,6 @@ const caseStudyStore = useCaseStudyStore()
 const error = ref('')
 const caseStudies = computed(() => caseStudyStore.items)
 const loading = computed(() => caseStudyStore.isLoading)
-const showLoading = ref(false)
-let loadingTimer = null
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const selectedCaseStudy = ref(null)
@@ -394,22 +392,6 @@ const loadCaseStudies = async () => {
     notify.notifyError(message)
   }
 }
-
-// 延遲顯示 loading，避免短請求造成閃爍
-watch(loading, (val) => {
-  if (val) {
-    if (loadingTimer) clearTimeout(loadingTimer)
-    loadingTimer = setTimeout(() => {
-      showLoading.value = true
-    }, 50) // 50ms 後仍在載入才顯示
-  } else {
-    if (loadingTimer) {
-      clearTimeout(loadingTimer)
-      loadingTimer = null
-    }
-    showLoading.value = false
-  }
-})
 
 // 專案類型下拉選單操作
 const toggleProjectTypeDropdown = () => {
@@ -535,10 +517,6 @@ const formatDate = (dateString) => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
-  if (loadingTimer) {
-    clearTimeout(loadingTimer)
-    loadingTimer = null
-  }
 })
 </script>
 
