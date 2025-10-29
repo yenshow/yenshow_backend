@@ -625,7 +625,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
 import { useNewsStore } from '@/stores/newsStore'
 import { useFaqStore } from '@/stores/faqStore'
 import { useThemeClass } from '@/composables/useThemeClass'
@@ -712,29 +712,68 @@ const selectedFaqCategoryLabel = computed(() => {
   return selectedFaqCategory.value || '分類'
 })
 
-// 根據 activeTab 和篩選條件決定列表資料
+// 根據 activeTab 和篩選條件決定列表資料（前端篩選與排序）
 const filteredItems = computed(() => {
-  // News：由後端處理分類與排序，前端直接使用
+  let items = []
+  const selectedCategory =
+    activeTab.value === 'news' ? selectedNewsCategory.value : selectedFaqCategory.value
+
+  // 獲取原始資料
   if (activeTab.value === 'news') {
-    return newsStore.items || []
+    items = newsStore.items || []
+  } else {
+    items = faqStore.items || []
   }
 
-  // FAQ：也改由後端處理分類與排序
-  return faqStore.items || []
+  // 前端分類篩選
+  if (selectedCategory) {
+    items = items.filter((item) => {
+      if (activeTab.value === 'faq') {
+        // FAQ 的分類可能是物件或字串
+        const itemCategory =
+          typeof item.category === 'object' && item.category
+            ? typeof item.category.main === 'object'
+              ? item.category.main.TW
+              : item.category.main
+            : item.category
+        return itemCategory === selectedCategory
+      } else {
+        return item.category === selectedCategory
+      }
+    })
+  }
+
+  // 前端排序
+  const { field, order } = currentSort.value
+  return [...items].sort((a, b) => {
+    const valA = a[field] || a.createdAt // fallback to createdAt if publishDate doesn't exist
+    const valB = b[field] || b.createdAt
+
+    if (!valA) return order === 'desc' ? 1 : -1
+    if (!valB) return order === 'desc' ? -1 : 1
+
+    const dateA = new Date(valA).getTime()
+    const dateB = new Date(valB).getTime()
+
+    if (isNaN(dateA)) return 1
+    if (isNaN(dateB)) return -1
+
+    return order === 'desc' ? dateB - dateA : dateA - dateB
+  })
 })
 
-// 依據 activeTab 決定分頁資料來源
+// 前端分頁：依據 activeTab 決定分頁資料來源
 const pagedItems = computed(() => {
-  // 兩種類型都使用後端分頁，直接返回過濾後的項目
-  return filteredItems.value
+  const start = (pagination.value.currentPage - 1) * pagination.value.itemsPerPage
+  const end = start + pagination.value.itemsPerPage
+  return filteredItems.value.slice(start, end)
 })
 
-// 切換分頁
+// 切換分頁 (前端分頁，不需要重新請求資料)
 const changePage = (page) => {
   if (page < 1 || page > pagination.value.totalPages || page === pagination.value.currentPage)
     return
   pagination.value.currentPage = page
-  fetchData()
 }
 
 // 根據 activeTab 獲取對應的 store
@@ -765,7 +804,7 @@ const selectNewsCategory = (category) => {
   selectedNewsCategory.value = category
   isCategoryDropdownOpen.value = false
   pagination.value.currentPage = 1 // 篩選後回到第一頁
-  fetchData()
+  // 不需要 fetchData()，computed 會自動更新
 }
 
 // FAQ 分類下拉選單操作
@@ -777,7 +816,7 @@ const selectFaqCategory = (category) => {
   selectedFaqCategory.value = category
   isFaqCategoryDropdownOpen.value = false
   pagination.value.currentPage = 1 // 篩選後回到第一頁
-  fetchData()
+  // 不需要 fetchData()，computed 會自動更新
 }
 
 // 排序下拉選單操作
@@ -789,8 +828,27 @@ const setSort = (sortValue) => {
   currentSort.value = sortValue
   isSortDropdownOpen.value = false
   pagination.value.currentPage = 1 // 排序後回到第一頁
-  fetchData()
+  // 不需要 fetchData()，computed 會自動更新
 }
+
+// 監聽 filteredItems 變化以自動更新分頁資訊
+watch(
+  filteredItems,
+  (newFilteredItems) => {
+    const total = newFilteredItems.length
+    pagination.value.totalItems = total
+    pagination.value.totalPages = Math.ceil(total / pagination.value.itemsPerPage) || 1
+
+    // 如果當前頁碼超出範圍，自動調整
+    if (pagination.value.currentPage > pagination.value.totalPages) {
+      pagination.value.currentPage = pagination.value.totalPages
+    }
+    if (pagination.value.currentPage < 1) {
+      pagination.value.currentPage = 1
+    }
+  },
+  { immediate: true, deep: true },
+)
 
 // 初始化載入
 onMounted(async () => {
@@ -846,30 +904,19 @@ const loadAllNewsForSelection = async () => {
   }
 }
 
-// 獲取數據
+// 獲取數據（一次性載入所有資料，不帶分頁參數）
 const fetchData = async () => {
   error.value = ''
   const store = currentStore()
   const entityName = activeTab.value === 'news' ? '最新消息' : '常見問題'
 
   try {
-    // 構建通用參數
-    const selectedCategory =
-      activeTab.value === 'news' ? selectedNewsCategory.value : selectedFaqCategory.value
+    // 一次性載入所有資料，不帶分頁參數（由前端處理分頁）
     const params = {
-      page: pagination.value.currentPage,
-      limit: pagination.value.itemsPerPage,
-      ...(selectedCategory ? { category: selectedCategory } : {}),
-      sort: currentSort.value.field,
-      sortDirection: currentSort.value.order,
+      limit: 1000, // 載入足夠多的資料
     }
 
     await store.fetchAll(params)
-
-    // 同步後端分頁資訊到 UI 狀態
-    const p = store.pagination || {}
-    pagination.value.currentPage = p.page || 1
-    pagination.value.totalPages = p.pages || 1
   } catch (err) {
     console.error(`載入${entityName}失敗：`, err)
     const message = err.message || `載入${entityName}失敗，請重新整理頁面`
