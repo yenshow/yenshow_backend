@@ -88,7 +88,6 @@
           新增{{ activeTab === 'clients' ? '客戶' : activeTab === 'staff' ? '員工' : '用戶' }}
         </button>
       </div>
-
       <!-- 所有用戶列表 -->
       <div v-if="activeTab === 'all'" class="overflow-x-auto">
         <table class="w-full">
@@ -169,6 +168,15 @@
                     刪除
                   </button>
                 </div>
+              </td>
+            </tr>
+            <tr v-if="filteredUsers.length === 0">
+              <td
+                colspan="5"
+                class="text-center py-6"
+                :class="conditionalClass('text-gray-400', 'text-slate-500')"
+              >
+                目前沒有符合條件的用戶
               </td>
             </tr>
           </tbody>
@@ -266,6 +274,15 @@
                 </div>
               </td>
             </tr>
+            <tr v-if="filteredUsers.length === 0">
+              <td
+                colspan="6"
+                class="text-center py-6"
+                :class="conditionalClass('text-gray-400', 'text-slate-500')"
+              >
+                目前沒有符合條件的用戶
+              </td>
+            </tr>
           </tbody>
         </table>
         <!-- 分頁控制 -->
@@ -309,6 +326,7 @@
               <th class="text-left py-3 px-4 theme-text">身分</th>
               <th class="text-left py-3 px-4 theme-text">部門</th>
               <th class="text-left py-3 px-4 theme-text">職位</th>
+              <th class="text-left py-3 px-4 theme-text">狀態</th>
               <th class="text-left py-3 px-4 theme-text">操作</th>
             </tr>
           </thead>
@@ -347,6 +365,21 @@
               <td class="py-3 px-4 theme-text">{{ user.staffInfo?.department || '-' }}</td>
               <td class="py-3 px-4 theme-text">{{ user.staffInfo?.position || '-' }}</td>
               <td class="py-3 px-4">
+                <span
+                  :class="
+                    user.isActive
+                      ? conditionalClass(
+                          'bg-green-500/20 text-green-300',
+                          'bg-green-100 text-green-700',
+                        )
+                      : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
+                  "
+                  class="px-2 py-1 rounded-full text-sm"
+                >
+                  {{ user.isActive ? '啟用' : '停用' }}
+                </span>
+              </td>
+              <td class="py-3 px-4">
                 <div class="flex gap-2">
                   <button
                     v-if="user.role !== 'admin'"
@@ -368,6 +401,15 @@
                     刪除
                   </button>
                 </div>
+              </td>
+            </tr>
+            <tr v-if="filteredUsers.length === 0">
+              <td
+                colspan="6"
+                class="text-center py-6"
+                :class="conditionalClass('text-gray-400', 'text-slate-500')"
+              >
+                目前沒有符合條件的用戶
               </td>
             </tr>
           </tbody>
@@ -408,9 +450,7 @@
     <!-- 新增用戶 Modal，根據activeTab設置預設角色 -->
     <CreateUserModal
       v-model:show="showCreateUserModal"
-      :default-role="
-        activeTab === 'clients' ? 'client' : activeTab === 'staff' ? 'staff' : 'client'
-      "
+      :default-role="defaultRoleByTab"
       :is-editing="isEditing"
       :edit-user-data="editingUser"
       @user-created="handleUserUpdate"
@@ -431,52 +471,55 @@ const notify = useNotifications()
 const { cardClass, conditionalClass } = useThemeClass()
 
 // 本地狀態
-const userList = ref([])
 const loading = computed(() => userStore.loading)
+const storeUsers = computed(() => userStore.users || [])
 const error = ref('')
 const showCreateUserModal = ref(false)
-const activeTab = ref('all') // 新增：當前標籤頁，預設為全部用戶
+const activeTab = ref('all')
 
 // 操作狀態追蹤
-const deletingUser = ref(null) // 正在刪除的用戶ID
+const deletingUser = ref(null)
 const editingUser = ref(null)
 const isEditing = ref(false)
 
 // 分頁狀態
 const pagination = ref({
   currentPage: 1,
-  itemsPerPage: 10, // 每頁顯示10筆
+  itemsPerPage: 10,
   totalPages: 1,
 })
 
-// 依據 activeTab 決定分頁資料來源
-const pagedUsers = computed(() => {
-  let list = []
-  if (activeTab.value === 'all') {
-    list = userList.value
-  } else if (activeTab.value === 'clients') {
-    list = filteredUsers('client')
-  } else if (activeTab.value === 'staff') {
-    list = filteredUsers('staff')
+const tabRoleFilter = (user) => {
+  if (activeTab.value === 'clients') {
+    return user.role === 'client'
   }
-  const start = (pagination.value.currentPage - 1) * pagination.value.itemsPerPage
-  const end = start + pagination.value.itemsPerPage
-  return list.slice(start, end)
+  if (activeTab.value === 'staff') {
+    return user.role === 'staff' || user.role === 'admin'
+  }
+  return true
+}
+
+const filteredUsers = computed(() => {
+  return [...storeUsers.value]
+    .filter((user) => tabRoleFilter(user))
+    .sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime()
+      const dateB = new Date(b.createdAt || 0).getTime()
+      return dateB - dateA
+    })
 })
 
-// 監聽 userList 或 activeTab 變化時，重設分頁
+const pagedUsers = computed(() => {
+  const start = (pagination.value.currentPage - 1) * pagination.value.itemsPerPage
+  const end = start + pagination.value.itemsPerPage
+  return filteredUsers.value.slice(start, end)
+})
+
 watch(
-  [userList, activeTab],
-  () => {
-    let total = 0
-    if (activeTab.value === 'all') {
-      total = userList.value.length
-    } else if (activeTab.value === 'clients') {
-      total = filteredUsers('client').length
-    } else if (activeTab.value === 'staff') {
-      total = filteredUsers('staff').length
-    }
-    pagination.value.totalPages = Math.ceil(total / pagination.value.itemsPerPage) || 1
+  [filteredUsers, () => pagination.value.itemsPerPage],
+  ([items]) => {
+    const total = items.length
+    pagination.value.totalPages = Math.max(Math.ceil(total / pagination.value.itemsPerPage), 1)
     if (pagination.value.currentPage > pagination.value.totalPages) {
       pagination.value.currentPage = pagination.value.totalPages
     }
@@ -487,33 +530,20 @@ watch(
   { immediate: true },
 )
 
-// 切換分頁
+watch(activeTab, () => {
+  pagination.value.currentPage = 1
+})
+
 const changePage = (page) => {
   if (page < 1 || page > pagination.value.totalPages || page === pagination.value.currentPage)
     return
   pagination.value.currentPage = page
 }
 
-// 根據角色過濾用戶
-const filteredUsers = (role) => {
-  if (role === 'staff') {
-    // 返回所有員工和管理員
-    return userList.value.filter((user) => user.role === 'staff' || user.role === 'admin')
-  } else {
-    // 返回指定角色的用戶
-    return userList.value.filter((user) => user.role === role)
-  }
-}
-
-// 監聽標籤變更，更新 CreateUserModal 的預設角色
-watch(activeTab, () => {
-  if (showCreateUserModal.value) {
-    // 如果模態框已開啟，則關閉再重新開啟以應用新的預設值
-    showCreateUserModal.value = false
-    setTimeout(() => {
-      showCreateUserModal.value = true
-    }, 100)
-  }
+const defaultRoleByTab = computed(() => {
+  if (activeTab.value === 'staff') return 'staff'
+  if (activeTab.value === 'clients') return 'client'
+  return 'client'
 })
 
 // 初始化載入
@@ -521,18 +551,10 @@ onMounted(async () => {
   await fetchUsers()
 })
 
-// 獲取用戶列表
 const fetchUsers = async () => {
   error.value = ''
-
   try {
     await userStore.getAllUsers()
-    if (userStore.users && Array.isArray(userStore.users)) {
-      userList.value = [...userStore.users]
-      // notify.notifySuccess('用戶列表載入成功')
-    } else {
-      throw new Error('無法獲取用戶列表資料')
-    }
   } catch (err) {
     console.error('載入用戶列表失敗：', err)
     error.value = typeof err === 'string' ? err : '載入用戶列表失敗，請重新整理頁面'
@@ -540,29 +562,24 @@ const fetchUsers = async () => {
   }
 }
 
-// 處理用戶狀態切換
 const handleEditUser = async (user) => {
   if (user.role === 'admin') {
     notify.notifyWarning('無法編輯管理員帳號')
     return
   }
 
-  // 開啟編輯模式
   editingUser.value = user
   isEditing.value = true
   showCreateUserModal.value = true
 }
 
-// 處理 Modal 關閉
 const handleModalClose = (show) => {
   if (!show) {
-    // 重置編輯狀態
     editingUser.value = null
     isEditing.value = false
   }
 }
 
-// 處理刪除用戶
 const handleDeleteUser = async (user) => {
   if (user.role === 'admin') {
     notify.notifyWarning('不能刪除管理員帳號')
@@ -577,12 +594,6 @@ const handleDeleteUser = async (user) => {
     deletingUser.value = user._id
     await userStore.deleteUser(user._id)
     notify.notifySuccess(`成功刪除用戶 ${user.account}`)
-
-    // 本地刪除
-    const index = userList.value.findIndex((u) => u._id === user._id)
-    if (index !== -1) {
-      userList.value.splice(index, 1)
-    }
   } catch (error) {
     console.error('刪除用戶失敗:', error)
     notify.notifyError(typeof error === 'string' ? error : '刪除用戶失敗，請稍後再試')
@@ -591,20 +602,8 @@ const handleDeleteUser = async (user) => {
   }
 }
 
-// 處理用戶新增/更新
-const handleUserUpdate = (user) => {
-  if (isEditing.value) {
-    // 更新
-    const index = userList.value.findIndex((u) => u._id === user._id)
-    if (index !== -1) {
-      userList.value.splice(index, 1, user)
-    }
-    notify.notifySuccess(`用戶 ${user.account} 已更新`)
-  } else {
-    // 新增
-    userList.value.unshift(user)
-    notify.notifySuccess(`用戶 ${user.account} 已新增`)
-  }
+const handleUserUpdate = async () => {
+  await fetchUsers()
 }
 </script>
 
