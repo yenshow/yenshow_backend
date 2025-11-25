@@ -49,14 +49,38 @@ const configureApp = () => {
 	app.use(express.json({ limit: "50mb" }));
 	app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
+	const buildAllowedOrigins = () => {
+		const rawCorsOrigin = process.env.CORS_ORIGIN || process.env.LAN_CORS_ORIGINS || "http://localhost:3002";
+		const lanIp = process.env.LAN_IP;
+		const clientPort = process.env.CLIENT_PORT || process.env.DOCKER_CLIENT_PORT || "3002";
+
+		const defaults = new Set(
+			[
+				"http://localhost:3000",
+				"http://127.0.0.1:3000",
+				`http://localhost:${clientPort}`,
+				`http://127.0.0.1:${clientPort}`,
+				lanIp && `http://${lanIp}`,
+				lanIp && `http://${lanIp}:${clientPort}`,
+				lanIp && `https://${lanIp}`,
+				lanIp && `https://${lanIp}:${clientPort}`
+			].filter(Boolean)
+		);
+
+		rawCorsOrigin
+			.split(",")
+			.map((item) => item?.trim())
+			.filter(Boolean)
+			.forEach((origin) => defaults.add(origin));
+
+		return Array.from(defaults);
+	};
+
+	const allowedOrigins = buildAllowedOrigins();
+
 	// CORS 配置
 	const corsOptions = {
 		origin: function (origin, callback) {
-			// 允許的來源清單
-			const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:3002";
-			const allowedOrigins = corsOrigin.split(",");
-
-			// 開發環境放寬限制
 			const isDevelopment = process.env.NODE_ENV === "development";
 
 			// 允許沒有來源的請求 (如 Postman)
@@ -67,7 +91,7 @@ const configureApp = () => {
 				return callback(null, true);
 			}
 
-			if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith(".vercel.app")) {
+			if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
 				callback(null, true);
 			} else {
 				console.warn(`CORS 拒絕來源: ${origin}`);
