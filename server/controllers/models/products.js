@@ -337,6 +337,7 @@ class ProductsController {
 			const productId = newProduct._id.toString();
 			const hierarchyData = await this._getProductHierarchy(newProduct.specifications);
 
+			const uploadErrors = [];
 			const saveFile = async (file, fileType, lang = null, index = null) => {
 				try {
 					return fileUpload.saveProductFile(file.buffer, {
@@ -349,7 +350,9 @@ class ProductsController {
 						index: index
 					});
 				} catch (uploadError) {
-					console.error(`產品 ${fileType} 上傳失敗: ${file.originalname}`, uploadError);
+					const errorMsg = `檔案上傳失敗 (${fileType}): ${file.originalname} - ${uploadError.message || "未知錯誤"}`;
+					console.error(errorMsg, uploadError);
+					uploadErrors.push(errorMsg);
 					return null;
 				}
 			};
@@ -359,6 +362,11 @@ class ProductsController {
 			const newDocTwUrls = (await Promise.all(pendingDocumentsTW.map((file) => saveFile(file, "documents", "TW")))).filter(Boolean);
 			const newDocEnUrls = (await Promise.all(pendingDocumentsEN.map((file) => saveFile(file, "documents", "EN")))).filter(Boolean);
 			const newVideoUrls = (await Promise.all(pendingVideos.map((file) => saveFile(file, "videos")))).filter(Boolean);
+
+			// 如果有檔案上傳失敗，記錄警告但繼續處理
+			if (uploadErrors.length > 0) {
+				console.warn("部分檔案上傳失敗:", uploadErrors);
+			}
 
 			let itemChangedByFileUpload = false;
 			if (newImageUrls.length > 0) {
@@ -390,10 +398,63 @@ class ProductsController {
 			});
 		} catch (error) {
 			console.error("創建產品失敗:", error);
+
+			// 處理 Mongoose 驗證錯誤
+			if (error.name === "ValidationError") {
+				const validationErrors = {};
+				Object.keys(error.errors || {}).forEach((key) => {
+					validationErrors[key] = error.errors[key].message;
+				});
+
+				const errorMessages = Object.values(validationErrors).join("; ");
+				return res.status(StatusCodes.BAD_REQUEST).json({
+					success: false,
+					message: `產品驗證失敗: ${errorMessages}`,
+					errors: validationErrors
+				});
+			}
+
+			// 處理唯一性約束錯誤（重複的 code 或 slug）
+			if (error.code === 11000) {
+				const duplicateField = Object.keys(error.keyPattern || {})[0] || "欄位";
+				const duplicateValue = error.keyValue?.[duplicateField] || "未知值";
+				return res.status(StatusCodes.CONFLICT).json({
+					success: false,
+					message: `${duplicateField === "code" ? "產品代碼" : duplicateField} "${duplicateValue}" 已存在，請使用其他值`
+				});
+			}
+
+			// 處理 CastError（無效的 ObjectId）
+			if (error.name === "CastError") {
+				return res.status(StatusCodes.BAD_REQUEST).json({
+					success: false,
+					message: `無效的 ${error.path || "欄位"} 格式: ${error.value}`
+				});
+			}
+
+			// 處理 ApiError（已定義的錯誤）
+			if (error instanceof ApiError) {
+				return res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
+					success: false,
+					message: error.message
+				});
+			}
+
+			// 處理其他錯誤，提供詳細資訊
+			const errorMessage = error.message || "未知錯誤";
+			const errorDetails =
+				process.env.NODE_ENV === "development"
+					? {
+							error: error.name,
+							stack: error.stack
+						}
+					: {};
+
 			// In a production app, consider logic to delete the `newProduct` if it was created but subsequent steps failed.
 			return res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
 				success: false,
-				message: `創建產品失敗: ${error.message}`
+				message: `創建產品失敗: ${errorMessage}`,
+				...errorDetails
 			});
 		}
 	}

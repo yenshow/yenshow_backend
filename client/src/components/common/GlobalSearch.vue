@@ -165,8 +165,8 @@
               <!-- 所有結果 -->
               <div v-for="(items, type) in currentTabResults" :key="type" v-show="items.length > 0">
                 <h3
-                  class="text-[16px] mb-[8px]"
-                  :class="conditionalClass('text-gray-400', 'text-slate-500')"
+                  class="text-[16px] mb-[8px] font-medium"
+                  :class="conditionalClass('text-gray-300', 'text-slate-700')"
                 >
                   {{ entityTypeNames[type] }}
                 </h3>
@@ -175,10 +175,10 @@
                     v-for="item in items.slice(0, 3)"
                     :key="item._id"
                     @click="navigateToResult(type, item)"
-                    class="block w-full text-left px-[12px] py-[8px] rounded-lg transition-colors mb-[4px]"
+                    class="block w-full text-left px-[12px] py-[10px] rounded-lg transition-colors mb-[6px]"
                     :class="conditionalClass('hover:bg-gray-800', 'hover:bg-slate-100')"
                   >
-                    <div class="text-[16px]">{{ getEntityName(item) }}</div>
+                    <div class="text-[16px] font-medium mb-[4px]">{{ getEntityName(item) }}</div>
                     <div
                       class="text-[14px]"
                       :class="conditionalClass('text-gray-400', 'text-slate-500')"
@@ -189,7 +189,7 @@
                   <button
                     v-if="items.length > 3"
                     @click="setActiveTab(type)"
-                    class="text-[14px] text-blue-400 hover:text-blue-300 mt-[4px]"
+                    class="text-[14px] text-blue-400 hover:text-blue-300 mt-[4px] font-medium"
                   >
                     查看更多 {{ entityTypeNames[type] }} ({{ items.length }})
                   </button>
@@ -204,10 +204,10 @@
                     v-for="item in items"
                     :key="item._id"
                     @click="navigateToResult(type, item)"
-                    class="block w-full text-left px-[12px] py-[8px] rounded-lg transition-colors mb-[4px]"
+                    class="block w-full text-left px-[12px] py-[10px] rounded-lg transition-colors mb-[6px]"
                     :class="conditionalClass('hover:bg-gray-800', 'hover:bg-slate-100')"
                   >
-                    <div class="text-[16px]">{{ getEntityName(item) }}</div>
+                    <div class="text-[16px] font-medium mb-[4px]">{{ getEntityName(item) }}</div>
                     <div
                       class="text-[14px]"
                       :class="conditionalClass('text-gray-400', 'text-slate-500')"

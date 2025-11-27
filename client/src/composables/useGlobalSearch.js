@@ -34,10 +34,28 @@ export function useGlobalSearch() {
     products: '產品',
   }
 
+  // 獲取本地化欄位的輔助函數
+  function getLocalizedField(entity, fieldName) {
+    if (!entity || !fieldName) return ''
+
+    const field = entity[fieldName]
+    if (!field) return ''
+
+    // 如果欄位是物件（多語言格式），根據當前語言返回對應值
+    if (typeof field === 'object' && field !== null) {
+      const currentLang = languageStore.currentLang
+      // 優先使用當前語言，如果沒有則使用另一個語言，最後使用任何可用的值
+      return field[currentLang] || field.TW || field.EN || Object.values(field)[0] || ''
+    }
+
+    // 如果欄位是字串，直接返回
+    return typeof field === 'string' ? field : ''
+  }
+
   // 獲取實體的本地化名稱
   function getEntityName(entity) {
     if (!entity) return ''
-    return languageStore.getLocalizedField(entity, 'name')
+    return getLocalizedField(entity, 'name') || entity.code || ''
   }
 
   // 搜尋函數

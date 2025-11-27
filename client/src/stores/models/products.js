@@ -34,7 +34,19 @@ export const useProductsStore = defineStore('productsStore', {
     getProductName: () => (product) => {
       if (!product) return ''
       const languageStore = useLanguageStore()
-      return languageStore.getLocalizedField(product, 'name')
+      const name = product.name
+      if (!name) return product.code || ''
+
+      // 如果 name 是物件（多語言格式），根據當前語言返回對應值
+      if (typeof name === 'object' && name !== null) {
+        const currentLang = languageStore.currentLang
+        return (
+          name[currentLang] || name.TW || name.EN || Object.values(name)[0] || product.code || ''
+        )
+      }
+
+      // 如果 name 是字串，直接返回
+      return typeof name === 'string' ? name : product.code || ''
     },
   },
 
@@ -92,6 +104,15 @@ export const useProductsStore = defineStore('productsStore', {
 
     /**
      * 搜索產品
+     * @param {string} keyword - 搜尋關鍵字
+     * @param {Object} params - 搜尋參數
+     * @param {number} params.page - 頁碼（預設：1）
+     * @param {number} params.limit - 每頁數量（預設：20）
+     * @param {string} params.sort - 排序欄位（預設：createdAt）
+     * @param {string} params.sortDirection - 排序方向（預設：asc）
+     * @param {string} params.specifications - 規格 ID 過濾
+     * @param {boolean} params.includeInactive - 是否包含非活躍產品（預設：false）
+     * @returns {Promise<Array>} 產品列表
      */
     async searchProducts(keyword, params = {}) {
       this.isLoading = true
@@ -99,17 +120,23 @@ export const useProductsStore = defineStore('productsStore', {
 
       try {
         const { apiAuth } = useApi()
-        const languageStore = useLanguageStore()
 
-        // 搜索參數
+        // 構建搜尋參數（移除後端不支援的 lang 參數）
         const searchParams = {
-          keyword,
+          keyword: keyword || undefined, // 允許空關鍵字進行過濾搜尋
           page: params.page || this.pagination.page,
           limit: params.limit || this.pagination.limit,
           sort: params.sort || 'createdAt',
           sortDirection: params.sortDirection || 'asc',
-          ...params,
-          lang: languageStore.currentLang,
+        }
+
+        // 可選參數
+        if (params.specifications) {
+          searchParams.specifications = params.specifications
+        }
+
+        if (params.includeInactive === true) {
+          searchParams.includeInactive = 'true'
         }
 
         // 發送請求
@@ -129,17 +156,43 @@ export const useProductsStore = defineStore('productsStore', {
 
         // 更新分頁信息
         if (result.pagination) {
-          this.pagination = result.pagination
+          this.pagination = {
+            page: result.pagination.page || this.pagination.page,
+            limit: result.pagination.limit || this.pagination.limit,
+            total: result.pagination.total || 0,
+            pages: result.pagination.pages || 0,
+          }
         }
 
         return this.items
       } catch (error) {
         console.error('搜索產品失敗:', error)
         this.error = error.message || '搜索產品時發生錯誤'
+        this.items = []
         return []
       } finally {
         this.isLoading = false
       }
+    },
+
+    /**
+     * 搜尋產品（簡化版本，用於全局搜尋）
+     * 這是 searchProducts 的別名方法，用於與 searchStore 兼容
+     * @param {string} keyword - 搜尋關鍵字
+     * @returns {Promise<Array>} 產品列表
+     */
+    async search(keyword) {
+      if (!keyword || keyword.trim() === '') {
+        return []
+      }
+
+      // 全局搜尋時使用較小的 limit 以提升性能
+      return await this.searchProducts(keyword.trim(), {
+        page: 1,
+        limit: 10, // 全局搜尋只顯示前 10 個結果
+        sort: 'createdAt',
+        sortDirection: 'desc', // 預設按最新排序
+      })
     },
 
     /**

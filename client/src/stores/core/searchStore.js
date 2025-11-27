@@ -130,15 +130,26 @@ export const useSearchStore = defineStore('search', {
 
     // 全局搜尋
     async search(keyword = this.keyword) {
-      if (!keyword || keyword.trim() === '') return
+      if (!keyword || keyword.trim() === '') {
+        // 清空結果
+        this.results = {
+          series: [],
+          categories: [],
+          subCategories: [],
+          specifications: [],
+          products: [],
+        }
+        return this.results
+      }
 
-      this.keyword = keyword
+      const trimmedKeyword = keyword.trim()
+      this.keyword = trimmedKeyword
       this.isLoading = true
       this.error = null
 
       try {
         // 添加到最近搜尋
-        this.addToRecentSearches(keyword)
+        this.addToRecentSearches(trimmedKeyword)
 
         // 同時搜尋所有實體類型
         const seriesStore = useSeriesStore()
@@ -147,29 +158,75 @@ export const useSearchStore = defineStore('search', {
         const specificationsStore = useSpecificationsStore()
         const productsStore = useProductsStore()
 
-        // 並行執行所有搜尋
-        const [series, categories, subCategories, specifications, products] = await Promise.all([
-          seriesStore.search(keyword).catch(() => []),
-          categoriesStore.search(keyword).catch(() => []),
-          subCategoriesStore.search(keyword).catch(() => []),
-          specificationsStore.search(keyword).catch(() => []),
-          productsStore.search(keyword).catch(() => []),
-        ])
+        // 並行執行所有搜尋，並提供更好的錯誤處理
+        const searchPromises = [
+          seriesStore.search(trimmedKeyword).catch((err) => {
+            console.warn('搜尋系列失敗:', err)
+            return []
+          }),
+          categoriesStore.search(trimmedKeyword).catch((err) => {
+            console.warn('搜尋分類失敗:', err)
+            return []
+          }),
+          subCategoriesStore.search(trimmedKeyword).catch((err) => {
+            console.warn('搜尋子分類失敗:', err)
+            return []
+          }),
+          specificationsStore.search(trimmedKeyword).catch((err) => {
+            console.warn('搜尋規格失敗:', err)
+            return []
+          }),
+          productsStore.search(trimmedKeyword).catch((err) => {
+            console.warn('搜尋產品失敗:', err)
+            return []
+          }),
+        ]
+
+        const [series, categories, subCategories, specifications, products] =
+          await Promise.all(searchPromises)
+
+        // 對產品結果進行排序：code 匹配的優先
+        const sortedProducts = Array.isArray(products) ? products : []
+        if (sortedProducts.length > 0 && trimmedKeyword) {
+          const keywordLower = trimmedKeyword.toLowerCase()
+          sortedProducts.sort((a, b) => {
+            const aCodeMatch = a.code?.toLowerCase().includes(keywordLower) || false
+            const bCodeMatch = b.code?.toLowerCase().includes(keywordLower) || false
+            
+            // code 完全匹配優先於部分匹配
+            const aCodeExact = a.code?.toLowerCase() === keywordLower
+            const bCodeExact = b.code?.toLowerCase() === keywordLower
+            
+            if (aCodeExact && !bCodeExact) return -1
+            if (!aCodeExact && bCodeExact) return 1
+            if (aCodeMatch && !bCodeMatch) return -1
+            if (!aCodeMatch && bCodeMatch) return 1
+            return 0
+          })
+        }
 
         // 更新結果
         this.results = {
-          series,
-          categories,
-          subCategories,
-          specifications,
-          products,
+          series: Array.isArray(series) ? series : [],
+          categories: Array.isArray(categories) ? categories : [],
+          subCategories: Array.isArray(subCategories) ? subCategories : [],
+          specifications: Array.isArray(specifications) ? specifications : [],
+          products: sortedProducts,
         }
 
         return this.results
       } catch (error) {
         console.error('搜尋過程出錯:', error)
         this.error = error.message || '搜尋時發生錯誤'
-        return null
+        // 確保結果是空陣列而不是 null
+        this.results = {
+          series: [],
+          categories: [],
+          subCategories: [],
+          specifications: [],
+          products: [],
+        }
+        return this.results
       } finally {
         this.isLoading = false
       }
