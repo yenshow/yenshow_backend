@@ -363,6 +363,135 @@
           </button>
         </div>
       </div>
+
+      <!-- 員工列表 -->
+      <div v-else-if="activeTab === 'staff'" class="overflow-x-auto">
+        <table class="w-full">
+          <thead :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')">
+            <tr>
+              <th class="text-left py-3 px-4 theme-text">帳號</th>
+              <th class="text-left py-3 px-4 theme-text">身分</th>
+              <th class="text-left py-3 px-4 theme-text">部門</th>
+              <th class="text-left py-3 px-4 theme-text">職位</th>
+              <th class="text-left py-3 px-4 theme-text">狀態</th>
+              <th class="text-left py-3 px-4 theme-text">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="user in pagedUsers"
+              :key="user._id"
+              :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
+            >
+              <td class="py-3 px-4 theme-text">
+                {{ user.account }}
+              </td>
+              <td class="py-3 px-4">
+                <span
+                  :class="
+                    user.role === 'admin'
+                      ? conditionalClass(
+                          'bg-purple-700/30 text-purple-200',
+                          'bg-purple-200 text-purple-800',
+                        )
+                      : user.role === 'staff'
+                        ? conditionalClass(
+                            'bg-yellow-700/30 text-yellow-200',
+                            'bg-yellow-200 text-yellow-800',
+                          )
+                        : conditionalClass(
+                            'bg-green-500/20 text-green-300',
+                            'bg-green-100 text-green-700',
+                          )
+                  "
+                  class="px-2 py-1 rounded-full text-sm"
+                >
+                  {{ user.role === 'admin' ? '管理員' : user.role === 'staff' ? '員工' : '客戶' }}
+                </span>
+              </td>
+              <td class="py-3 px-4 theme-text">{{ user.staffInfo?.department || '-' }}</td>
+              <td class="py-3 px-4 theme-text">{{ user.staffInfo?.position || '-' }}</td>
+              <td class="py-3 px-4">
+                <span
+                  :class="
+                    user.isActive
+                      ? conditionalClass(
+                          'bg-green-500/20 text-green-300',
+                          'bg-green-100 text-green-700',
+                        )
+                      : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
+                  "
+                  class="px-2 py-1 rounded-full text-sm"
+                >
+                  {{ user.isActive ? '啟用' : '停用' }}
+                </span>
+              </td>
+              <td class="py-3 px-4">
+                <div class="flex gap-2">
+                  <button
+                    v-if="user.role !== 'admin'"
+                    @click="handleEditUser(user)"
+                    class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
+                  >
+                    編輯
+                  </button>
+                  <button
+                    v-if="user.role !== 'admin'"
+                    @click="handleDeleteUser(user)"
+                    :disabled="deletingUser === user._id"
+                    class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
+                  >
+                    <span
+                      v-if="deletingUser === user._id"
+                      class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
+                    ></span>
+                    刪除
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="filteredUsers.length === 0">
+              <td
+                colspan="6"
+                class="text-center py-6"
+                :class="conditionalClass('text-gray-400', 'text-slate-500')"
+              >
+                目前沒有符合條件的用戶
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <!-- 分頁控制 -->
+        <div v-if="pagination.totalPages > 1" class="py-4 flex justify-center gap-2">
+          <button
+            @click="changePage(pagination.currentPage - 1)"
+            :disabled="pagination.currentPage === 1"
+            :class="
+              conditionalClass(
+                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+              )
+            "
+          >
+            上一頁
+          </button>
+          <span class="px-3 py-1 theme-text">
+            {{ pagination.currentPage }} / {{ pagination.totalPages }}
+          </span>
+          <button
+            @click="changePage(pagination.currentPage + 1)"
+            :disabled="pagination.currentPage === pagination.totalPages"
+            :class="
+              conditionalClass(
+                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+              )
+            "
+          >
+            下一頁
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- 授權管理區塊 -->
@@ -521,135 +650,6 @@
           </button>
         </div>
       </div>
-
-      <!-- 員工列表 -->
-      <div v-else-if="activeTab === 'staff'" class="overflow-x-auto">
-        <table class="w-full">
-          <thead :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')">
-            <tr>
-              <th class="text-left py-3 px-4 theme-text">帳號</th>
-              <th class="text-left py-3 px-4 theme-text">身分</th>
-              <th class="text-left py-3 px-4 theme-text">部門</th>
-              <th class="text-left py-3 px-4 theme-text">職位</th>
-              <th class="text-left py-3 px-4 theme-text">狀態</th>
-              <th class="text-left py-3 px-4 theme-text">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="user in pagedUsers"
-              :key="user._id"
-              :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
-            >
-              <td class="py-3 px-4 theme-text">
-                {{ user.account }}
-              </td>
-              <td class="py-3 px-4">
-                <span
-                  :class="
-                    user.role === 'admin'
-                      ? conditionalClass(
-                          'bg-purple-700/30 text-purple-200',
-                          'bg-purple-200 text-purple-800',
-                        )
-                      : user.role === 'staff'
-                        ? conditionalClass(
-                            'bg-yellow-700/30 text-yellow-200',
-                            'bg-yellow-200 text-yellow-800',
-                          )
-                        : conditionalClass(
-                            'bg-green-500/20 text-green-300',
-                            'bg-green-100 text-green-700',
-                          )
-                  "
-                  class="px-2 py-1 rounded-full text-sm"
-                >
-                  {{ user.role === 'admin' ? '管理員' : user.role === 'staff' ? '員工' : '客戶' }}
-                </span>
-              </td>
-              <td class="py-3 px-4 theme-text">{{ user.staffInfo?.department || '-' }}</td>
-              <td class="py-3 px-4 theme-text">{{ user.staffInfo?.position || '-' }}</td>
-              <td class="py-3 px-4">
-                <span
-                  :class="
-                    user.isActive
-                      ? conditionalClass(
-                          'bg-green-500/20 text-green-300',
-                          'bg-green-100 text-green-700',
-                        )
-                      : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
-                  "
-                  class="px-2 py-1 rounded-full text-sm"
-                >
-                  {{ user.isActive ? '啟用' : '停用' }}
-                </span>
-              </td>
-              <td class="py-3 px-4">
-                <div class="flex gap-2">
-                  <button
-                    v-if="user.role !== 'admin'"
-                    @click="handleEditUser(user)"
-                    class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
-                  >
-                    編輯
-                  </button>
-                  <button
-                    v-if="user.role !== 'admin'"
-                    @click="handleDeleteUser(user)"
-                    :disabled="deletingUser === user._id"
-                    class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                  >
-                    <span
-                      v-if="deletingUser === user._id"
-                      class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                    ></span>
-                    刪除
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="filteredUsers.length === 0">
-              <td
-                colspan="6"
-                class="text-center py-6"
-                :class="conditionalClass('text-gray-400', 'text-slate-500')"
-              >
-                目前沒有符合條件的用戶
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <!-- 分頁控制 -->
-        <div v-if="pagination.totalPages > 1" class="py-4 flex justify-center gap-2">
-          <button
-            @click="changePage(pagination.currentPage - 1)"
-            :disabled="pagination.currentPage === 1"
-            :class="
-              conditionalClass(
-                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-              )
-            "
-          >
-            上一頁
-          </button>
-          <span class="px-3 py-1 theme-text">
-            {{ pagination.currentPage }} / {{ pagination.totalPages }}
-          </span>
-          <button
-            @click="changePage(pagination.currentPage + 1)"
-            :disabled="pagination.currentPage === pagination.totalPages"
-            :class="
-              conditionalClass(
-                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-              )
-            "
-          >
-            下一頁
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- 新增用戶 Modal，根據activeTab設置預設角色 -->
@@ -668,10 +668,7 @@
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       @click.self="showCreateLicenseModal = false"
     >
-      <div
-        :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm w-full max-w-md']"
-        @click.stop
-      >
+      <div :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm w-full max-w-md']" @click.stop>
         <h3 class="text-xl font-semibold theme-text mb-4">新增授權</h3>
         <div class="space-y-4">
           <div>
@@ -681,7 +678,12 @@
               type="text"
               placeholder="例如: SN-001"
               class="w-full px-4 py-2 rounded-lg border"
-              :class="conditionalClass('bg-[#2A3441] border-gray-600 theme-text', 'bg-white border-slate-300')"
+              :class="
+                conditionalClass(
+                  'bg-[#2A3441] border-gray-600 theme-text',
+                  'bg-white border-slate-300',
+                )
+              "
             />
           </div>
           <div>
@@ -691,7 +693,12 @@
               rows="3"
               placeholder="選填"
               class="w-full px-4 py-2 rounded-lg border"
-              :class="conditionalClass('bg-[#2A3441] border-gray-600 theme-text', 'bg-white border-slate-300')"
+              :class="
+                conditionalClass(
+                  'bg-[#2A3441] border-gray-600 theme-text',
+                  'bg-white border-slate-300',
+                )
+              "
             ></textarea>
           </div>
         </div>
@@ -701,7 +708,10 @@
             :disabled="creatingLicense || !newLicense.serialNumber"
             class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
           >
-            <span v-if="creatingLicense" class="animate-spin h-4 w-4 border-b-2 border-white rounded-full inline-block mr-2"></span>
+            <span
+              v-if="creatingLicense"
+              class="animate-spin h-4 w-4 border-b-2 border-white rounded-full inline-block mr-2"
+            ></span>
             建立
           </button>
           <button
@@ -720,10 +730,7 @@
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       @click.self="showEditLicenseModal = false"
     >
-      <div
-        :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm w-full max-w-md']"
-        @click.stop
-      >
+      <div :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm w-full max-w-md']" @click.stop>
         <h3 class="text-xl font-semibold theme-text mb-4">編輯授權</h3>
         <div class="space-y-4">
           <div>
@@ -733,7 +740,12 @@
               type="text"
               disabled
               class="w-full px-4 py-2 rounded-lg border opacity-50"
-              :class="conditionalClass('bg-[#2A3441] border-gray-600 theme-text', 'bg-white border-slate-300')"
+              :class="
+                conditionalClass(
+                  'bg-[#2A3441] border-gray-600 theme-text',
+                  'bg-white border-slate-300',
+                )
+              "
             />
           </div>
           <div>
@@ -743,7 +755,12 @@
               type="text"
               disabled
               class="w-full px-4 py-2 rounded-lg border opacity-50 font-mono text-sm"
-              :class="conditionalClass('bg-[#2A3441] border-gray-600 theme-text', 'bg-white border-slate-300')"
+              :class="
+                conditionalClass(
+                  'bg-[#2A3441] border-gray-600 theme-text',
+                  'bg-white border-slate-300',
+                )
+              "
             />
           </div>
           <div>
@@ -751,7 +768,12 @@
             <select
               v-model="editingLicense.status"
               class="w-full px-4 py-2 rounded-lg border"
-              :class="conditionalClass('bg-[#2A3441] border-gray-600 theme-text', 'bg-white border-slate-300')"
+              :class="
+                conditionalClass(
+                  'bg-[#2A3441] border-gray-600 theme-text',
+                  'bg-white border-slate-300',
+                )
+              "
             >
               <option value="pending">待啟用</option>
               <option value="active">啟用中</option>
@@ -765,7 +787,12 @@
               rows="3"
               placeholder="選填"
               class="w-full px-4 py-2 rounded-lg border"
-              :class="conditionalClass('bg-[#2A3441] border-gray-600 theme-text', 'bg-white border-slate-300')"
+              :class="
+                conditionalClass(
+                  'bg-[#2A3441] border-gray-600 theme-text',
+                  'bg-white border-slate-300',
+                )
+              "
             ></textarea>
           </div>
         </div>
@@ -775,7 +802,10 @@
             :disabled="updatingLicense"
             class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
           >
-            <span v-if="updatingLicense" class="animate-spin h-4 w-4 border-b-2 border-white rounded-full inline-block mr-2"></span>
+            <span
+              v-if="updatingLicense"
+              class="animate-spin h-4 w-4 border-b-2 border-white rounded-full inline-block mr-2"
+            ></span>
             更新
           </button>
           <button
@@ -840,7 +870,10 @@ watch(
   [() => licenses.value.length, () => licensePagination.value.itemsPerPage],
   ([items]) => {
     const total = items
-    licensePagination.value.totalPages = Math.max(Math.ceil(total / licensePagination.value.itemsPerPage), 1)
+    licensePagination.value.totalPages = Math.max(
+      Math.ceil(total / licensePagination.value.itemsPerPage),
+      1,
+    )
     if (licensePagination.value.currentPage > licensePagination.value.totalPages) {
       licensePagination.value.currentPage = licensePagination.value.totalPages
     }
@@ -1109,7 +1142,11 @@ const handleDeactivateLicense = async (license) => {
 }
 
 const changeLicensePage = (page) => {
-  if (page < 1 || page > licensePagination.value.totalPages || page === licensePagination.value.currentPage)
+  if (
+    page < 1 ||
+    page > licensePagination.value.totalPages ||
+    page === licensePagination.value.currentPage
+  )
     return
   licensePagination.value.currentPage = page
 }
