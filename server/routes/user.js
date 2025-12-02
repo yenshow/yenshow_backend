@@ -13,7 +13,6 @@ import {
 	activateLicense,
 	deactivateLicense
 } from "../controllers/user/admin.js";
-import LicenseController from "../controllers/common/licenseController.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { checkRole, Permissions } from "../middlewares/permission.js";
 import { login as loginMiddleware } from "../middlewares/auth.js";
