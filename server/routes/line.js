@@ -1,6 +1,6 @@
 import express from "express";
 import * as line from "@line/bot-sdk";
-import * as lineController from "../controllers/lineController.js";
+import * as lineController from "../controllers/common/lineController.js";
 
 const router = express.Router();
 

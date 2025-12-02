@@ -19,6 +19,7 @@ import newsRoutes from "./routes/news.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import lineRoutes from "./routes/line.js";
 import caseStudyRoutes from "./routes/caseStudy.js";
+import licenseRoutes from "./routes/license.js";
 // 導入模型 - 僅用於初始化檢查，確保模型正確載入
 import "./models/products.js";
 import "./models/categories.js";
@@ -27,6 +28,7 @@ import "./models/specifications.js";
 import "./models/subCategories.js";
 import "./models/user.js";
 import "./models/caseStudy.js";
+import "./models/License.js";
 
 // 初始化路徑
 const __filename = fileURLToPath(import.meta.url);
@@ -212,6 +214,7 @@ const configureRoutes = (app) => {
 	app.use("/api/news", newsRoutes);
 	app.use("/api", contactRoutes);
 	app.use("/api", caseStudyRoutes);
+	app.use("/api/license", licenseRoutes);
 
 	// 提供靜態資源
 	app.use(

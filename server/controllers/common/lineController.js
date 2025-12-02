@@ -1,4 +1,4 @@
-import * as lineService from "../services/lineService.js";
+import * as lineService from "../../services/lineService.js";
 
 /**
  * LINE Webhook Controller

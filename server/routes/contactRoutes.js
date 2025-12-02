@@ -1,5 +1,5 @@
 import express from "express";
-import { handleContactForm } from "../controllers/contactController.js";
+import { handleContactForm } from "../controllers/common/contactController.js";
 import { handleUploads, handleMulterError } from "../middlewares/uploadMiddleware.js";
 
 const router = express.Router();
