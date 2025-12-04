@@ -35,6 +35,11 @@ export const useUserStore = defineStore(
     const loading = ref(false)
     const error = ref('')
 
+    // ===== 授權管理狀態 =====
+    const licenses = ref([])
+    const loadingLicenses = ref(false)
+    const errorLicenses = ref('')
+
     // ===== 用戶認證功能 =====
     const login = async (values) => {
       try {
@@ -363,6 +368,229 @@ export const useUserStore = defineStore(
       )
     }
 
+    // ===== 授權管理功能 =====
+    const getAllLicenses = async () => {
+      loadingLicenses.value = true
+      errorLicenses.value = ''
+
+      try {
+        console.log('獲取授權列表開始')
+        const { data } = await apiAuth.get('/api/users/licenses')
+        console.log('獲取授權列表回應:', data)
+
+        if (!data || !data.success) {
+          throw new Error(data?.message || '獲取授權列表失敗')
+        }
+
+        // 根據實際後端回應格式提取授權列表
+        if (Array.isArray(data.licenses)) {
+          licenses.value = data.licenses
+        } else if (data.result && Array.isArray(data.result.licenses)) {
+          licenses.value = data.result.licenses
+        } else {
+          console.error('回應格式不符合預期:', data)
+          throw new Error('回應中找不到授權列表')
+        }
+
+        return data.message || '獲取授權列表成功'
+      } catch (error) {
+        console.error('獲取授權列表錯誤:', error)
+        // 確保 licenses 始終是陣列
+        if (!Array.isArray(licenses.value)) {
+          licenses.value = []
+        }
+        const errorResult = notify.handleApiError(error, {
+          defaultMessage: '獲取授權列表失敗',
+          showToast: true,
+        })
+        errorLicenses.value = errorResult.message
+        throw error
+      } finally {
+        loadingLicenses.value = false
+      }
+    }
+
+    const createLicense = async (licenseData) => {
+      return await safeApiCall(
+        async () => {
+          loadingLicenses.value = true
+          console.log('創建授權開始:', licenseData)
+
+          const { data } = await apiAuth.post('/api/users/licenses', {
+            serialNumber: licenseData.serialNumber,
+            notes: licenseData.notes || null,
+          })
+          console.log('創建授權回應:', data)
+
+          if (!data || !data.success) {
+            throw new Error(data?.message || '創建授權失敗')
+          }
+
+          // 允許兩種可能的格式
+          const newLicense = data.result?.license || data.license || data.result
+          if (newLicense) {
+            console.log('新授權數據:', newLicense)
+            licenses.value.push(newLicense)
+            notify.notifySuccess('授權建立成功')
+            return { success: true, message: data.message || '授權建立成功' }
+          } else {
+            console.error('回應中找不到授權數據:', data)
+            // 嘗試重新載入授權列表
+            await getAllLicenses()
+            return { success: true, message: data.message || '授權建立成功，但無法獲取新授權詳情' }
+          }
+        },
+        {
+          defaultMessage: '創建授權失敗',
+          onFinally: () => {
+            loadingLicenses.value = false
+          },
+        },
+      )
+    }
+
+    const updateLicense = async (licenseId, licenseData) => {
+      return await safeApiCall(
+        async () => {
+          loadingLicenses.value = true
+          console.log('更新授權開始:', { licenseId, licenseData })
+
+          const { data } = await apiAuth.put(`/api/users/licenses/${licenseId}`, {
+            status: licenseData.status,
+            notes: licenseData.notes || null,
+          })
+          console.log('更新授權回應:', data)
+
+          if (!data || !data.success) {
+            throw new Error(data?.message || '更新授權失敗')
+          }
+
+          // 允許兩種可能的格式
+          const updatedLicense = data.result?.license || data.license || data.result
+          if (updatedLicense) {
+            const index = licenses.value.findIndex((license) => license._id === licenseId || license.id === licenseId)
+            if (index !== -1) {
+              licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
+            }
+            return { success: true, message: data.message || '更新授權成功' }
+          } else {
+            console.error('回應中找不到授權數據:', data)
+            // 嘗試重新載入授權列表
+            await getAllLicenses()
+            return { success: true, message: data.message || '更新授權成功，但無法獲取更新詳情' }
+          }
+        },
+        {
+          defaultMessage: '更新授權失敗',
+          onFinally: () => {
+            loadingLicenses.value = false
+          },
+        },
+      )
+    }
+
+    const deleteLicense = async (licenseId) => {
+      return await safeApiCall(
+        async () => {
+          loadingLicenses.value = true
+          console.log('刪除授權開始:', licenseId)
+          const { data } = await apiAuth.delete(`/api/users/licenses/${licenseId}`)
+          console.log('刪除授權回應:', data)
+
+          if (!data || !data.success) {
+            throw new Error(data?.message || '刪除授權失敗')
+          }
+
+          // 從授權列表中移除該授權
+          const index = licenses.value.findIndex((license) => license._id === licenseId || license.id === licenseId)
+          if (index !== -1) {
+            licenses.value.splice(index, 1)
+          }
+
+          notify.notifySuccess('授權刪除成功')
+          return { success: true, message: data.message || '授權刪除成功' }
+        },
+        {
+          defaultMessage: '刪除授權失敗',
+          onFinally: () => {
+            loadingLicenses.value = false
+          },
+        },
+      )
+    }
+
+    const activateLicense = async (licenseId) => {
+      return await safeApiCall(
+        async () => {
+          loadingLicenses.value = true
+          console.log('啟用授權開始:', licenseId)
+          const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/activate`)
+          console.log('啟用授權回應:', data)
+
+          if (!data || !data.success) {
+            throw new Error(data?.message || '啟用授權失敗')
+          }
+
+          // 更新本地授權狀態
+          const updatedLicense = data.result?.license || data.license
+          if (updatedLicense) {
+            const index = licenses.value.findIndex((license) => license._id === licenseId || license.id === licenseId)
+            if (index !== -1) {
+              licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
+            }
+          } else {
+            // 如果沒有返回更新後的授權，重新載入列表
+            await getAllLicenses()
+          }
+
+          notify.notifySuccess('授權已啟用')
+          return { success: true, message: data.message || '授權已啟用' }
+        },
+        {
+          defaultMessage: '啟用授權失敗',
+          onFinally: () => {
+            loadingLicenses.value = false
+          },
+        },
+      )
+    }
+
+    const deactivateLicense = async (licenseId) => {
+      return await safeApiCall(
+        async () => {
+          loadingLicenses.value = true
+          console.log('停用授權開始:', licenseId)
+          const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/deactivate`)
+          console.log('停用授權回應:', data)
+
+          if (!data || !data.success) {
+            throw new Error(data?.message || '停用授權失敗')
+          }
+
+          // 更新本地授權狀態
+          const updatedLicense = data.result?.license || data.license
+          if (updatedLicense) {
+            const index = licenses.value.findIndex((license) => license._id === licenseId || license.id === licenseId)
+            if (index !== -1) {
+              licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
+            }
+          } else {
+            // 如果沒有返回更新後的授權，重新載入列表
+            await getAllLicenses()
+          }
+
+          notify.notifySuccess('授權已停用')
+          return { success: true, message: data.message || '授權已停用' }
+        },
+        {
+          defaultMessage: '停用授權失敗',
+          onFinally: () => {
+            loadingLicenses.value = false
+          },
+        },
+      )
+    }
+
     // ===== 客戶端功能 =====
 
     return {
@@ -378,6 +606,11 @@ export const useUserStore = defineStore(
       loading,
       error,
 
+      // 授權管理狀態
+      licenses,
+      loadingLicenses,
+      errorLicenses,
+
       // 用戶認證功能
       login,
       profile,
@@ -390,6 +623,14 @@ export const useUserStore = defineStore(
       updateUser,
       resetUserPassword,
       deleteUser,
+
+      // 授權管理功能
+      getAllLicenses,
+      createLicense,
+      updateLicense,
+      deleteLicense,
+      activateLicense,
+      deactivateLicense,
 
       // 客戶端功能
     }

@@ -10,4 +10,3 @@ router.post("/activate", LicenseController.activate);
 router.post("/check-status", LicenseController.checkStatus);
 
 export default router;
-

@@ -526,7 +526,7 @@
           <tbody>
             <tr
               v-for="license in pagedLicenses"
-              :key="license.id"
+              :key="license._id || license.id"
               :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
             >
               <td class="py-3 px-4 theme-text font-mono">{{ license.serialNumber }}</td>
@@ -567,11 +567,11 @@
                   <button
                     v-if="license.status !== 'active'"
                     @click="handleActivateLicense(license)"
-                    :disabled="activatingLicense === license.id"
+                    :disabled="activatingLicense === (license._id || license.id)"
                     class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                   >
                     <span
-                      v-if="activatingLicense === license.id"
+                      v-if="activatingLicense === (license._id || license.id)"
                       class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
                     ></span>
                     啟用
@@ -579,11 +579,11 @@
                   <button
                     v-if="license.status === 'active'"
                     @click="handleDeactivateLicense(license)"
-                    :disabled="deactivatingLicense === license.id"
+                    :disabled="deactivatingLicense === (license._id || license.id)"
                     class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                   >
                     <span
-                      v-if="deactivatingLicense === license.id"
+                      v-if="deactivatingLicense === (license._id || license.id)"
                       class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
                     ></span>
                     停用
@@ -596,11 +596,11 @@
                   </button>
                   <button
                     @click="handleDeleteLicense(license)"
-                    :disabled="deletingLicense === license.id"
+                    :disabled="deletingLicense === (license._id || license.id)"
                     class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                   >
                     <span
-                      v-if="deletingLicense === license.id"
+                      v-if="deletingLicense === (license._id || license.id)"
                       class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
                     ></span>
                     刪除
@@ -826,12 +826,10 @@ import { useUserStore } from '@/stores/userStore'
 import { useThemeClass } from '@/composables/useThemeClass'
 import CreateUserModal from '@/components/CreateUserModal.vue'
 import { useNotifications } from '@/composables/notificationCenter'
-import { useApi } from '@/composables/axios'
 
 const userStore = useUserStore()
 const notify = useNotifications()
 const { cardClass, conditionalClass } = useThemeClass()
-const { apiAuth } = useApi()
 
 // 本地狀態
 const loading = computed(() => userStore.loading)
@@ -840,9 +838,12 @@ const error = ref('')
 const showCreateUserModal = ref(false)
 const activeTab = ref('all')
 
-// 授權管理狀態
-const licenses = ref([])
-const loadingLicenses = ref(false)
+// 授權管理狀態 - 使用 store
+const licenses = computed(() => {
+  const storeLicenses = userStore.licenses
+  return Array.isArray(storeLicenses) ? storeLicenses : []
+})
+const loadingLicenses = computed(() => userStore.loadingLicenses)
 const showCreateLicenseModal = ref(false)
 const showEditLicenseModal = ref(false)
 const newLicense = ref({ serialNumber: '', notes: '' })
@@ -1022,17 +1023,19 @@ const handleUserUpdate = async () => {
 
 // 授權管理功能
 const fetchLicenses = async () => {
-  loadingLicenses.value = true
-  error.value = ''
   try {
-    const response = await apiAuth.get('/users/licenses')
-    licenses.value = response.data.licenses || []
+    error.value = ''
+    await userStore.getAllLicenses()
   } catch (err) {
     console.error('載入授權列表失敗：', err)
-    error.value = typeof err === 'string' ? err : '載入授權列表失敗，請重新整理頁面'
-    notify.notifyError(error.value)
-  } finally {
-    loadingLicenses.value = false
+    const errorMsg =
+      err?.response?.data?.message || err?.message || '載入授權列表失敗，請重新整理頁面'
+    error.value = errorMsg
+    notify.notifyError(errorMsg)
+    // 確保 licenses 不會是 undefined
+    if (!Array.isArray(userStore.licenses)) {
+      userStore.licenses = []
+    }
   }
 }
 
@@ -1044,14 +1047,12 @@ const handleCreateLicense = async () => {
 
   try {
     creatingLicense.value = true
-    await apiAuth.post('/users/licenses', {
+    await userStore.createLicense({
       serialNumber: newLicense.value.serialNumber,
       notes: newLicense.value.notes || null,
     })
-    notify.notifySuccess('授權建立成功')
     showCreateLicenseModal.value = false
     newLicense.value = { serialNumber: '', notes: '' }
-    await fetchLicenses()
   } catch (err) {
     console.error('建立授權失敗:', err)
     const errorMsg = err.response?.data?.message || '建立授權失敗，請稍後再試'
@@ -1071,14 +1072,13 @@ const handleUpdateLicense = async () => {
 
   try {
     updatingLicense.value = true
-    await apiAuth.put(`/users/licenses/${editingLicense.value.id}`, {
+    const licenseId = editingLicense.value._id || editingLicense.value.id
+    await userStore.updateLicense(licenseId, {
       status: editingLicense.value.status,
       notes: editingLicense.value.notes || null,
     })
-    notify.notifySuccess('授權更新成功')
     showEditLicenseModal.value = false
     editingLicense.value = null
-    await fetchLicenses()
   } catch (err) {
     console.error('更新授權失敗:', err)
     const errorMsg = err.response?.data?.message || '更新授權失敗，請稍後再試'
@@ -1094,10 +1094,9 @@ const handleDeleteLicense = async (license) => {
   }
 
   try {
-    deletingLicense.value = license.id
-    await apiAuth.delete(`/users/licenses/${license.id}`)
-    notify.notifySuccess(`成功刪除授權 ${license.serialNumber}`)
-    await fetchLicenses()
+    const licenseId = license._id || license.id
+    deletingLicense.value = licenseId
+    await userStore.deleteLicense(licenseId)
   } catch (err) {
     console.error('刪除授權失敗:', err)
     const errorMsg = err.response?.data?.message || '刪除授權失敗，請稍後再試'
@@ -1109,10 +1108,9 @@ const handleDeleteLicense = async (license) => {
 
 const handleActivateLicense = async (license) => {
   try {
-    activatingLicense.value = license.id
-    await apiAuth.post(`/users/licenses/${license.id}/activate`)
-    notify.notifySuccess('授權已啟用')
-    await fetchLicenses()
+    const licenseId = license._id || license.id
+    activatingLicense.value = licenseId
+    await userStore.activateLicense(licenseId)
   } catch (err) {
     console.error('啟用授權失敗:', err)
     const errorMsg = err.response?.data?.message || '啟用授權失敗，請稍後再試'
@@ -1128,10 +1126,9 @@ const handleDeactivateLicense = async (license) => {
   }
 
   try {
-    deactivatingLicense.value = license.id
-    await apiAuth.post(`/users/licenses/${license.id}/deactivate`)
-    notify.notifySuccess('授權已停用')
-    await fetchLicenses()
+    const licenseId = license._id || license.id
+    deactivatingLicense.value = licenseId
+    await userStore.deactivateLicense(licenseId)
   } catch (err) {
     console.error('停用授權失敗:', err)
     const errorMsg = err.response?.data?.message || '停用授權失敗，請稍後再試'
