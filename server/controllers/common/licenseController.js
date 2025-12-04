@@ -19,16 +19,33 @@ class LicenseController {
 				throw ApiError.badRequest("需要提供 serialNumber");
 			}
 
-			const license = await License.findOne({ serialNumber });
+		const license = await License.findOne({ serialNumber });
 
-			if (!license) {
-				throw ApiError.notFound("找不到對應的 SerialNumber");
-			}
+		if (!license) {
+			throw ApiError.notFound("找不到對應的授權", {
+				code: "LICENSE_NOT_FOUND",
+				message: `找不到 SerialNumber 為「${serialNumber}」的授權，請確認是否正確`
+			});
+		}
 
-			// 檢查授權狀態
-			if (license.status !== "active") {
-				throw ApiError.forbidden(`授權未啟用 (狀態: ${license.status})`);
-			}
+		// 檢查授權狀態
+		const statusMessages = {
+			pending: "待啟用",
+			active: "啟用中",
+			inactive: "已停用"
+		};
+
+		if (license.status !== "active") {
+			throw ApiError.forbidden(
+				`無法獲取 License Key：授權狀態為「${statusMessages[license.status] || license.status}」`,
+				{
+					code: "LICENSE_NOT_ACTIVE",
+					status: license.status,
+					statusText: statusMessages[license.status] || license.status,
+					message: "只有狀態為「啟用中」的授權才能獲取 License Key"
+				}
+			);
+		}
 
 			return successResponse(res, StatusCodes.OK, "獲取 License Key 成功", {
 				result: {
@@ -55,28 +72,58 @@ class LicenseController {
 				throw ApiError.badRequest("需要提供 licenseKey");
 			}
 
-			const license = await License.findOne({ licenseKey });
+		const license = await License.findOne({ licenseKey });
 
-			if (!license) {
-				return successResponse(res, StatusCodes.OK, "驗證結果", {
-					result: {
-						valid: false,
-						error: "授權不存在",
-						code: "LICENSE_NOT_FOUND"
-					}
-				});
-			}
+		if (!license) {
+			return successResponse(res, StatusCodes.OK, "驗證結果", {
+				result: {
+					valid: false,
+					error: "找不到對應的授權",
+					message: "請確認 License Key 是否正確",
+					code: "LICENSE_NOT_FOUND"
+				}
+			});
+		}
 
-			// 檢查授權狀態
-			if (license.status !== "active") {
-				return successResponse(res, StatusCodes.OK, "驗證結果", {
-					result: {
-						valid: false,
-						error: `授權未啟用 (狀態: ${license.status})`,
-						code: "LICENSE_INACTIVE",
-						status: license.status
-					}
-				});
+		// 檢查授權狀態
+		const statusMessages = {
+			pending: "待啟用",
+			active: "啟用中",
+			inactive: "已停用"
+		};
+
+		if (license.status !== "active") {
+			return successResponse(res, StatusCodes.OK, "驗證結果", {
+				result: {
+					valid: false,
+					error: `授權狀態為「${statusMessages[license.status] || license.status}」`,
+					message: "只有狀態為「啟用中」的授權才能通過驗證",
+					code: "LICENSE_INACTIVE",
+					status: license.status,
+					statusText: statusMessages[license.status] || license.status
+				}
+			});
+		}
+
+		// 檢查授權是否已經被使用過（只能使用一次）
+		if (license.usedAt) {
+			const usedDate = new Date(license.usedAt).toLocaleString("zh-TW");
+			return successResponse(res, StatusCodes.OK, "驗證結果", {
+				result: {
+					valid: false,
+					error: "此授權已經被使用過",
+					message: `此授權已於 ${usedDate} 使用過，每個授權只能使用一次`,
+					code: "LICENSE_ALREADY_USED",
+					usedAt: license.usedAt,
+					usedAtFormatted: usedDate
+				}
+			});
+		}
+
+			// 驗證成功，標記為已使用（只能使用一次）
+			if (!license.usedAt) {
+				license.usedAt = new Date();
+				await license.save();
 			}
 
 			// 驗證成功
@@ -109,37 +156,58 @@ class LicenseController {
 				throw ApiError.badRequest("需要提供 licenseKey");
 			}
 
-			const license = await License.findOne({ licenseKey });
+		const license = await License.findOne({ licenseKey });
 
-			if (!license) {
-				throw ApiError.unauthorized("授權不存在");
-			}
-
-			// 檢查授權狀態
-			if (license.status !== "active") {
-				throw ApiError.unauthorized(`授權未啟用 (狀態: ${license.status})`);
-			}
-
-			// 如果已經啟用過，直接返回成功
-			if (license.activatedAt) {
-				return successResponse(res, StatusCodes.OK, "授權已啟用", {
-					result: {
-						message: "授權已啟用",
-						activatedAt: license.activatedAt
-					}
-				});
-			}
-
-			// 設置啟用時間
-			license.activatedAt = new Date();
-			await license.save();
-
-			return successResponse(res, StatusCodes.OK, "授權啟用成功", {
-				result: {
-					message: "授權啟用成功",
-					activatedAt: license.activatedAt
-				}
+		if (!license) {
+			throw ApiError.notFound("找不到對應的授權", {
+				code: "LICENSE_NOT_FOUND",
+				message: "請確認 License Key 是否正確"
 			});
+		}
+
+		// 檢查授權狀態
+		const statusMessages = {
+			pending: "待啟用",
+			active: "啟用中",
+			inactive: "已停用"
+		};
+
+		if (license.status !== "active") {
+			throw ApiError.forbidden(
+				`無法啟用授權：授權狀態為「${statusMessages[license.status] || license.status}」`,
+				{
+					code: "LICENSE_NOT_ACTIVE",
+					status: license.status,
+					statusText: statusMessages[license.status] || license.status,
+					message: "只有狀態為「啟用中」的授權才能被使用"
+				}
+			);
+		}
+
+		// 檢查授權是否已經被使用過（只能使用一次）
+		if (license.usedAt) {
+			const usedDate = new Date(license.usedAt).toLocaleString("zh-TW");
+			throw ApiError.forbidden(
+				"此授權已經被使用過，無法再次啟用",
+				{
+					code: "LICENSE_ALREADY_USED",
+					usedAt: license.usedAt,
+					usedAtFormatted: usedDate,
+					message: `此授權已於 ${usedDate} 使用過，每個授權只能使用一次`
+				}
+			);
+		}
+
+		// 設置使用時間（只能使用一次）
+		license.usedAt = new Date();
+		await license.save();
+
+		return successResponse(res, StatusCodes.OK, "授權啟用成功", {
+			result: {
+				message: "授權啟用成功",
+				usedAt: license.usedAt
+			}
+		});
 		} catch (error) {
 			console.error("啟用授權失敗:", error);
 			next(error);
@@ -158,11 +226,14 @@ class LicenseController {
 				throw ApiError.badRequest("需要提供 licenseKey");
 			}
 
-			const license = await License.findOne({ licenseKey });
+		const license = await License.findOne({ licenseKey });
 
-			if (!license) {
-				throw ApiError.notFound("授權不存在");
-			}
+		if (!license) {
+			throw ApiError.notFound("找不到對應的授權", {
+				code: "LICENSE_NOT_FOUND",
+				message: "請確認 License Key 是否正確"
+			});
+		}
 
 			return successResponse(res, StatusCodes.OK, "獲取授權狀態成功", {
 				result: {
@@ -172,7 +243,7 @@ class LicenseController {
 						serialNumber: license.serialNumber,
 						status: license.status,
 						createdAt: license.createdAt,
-						activatedAt: license.activatedAt,
+						usedAt: license.usedAt,
 						notes: license.notes
 					}
 				}

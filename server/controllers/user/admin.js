@@ -280,13 +280,7 @@ export const updateLicense = async (req, res, next) => {
 				throw ApiError.badRequest("無效的狀態值");
 			}
 			
-			const previousStatus = license.status;
 			license.status = status;
-			
-			// 如果狀態從非 active 變為 active，且尚未設置 activatedAt，則設置啟用時間
-			if (status === "active" && previousStatus !== "active" && !license.activatedAt) {
-				license.activatedAt = new Date();
-			}
 		}
 
 		if (notes !== undefined) {

@@ -517,7 +517,7 @@
               <th class="text-left py-3 px-4 theme-text">Serial Number</th>
               <th class="text-left py-3 px-4 theme-text">License Key</th>
               <th class="text-left py-3 px-4 theme-text">狀態</th>
-              <th class="text-left py-3 px-4 theme-text">啟用時間</th>
+              <th class="text-left py-3 px-4 theme-text">使用時間</th>
               <th class="text-left py-3 px-4 theme-text">建立時間</th>
               <th class="text-left py-3 px-4 theme-text">備註</th>
               <th class="text-left py-3 px-4 theme-text">操作</th>
@@ -558,7 +558,7 @@
                 </span>
               </td>
               <td class="py-3 px-4 theme-text text-sm">
-                {{ license.activatedAt ? formatDate(license.activatedAt) : '-' }}
+                {{ license.usedAt ? formatDate(license.usedAt) : '-' }}
               </td>
               <td class="py-3 px-4 theme-text text-sm">{{ formatDate(license.createdAt) }}</td>
               <td class="py-3 px-4 theme-text text-sm">{{ license.notes || '-' }}</td>

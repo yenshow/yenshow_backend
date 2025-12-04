@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 
 /**
  * 授權資料模型
- * 
+ *
  * License Key 生成方式：
  * 1. 組合：SerialNumber + 時間戳 + 隨機數
  * 2. SHA256 雜湊
@@ -34,10 +34,11 @@ const licenseSchema = new Schema(
 			index: true,
 			comment: "授權狀態：pending=待啟用, active=啟用中, inactive=已停用"
 		},
-		activatedAt: {
+		usedAt: {
 			type: Date,
 			default: null,
-			comment: "首次啟用時間（可選，用於記錄啟用時間）"
+			index: true,
+			comment: "首次使用時間（用於追蹤授權是否已被使用，只能使用一次）"
 		},
 		notes: {
 			type: String,
@@ -69,7 +70,7 @@ const transformOptions = {
 		// 轉換日期為 ISO 字串
 		if (ret.createdAt) ret.createdAt = ret.createdAt.toISOString();
 		if (ret.updatedAt) ret.updatedAt = ret.updatedAt.toISOString();
-		if (ret.activatedAt) ret.activatedAt = ret.activatedAt.toISOString();
+		if (ret.usedAt) ret.usedAt = ret.usedAt.toISOString();
 		return ret;
 	}
 };
