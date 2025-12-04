@@ -30,9 +30,8 @@ class LicenseController {
 
 		// 檢查授權狀態
 		const statusMessages = {
-			pending: "待啟用",
 			active: "啟用中",
-			inactive: "已停用"
+			inactive: "未啟用"
 		};
 
 		if (license.status !== "active") {
@@ -87,9 +86,8 @@ class LicenseController {
 
 		// 檢查授權狀態
 		const statusMessages = {
-			pending: "待啟用",
 			active: "啟用中",
-			inactive: "已停用"
+			inactive: "未啟用"
 		};
 
 		if (license.status !== "active") {
@@ -167,9 +165,8 @@ class LicenseController {
 
 		// 檢查授權狀態
 		const statusMessages = {
-			pending: "待啟用",
 			active: "啟用中",
-			inactive: "已停用"
+			inactive: "未啟用"
 		};
 
 		if (license.status !== "active") {

@@ -248,7 +248,7 @@ export const createLicense = async (req, res, next) => {
 		const newLicense = await License.create({
 			licenseKey: finalLicenseKey,
 			serialNumber,
-			status: "pending",
+			status: "inactive",
 			notes: notes || null
 		});
 
@@ -276,7 +276,7 @@ export const updateLicense = async (req, res, next) => {
 
 		// 更新欄位
 		if (status !== undefined) {
-			if (!["pending", "active", "inactive"].includes(status)) {
+			if (!["active", "inactive"].includes(status)) {
 				throw ApiError.badRequest("無效的狀態值");
 			}
 			

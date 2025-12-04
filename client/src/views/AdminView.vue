@@ -539,22 +539,11 @@
                           'bg-green-500/20 text-green-300',
                           'bg-green-100 text-green-700',
                         )
-                      : license.status === 'inactive'
-                        ? conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
-                        : conditionalClass(
-                            'bg-yellow-500/20 text-yellow-300',
-                            'bg-yellow-100 text-yellow-700',
-                          )
+                      : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
                   "
                   class="px-2 py-1 rounded-full text-sm"
                 >
-                  {{
-                    license.status === 'active'
-                      ? '啟用中'
-                      : license.status === 'inactive'
-                        ? '已停用'
-                        : '待啟用'
-                  }}
+                  {{ license.status === 'active' ? '啟用中' : '未啟用' }}
                 </span>
               </td>
               <td class="py-3 px-4 theme-text text-sm">
@@ -751,9 +740,8 @@
                 )
               "
             >
-              <option value="pending">待啟用</option>
+              <option value="inactive">未啟用</option>
               <option value="active">啟用中</option>
-              <option value="inactive">已停用</option>
             </select>
           </div>
           <div>
