@@ -208,13 +208,14 @@ const configureRoutes = (app) => {
 	});
 
 	// API 路由
+	// 將更具體的路由放在前面，確保優先匹配（避免被通用路由攔截）
+	app.use("/api/license", licenseRoutes);
 	app.use("/api/users", userRoutes);
-	app.use("/api", hierarchyRoutes);
 	app.use("/api/faqs", faqRoutes);
 	app.use("/api/news", newsRoutes);
+	app.use("/api", hierarchyRoutes);
 	app.use("/api", contactRoutes);
 	app.use("/api", caseStudyRoutes);
-	app.use("/api/license", licenseRoutes);
 
 	// 提供靜態資源
 	app.use(
