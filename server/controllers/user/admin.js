@@ -279,7 +279,14 @@ export const updateLicense = async (req, res, next) => {
 			if (!["pending", "active", "inactive"].includes(status)) {
 				throw ApiError.badRequest("無效的狀態值");
 			}
+			
+			const previousStatus = license.status;
 			license.status = status;
+			
+			// 如果狀態從非 active 變為 active，且尚未設置 activatedAt，則設置啟用時間
+			if (status === "active" && previousStatus !== "active" && !license.activatedAt) {
+				license.activatedAt = new Date();
+			}
 		}
 
 		if (notes !== undefined) {
@@ -313,46 +320,3 @@ export const deleteLicense = async (req, res, next) => {
 	}
 };
 
-/**
- * 啟用授權
- */
-export const activateLicense = async (req, res, next) => {
-	try {
-		const { id } = req.params;
-
-		const license = await License.findById(id);
-
-		if (!license) {
-			throw ApiError.notFound("授權不存在");
-		}
-
-		license.status = "active";
-		await license.save();
-
-		return successResponse(res, StatusCodes.OK, "授權已啟用", { license });
-	} catch (error) {
-		next(error);
-	}
-};
-
-/**
- * 停用授權
- */
-export const deactivateLicense = async (req, res, next) => {
-	try {
-		const { id } = req.params;
-
-		const license = await License.findById(id);
-
-		if (!license) {
-			throw ApiError.notFound("授權不存在");
-		}
-
-		license.status = "inactive";
-		await license.save();
-
-		return successResponse(res, StatusCodes.OK, "授權已停用", { license });
-	} catch (error) {
-		next(error);
-	}
-};

@@ -9,9 +9,7 @@ import {
 	getLicense,
 	createLicense,
 	updateLicense,
-	deleteLicense,
-	activateLicense,
-	deactivateLicense
+	deleteLicense
 } from "../controllers/user/admin.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { checkRole, Permissions } from "../middlewares/permission.js";
@@ -43,7 +41,5 @@ router.get("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), g
 router.post("/licenses", checkRole([Permissions.ADMIN, Permissions.STAFF]), createLicense);
 router.put("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), updateLicense);
 router.delete("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), deleteLicense);
-router.post("/licenses/:id/activate", checkRole([Permissions.ADMIN, Permissions.STAFF]), activateLicense);
-router.post("/licenses/:id/deactivate", checkRole([Permissions.ADMIN, Permissions.STAFF]), deactivateLicense);
 
 export default router;

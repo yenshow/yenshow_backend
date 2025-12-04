@@ -375,23 +375,36 @@ export const useUserStore = defineStore(
 
       try {
         console.log('獲取授權列表開始')
-        const { data } = await apiAuth.get('/api/users/licenses')
-        console.log('獲取授權列表回應:', data)
+        const response = await apiAuth.get('/api/users/licenses')
+        console.log('獲取授權列表完整回應:', response)
+        const { data } = response
+        console.log('獲取授權列表回應 data:', data)
 
-        if (!data || !data.success) {
+        if (!data) {
+          console.error('回應為空')
+          throw new Error('伺服器回應為空')
+        }
+
+        if (!data.success) {
+          console.error('回應 success 為 false:', data)
           throw new Error(data?.message || '獲取授權列表失敗')
         }
 
         // 根據實際後端回應格式提取授權列表
         if (Array.isArray(data.licenses)) {
+          console.log('找到 licenses 陣列，數量:', data.licenses.length)
           licenses.value = data.licenses
         } else if (data.result && Array.isArray(data.result.licenses)) {
+          console.log('找到 result.licenses 陣列，數量:', data.result.licenses.length)
           licenses.value = data.result.licenses
         } else {
-          console.error('回應格式不符合預期:', data)
-          throw new Error('回應中找不到授權列表')
+          console.error('回應格式不符合預期，完整回應:', JSON.stringify(data, null, 2))
+          // 即使格式不對，也嘗試設置空陣列，避免卡住
+          licenses.value = []
+          throw new Error('回應中找不到授權列表，回應格式: ' + JSON.stringify(Object.keys(data)))
         }
 
+        console.log('授權列表載入成功，共', licenses.value.length, '筆')
         return data.message || '獲取授權列表成功'
       } catch (error) {
         console.error('獲取授權列表錯誤:', error)
@@ -406,6 +419,7 @@ export const useUserStore = defineStore(
         errorLicenses.value = errorResult.message
         throw error
       } finally {
+        console.log('獲取授權列表完成，設置 loadingLicenses = false')
         loadingLicenses.value = false
       }
     }
@@ -413,7 +427,6 @@ export const useUserStore = defineStore(
     const createLicense = async (licenseData) => {
       return await safeApiCall(
         async () => {
-          loadingLicenses.value = true
           console.log('創建授權開始:', licenseData)
 
           const { data } = await apiAuth.post('/api/users/licenses', {
@@ -435,16 +448,15 @@ export const useUserStore = defineStore(
             return { success: true, message: data.message || '授權建立成功' }
           } else {
             console.error('回應中找不到授權數據:', data)
-            // 嘗試重新載入授權列表
-            await getAllLicenses()
+            // 如果找不到新授權，重新載入列表（但不設置 loading，避免卡住）
+            getAllLicenses().catch(err => {
+              console.error('重新載入授權列表失敗:', err)
+            })
             return { success: true, message: data.message || '授權建立成功，但無法獲取新授權詳情' }
           }
         },
         {
           defaultMessage: '創建授權失敗',
-          onFinally: () => {
-            loadingLicenses.value = false
-          },
         },
       )
     }
@@ -452,7 +464,6 @@ export const useUserStore = defineStore(
     const updateLicense = async (licenseId, licenseData) => {
       return await safeApiCall(
         async () => {
-          loadingLicenses.value = true
           console.log('更新授權開始:', { licenseId, licenseData })
 
           const { data } = await apiAuth.put(`/api/users/licenses/${licenseId}`, {
@@ -468,23 +479,34 @@ export const useUserStore = defineStore(
           // 允許兩種可能的格式
           const updatedLicense = data.result?.license || data.license || data.result
           if (updatedLicense) {
-            const index = licenses.value.findIndex((license) => license._id === licenseId || license.id === licenseId)
+            const index = licenses.value.findIndex((license) => {
+              const id = license._id || license.id
+              const targetId = licenseId.toString()
+              return id && (id.toString() === targetId || id === targetId)
+            })
+            
             if (index !== -1) {
+              console.log('找到授權索引:', index, '更新狀態')
               licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
+            } else {
+              console.warn('找不到要更新的授權，ID:', licenseId)
+              // 如果找不到，重新載入列表
+              getAllLicenses().catch(err => {
+                console.error('重新載入授權列表失敗:', err)
+              })
             }
             return { success: true, message: data.message || '更新授權成功' }
           } else {
             console.error('回應中找不到授權數據:', data)
             // 嘗試重新載入授權列表
-            await getAllLicenses()
+            getAllLicenses().catch(err => {
+              console.error('重新載入授權列表失敗:', err)
+            })
             return { success: true, message: data.message || '更新授權成功，但無法獲取更新詳情' }
           }
         },
         {
           defaultMessage: '更新授權失敗',
-          onFinally: () => {
-            loadingLicenses.value = false
-          },
         },
       )
     }
@@ -492,7 +514,6 @@ export const useUserStore = defineStore(
     const deleteLicense = async (licenseId) => {
       return await safeApiCall(
         async () => {
-          loadingLicenses.value = true
           console.log('刪除授權開始:', licenseId)
           const { data } = await apiAuth.delete(`/api/users/licenses/${licenseId}`)
           console.log('刪除授權回應:', data)
@@ -502,9 +523,21 @@ export const useUserStore = defineStore(
           }
 
           // 從授權列表中移除該授權
-          const index = licenses.value.findIndex((license) => license._id === licenseId || license.id === licenseId)
+          const index = licenses.value.findIndex((license) => {
+            const id = license._id || license.id
+            const targetId = licenseId.toString()
+            return id && (id.toString() === targetId || id === targetId)
+          })
+          
           if (index !== -1) {
+            console.log('找到授權索引:', index, '移除授權')
             licenses.value.splice(index, 1)
+          } else {
+            console.warn('找不到要刪除的授權，ID:', licenseId)
+            // 如果找不到，重新載入列表
+            getAllLicenses().catch(err => {
+              console.error('重新載入授權列表失敗:', err)
+            })
           }
 
           notify.notifySuccess('授權刪除成功')
@@ -512,81 +545,6 @@ export const useUserStore = defineStore(
         },
         {
           defaultMessage: '刪除授權失敗',
-          onFinally: () => {
-            loadingLicenses.value = false
-          },
-        },
-      )
-    }
-
-    const activateLicense = async (licenseId) => {
-      return await safeApiCall(
-        async () => {
-          loadingLicenses.value = true
-          console.log('啟用授權開始:', licenseId)
-          const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/activate`)
-          console.log('啟用授權回應:', data)
-
-          if (!data || !data.success) {
-            throw new Error(data?.message || '啟用授權失敗')
-          }
-
-          // 更新本地授權狀態
-          const updatedLicense = data.result?.license || data.license
-          if (updatedLicense) {
-            const index = licenses.value.findIndex((license) => license._id === licenseId || license.id === licenseId)
-            if (index !== -1) {
-              licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
-            }
-          } else {
-            // 如果沒有返回更新後的授權，重新載入列表
-            await getAllLicenses()
-          }
-
-          notify.notifySuccess('授權已啟用')
-          return { success: true, message: data.message || '授權已啟用' }
-        },
-        {
-          defaultMessage: '啟用授權失敗',
-          onFinally: () => {
-            loadingLicenses.value = false
-          },
-        },
-      )
-    }
-
-    const deactivateLicense = async (licenseId) => {
-      return await safeApiCall(
-        async () => {
-          loadingLicenses.value = true
-          console.log('停用授權開始:', licenseId)
-          const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/deactivate`)
-          console.log('停用授權回應:', data)
-
-          if (!data || !data.success) {
-            throw new Error(data?.message || '停用授權失敗')
-          }
-
-          // 更新本地授權狀態
-          const updatedLicense = data.result?.license || data.license
-          if (updatedLicense) {
-            const index = licenses.value.findIndex((license) => license._id === licenseId || license.id === licenseId)
-            if (index !== -1) {
-              licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
-            }
-          } else {
-            // 如果沒有返回更新後的授權，重新載入列表
-            await getAllLicenses()
-          }
-
-          notify.notifySuccess('授權已停用')
-          return { success: true, message: data.message || '授權已停用' }
-        },
-        {
-          defaultMessage: '停用授權失敗',
-          onFinally: () => {
-            loadingLicenses.value = false
-          },
         },
       )
     }
@@ -629,8 +587,6 @@ export const useUserStore = defineStore(
       createLicense,
       updateLicense,
       deleteLicense,
-      activateLicense,
-      deactivateLicense,
 
       // 客戶端功能
     }

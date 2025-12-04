@@ -565,32 +565,8 @@
               <td class="py-3 px-4">
                 <div class="flex gap-2">
                   <button
-                    v-if="license.status !== 'active'"
-                    @click="handleActivateLicense(license)"
-                    :disabled="activatingLicense === (license._id || license.id)"
-                    class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                  >
-                    <span
-                      v-if="activatingLicense === (license._id || license.id)"
-                      class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                    ></span>
-                    啟用
-                  </button>
-                  <button
-                    v-if="license.status === 'active'"
-                    @click="handleDeactivateLicense(license)"
-                    :disabled="deactivatingLicense === (license._id || license.id)"
-                    class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                  >
-                    <span
-                      v-if="deactivatingLicense === (license._id || license.id)"
-                      class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                    ></span>
-                    停用
-                  </button>
-                  <button
                     @click="handleEditLicense(license)"
-                    class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
+                    class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
                   >
                     編輯
                   </button>
@@ -851,8 +827,6 @@ const editingLicense = ref(null)
 const creatingLicense = ref(false)
 const updatingLicense = ref(false)
 const deletingLicense = ref(null)
-const activatingLicense = ref(null)
-const deactivatingLicense = ref(null)
 
 // 授權分頁
 const licensePagination = ref({
@@ -1053,6 +1027,8 @@ const handleCreateLicense = async () => {
     })
     showCreateLicenseModal.value = false
     newLicense.value = { serialNumber: '', notes: '' }
+    // 確保列表已更新
+    await fetchLicenses()
   } catch (err) {
     console.error('建立授權失敗:', err)
     const errorMsg = err.response?.data?.message || '建立授權失敗，請稍後再試'
@@ -1103,38 +1079,6 @@ const handleDeleteLicense = async (license) => {
     notify.notifyError(errorMsg)
   } finally {
     deletingLicense.value = null
-  }
-}
-
-const handleActivateLicense = async (license) => {
-  try {
-    const licenseId = license._id || license.id
-    activatingLicense.value = licenseId
-    await userStore.activateLicense(licenseId)
-  } catch (err) {
-    console.error('啟用授權失敗:', err)
-    const errorMsg = err.response?.data?.message || '啟用授權失敗，請稍後再試'
-    notify.notifyError(errorMsg)
-  } finally {
-    activatingLicense.value = null
-  }
-}
-
-const handleDeactivateLicense = async (license) => {
-  if (!confirm(`確定要停用授權 "${license.serialNumber}" 嗎？`)) {
-    return
-  }
-
-  try {
-    const licenseId = license._id || license.id
-    deactivatingLicense.value = licenseId
-    await userStore.deactivateLicense(licenseId)
-  } catch (err) {
-    console.error('停用授權失敗:', err)
-    const errorMsg = err.response?.data?.message || '停用授權失敗，請稍後再試'
-    notify.notifyError(errorMsg)
-  } finally {
-    deactivatingLicense.value = null
   }
 }
 
