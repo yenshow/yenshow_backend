@@ -105,7 +105,11 @@ class LicenseController {
 
 		// 檢查授權是否已經被使用過（只能使用一次）
 		if (license.usedAt) {
-			const usedDate = new Date(license.usedAt).toLocaleString("zh-TW");
+			const usedDate = new Date(license.usedAt).toLocaleDateString("zh-TW", {
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit"
+			});
 			return successResponse(res, StatusCodes.OK, "驗證結果", {
 				result: {
 					valid: false,
@@ -183,7 +187,11 @@ class LicenseController {
 
 		// 檢查授權是否已經被使用過（只能使用一次）
 		if (license.usedAt) {
-			const usedDate = new Date(license.usedAt).toLocaleString("zh-TW");
+			const usedDate = new Date(license.usedAt).toLocaleDateString("zh-TW", {
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit"
+			});
 			throw ApiError.forbidden(
 				"此授權已經被使用過，無法再次啟用",
 				{
