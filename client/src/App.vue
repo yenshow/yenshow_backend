@@ -129,6 +129,22 @@
               <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
             </svg>
 
+            <!-- 權限管理圖標 (僅 admin) -->
+            <svg
+              v-else-if="link.name === 'licenses'"
+              class="w-[36px] lg:w-[48px] aspect-square"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+
             <span>{{ link.text }}</span>
           </router-link>
         </nav>
@@ -355,6 +371,11 @@ const navLinks = computed(() => {
     links.push({ to: '/admin', name: 'admin', text: '用戶' })
   }
 
+  // 僅 admin 顯示權限管理
+  if (isAdmin.value) {
+    links.push({ to: '/licenses', name: 'licenses', text: '權限' })
+  }
+
   return links
 })
 
@@ -374,6 +395,10 @@ const isActiveRoute = (name) => {
   // 處理 comeo 路由
   if (name === 'comeo') {
     return route.name === 'comeo'
+  }
+  // 處理 licenses 路由
+  if (name === 'licenses') {
+    return route.name === 'licenses'
   }
   return route.name === name
 }

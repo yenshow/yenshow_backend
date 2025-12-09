@@ -196,60 +196,31 @@ export const getLicense = async (req, res, next) => {
 
 /**
  * 建立新授權
- * 只需提供 SerialNumber，系統自動生成 License Key
+ * 只需提供：客戶名稱、申請人、備註
+ * status 自動設為 pending（審核中）
+ * serialNumber 和 licenseKey 在審核時才生成
  */
 export const createLicense = async (req, res, next) => {
 	try {
-		const { serialNumber, notes } = req.body;
+		const { customerName, applicant, notes } = req.body;
 
-		if (!serialNumber) {
-			throw ApiError.badRequest("需要提供 serialNumber");
+		// 驗證必填欄位
+		if (!customerName) {
+			throw ApiError.badRequest("需要提供客戶名稱");
 		}
 
-		// 檢查 SerialNumber 是否已存在
-		const existingLicense = await License.findOne({ serialNumber });
-
-		if (existingLicense) {
-			throw ApiError.conflict("SerialNumber 已存在", {
-				license: existingLicense
-			});
+		if (!applicant) {
+			throw ApiError.badRequest("需要提供申請人");
 		}
 
-		// 生成 License Key（基於 SerialNumber + 時間戳 + 隨機數）
-		let finalLicenseKey;
-		let attempts = 0;
-
-		while (attempts < 10) {
-			const timestamp = Date.now();
-			const random = crypto.randomBytes(8).toString("hex");
-			const data = `${serialNumber}:${timestamp}:${random}`;
-			const hash = crypto.createHash("sha256").update(data).digest("hex");
-			const licenseKey = hash
-				.substring(0, 16)
-				.match(/.{1,4}/g)
-				.join("-")
-				.toUpperCase();
-
-			// 檢查是否已存在
-			const existingKey = await License.findOne({ licenseKey });
-			if (!existingKey) {
-				finalLicenseKey = licenseKey;
-				break;
-			}
-
-			attempts++;
-		}
-
-		if (attempts >= 10) {
-			throw ApiError.internal("無法生成唯一的 License Key");
-		}
-
-		// 建立新授權
+		// 建立新授權（status 自動設為 pending，申請時間自動記錄）
 		const newLicense = await License.create({
-			licenseKey: finalLicenseKey,
-			serialNumber,
-			status: "inactive",
+			customerName,
+			applicant,
+			appliedAt: new Date(),
+			status: "pending",
 			notes: notes || null
+			// serialNumber 和 licenseKey 在審核時才生成（預設為 null）
 		});
 
 		return successResponse(res, StatusCodes.CREATED, "授權建立成功", {
@@ -261,12 +232,118 @@ export const createLicense = async (req, res, next) => {
 };
 
 /**
+ * 獲取審核人資訊的輔助函數
+ */
+const getReviewer = (user) => {
+	return user?.account || user?.email || "系統管理員";
+};
+
+/**
+ * 審核授權（管理員專用）
+ * 自動生成 serialNumber 和 licenseKey
+ * status 變更為 available（可啟用）
+ * 記錄審核人和審核時間
+ */
+export const reviewLicense = async (req, res, next) => {
+	try {
+		const { id } = req.params;
+		const reviewer = getReviewer(req.user);
+
+		const license = await License.findById(id);
+
+		if (!license) {
+			throw ApiError.notFound("授權不存在");
+		}
+
+		// 檢查是否已經審核過
+		if (license.status !== "pending") {
+			throw ApiError.badRequest("此授權已經審核過，無法再次審核");
+		}
+
+		// 使用輔助函數生成 SerialNumber 和 License Key
+		const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
+
+		// 更新授權：生成 serialNumber 和 licenseKey，變更狀態為 available，記錄審核資訊
+		license.serialNumber = serialNumber;
+		license.licenseKey = licenseKey;
+		license.status = "available";
+		license.reviewer = reviewer;
+		license.reviewedAt = new Date();
+
+		await license.save();
+
+		return successResponse(res, StatusCodes.OK, "授權審核成功", { license });
+	} catch (error) {
+		next(error);
+	}
+};
+
+/**
+ * 生成 SerialNumber 和 License Key 的輔助函數
+ * 用於審核授權和更新授權時自動生成
+ */
+const generateSerialNumberAndLicenseKey = async () => {
+	// 生成 SerialNumber（格式：SN-YYYYMMDD-XXXX）
+	const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+	const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+	let serialNumber = `SN-${dateStr}-${randomNum}`;
+	let attempts = 0;
+
+	// 確保 SerialNumber 唯一
+	while (attempts < 10) {
+		const existing = await License.findOne({ serialNumber });
+		if (!existing) {
+			break;
+		}
+		const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+		serialNumber = `SN-${dateStr}-${randomNum}`;
+		attempts++;
+	}
+
+	if (attempts >= 10) {
+		throw ApiError.internal("無法生成唯一的 SerialNumber");
+	}
+
+	// 生成 License Key（基於 SerialNumber + 時間戳 + 隨機數）
+	let finalLicenseKey;
+	attempts = 0;
+
+	while (attempts < 10) {
+		const timestamp = Date.now();
+		const random = crypto.randomBytes(8).toString("hex");
+		const data = `${serialNumber}:${timestamp}:${random}`;
+		const hash = crypto.createHash("sha256").update(data).digest("hex");
+		const licenseKey = hash
+			.substring(0, 16)
+			.match(/.{1,4}/g)
+			.join("-")
+			.toUpperCase();
+
+		// 檢查是否已存在
+		const existingKey = await License.findOne({ licenseKey });
+		if (!existingKey) {
+			finalLicenseKey = licenseKey;
+			break;
+		}
+
+		attempts++;
+	}
+
+	if (attempts >= 10) {
+		throw ApiError.internal("無法生成唯一的 License Key");
+	}
+
+	return { serialNumber, licenseKey: finalLicenseKey };
+};
+
+/**
  * 更新授權
  */
 export const updateLicense = async (req, res, next) => {
 	try {
 		const { id } = req.params;
 		const { status, notes } = req.body;
+		const reviewer = getReviewer(req.user);
 
 		const license = await License.findById(id);
 
@@ -276,8 +353,26 @@ export const updateLicense = async (req, res, next) => {
 
 		// 更新欄位
 		if (status !== undefined) {
-			if (!["active", "inactive"].includes(status)) {
+			if (!["pending", "available", "active", "inactive"].includes(status)) {
 				throw ApiError.badRequest("無效的狀態值");
+			}
+			
+			// 如果狀態變更為 available，且還沒有 serialNumber 和 licenseKey，則自動生成
+			if (status === "available" && (!license.serialNumber || !license.licenseKey)) {
+				const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
+				license.serialNumber = serialNumber;
+				license.licenseKey = licenseKey;
+				
+				// 如果還沒有審核人資訊，則記錄當前操作者為審核人
+				if (!license.reviewer) {
+					license.reviewer = reviewer;
+					license.reviewedAt = new Date();
+				}
+			}
+			
+			// 如果狀態變更為 active，且尚未使用過，則記錄使用時間
+			if (status === "active" && !license.usedAt) {
+				license.usedAt = new Date();
 			}
 			
 			license.status = status;

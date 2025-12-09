@@ -47,6 +47,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/licenses',
+      name: 'licenses',
+      component: () => import('@/views/LicenseView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
       path: '/comeo',
       name: 'comeo',
       component: () => import('@/views/ComeoCaseStudyView.vue'),

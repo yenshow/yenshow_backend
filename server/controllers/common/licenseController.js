@@ -30,18 +30,20 @@ class LicenseController {
 
 		// 檢查授權狀態
 		const statusMessages = {
-			active: "啟用中",
-			inactive: "未啟用"
+			pending: "審核中",
+			available: "可啟用",
+			active: "使用中",
+			inactive: "已停用"
 		};
 
-		if (license.status !== "active") {
+		if (license.status !== "available" && license.status !== "active") {
 			throw ApiError.forbidden(
 				`無法獲取 License Key：授權狀態為「${statusMessages[license.status] || license.status}」`,
 				{
-					code: "LICENSE_NOT_ACTIVE",
+					code: "LICENSE_NOT_AVAILABLE",
 					status: license.status,
 					statusText: statusMessages[license.status] || license.status,
-					message: "只有狀態為「啟用中」的授權才能獲取 License Key"
+					message: "只有狀態為「可啟用」或「使用中」的授權才能獲取 License Key"
 				}
 			);
 		}
@@ -86,16 +88,18 @@ class LicenseController {
 
 		// 檢查授權狀態
 		const statusMessages = {
-			active: "啟用中",
-			inactive: "未啟用"
+			pending: "審核中",
+			available: "可啟用",
+			active: "使用中",
+			inactive: "已停用"
 		};
 
-		if (license.status !== "active") {
+		if (license.status !== "available" && license.status !== "active") {
 			return successResponse(res, StatusCodes.OK, "驗證結果", {
 				result: {
 					valid: false,
 					error: `授權狀態為「${statusMessages[license.status] || license.status}」`,
-					message: "只有狀態為「啟用中」的授權才能通過驗證",
+					message: "只有狀態為「可啟用」或「使用中」的授權才能通過驗證",
 					code: "LICENSE_INACTIVE",
 					status: license.status,
 					statusText: statusMessages[license.status] || license.status
@@ -122,11 +126,12 @@ class LicenseController {
 			});
 		}
 
-			// 驗證成功，標記為已使用（只能使用一次）
-			if (!license.usedAt) {
-				license.usedAt = new Date();
-				await license.save();
-			}
+		// 驗證成功，標記為已使用（只能使用一次），狀態變更為 active
+		if (!license.usedAt) {
+			license.usedAt = new Date();
+			license.status = "active"; // 使用後狀態變更為使用中
+			await license.save();
+		}
 
 			// 驗證成功
 			return successResponse(res, StatusCodes.OK, "驗證成功", {
@@ -169,18 +174,20 @@ class LicenseController {
 
 		// 檢查授權狀態
 		const statusMessages = {
-			active: "啟用中",
-			inactive: "未啟用"
+			pending: "審核中",
+			available: "可啟用",
+			active: "使用中",
+			inactive: "已停用"
 		};
 
-		if (license.status !== "active") {
+		if (license.status !== "available" && license.status !== "active") {
 			throw ApiError.forbidden(
 				`無法啟用授權：授權狀態為「${statusMessages[license.status] || license.status}」`,
 				{
-					code: "LICENSE_NOT_ACTIVE",
+					code: "LICENSE_NOT_AVAILABLE",
 					status: license.status,
 					statusText: statusMessages[license.status] || license.status,
-					message: "只有狀態為「啟用中」的授權才能被使用"
+					message: "只有狀態為「可啟用」或「使用中」的授權才能被使用"
 				}
 			);
 		}
@@ -203,8 +210,9 @@ class LicenseController {
 			);
 		}
 
-		// 設置使用時間（只能使用一次）
+		// 設置使用時間（只能使用一次），狀態變更為 active
 		license.usedAt = new Date();
+		license.status = "active"; // 使用後狀態變更為使用中
 		await license.save();
 
 		return successResponse(res, StatusCodes.OK, "授權啟用成功", {

@@ -11,39 +11,80 @@ import { Schema, model } from "mongoose";
  */
 const licenseSchema = new Schema(
 	{
-		licenseKey: {
+		// 1. 客戶名稱
+		customerName: {
 			type: String,
-			required: [true, "License Key 必填"],
-			unique: true,
+			required: [true, "客戶名稱必填"],
 			trim: true,
 			index: true,
-			comment: "License Key（自動生成，格式：XXXX-XXXX-XXXX-XXXX）"
+			comment: "客戶名稱"
 		},
+		// 2. SerialNumber（審核時自動生成）
 		serialNumber: {
 			type: String,
-			required: [true, "SerialNumber 必填"],
+			required: false,
 			unique: true,
+			sparse: true, // 允許 null，但如果有值則必須唯一
 			trim: true,
 			index: true,
-			comment: "SerialNumber（用戶提供，例如：SN-001）"
+			comment: "SerialNumber（審核時自動生成）"
 		},
+		// 3. License Key（審核時自動生成）
+		licenseKey: {
+			type: String,
+			required: false,
+			unique: true,
+			sparse: true, // 允許 null，但如果有值則必須唯一
+			trim: true,
+			index: true,
+			comment: "License Key（審核時自動生成，格式：XXXX-XXXX-XXXX-XXXX）"
+		},
+		// 4. 狀態
 		status: {
 			type: String,
-			enum: ["active", "inactive"],
-			default: "inactive",
+			enum: ["pending", "available", "active", "inactive"],
+			default: "pending",
 			index: true,
-			comment: "授權狀態：active=啟用中（可使用）, inactive=未啟用/已停用（不可使用）"
+			comment: "授權狀態：pending=審核中, available=可啟用, active=使用中, inactive=已停用"
 		},
+		// 5. 申請人 / 時間
+		applicant: {
+			type: String,
+			required: [true, "申請人必填"],
+			trim: true,
+			comment: "申請人"
+		},
+		appliedAt: {
+			type: Date,
+			default: Date.now,
+			index: true,
+			comment: "申請時間"
+		},
+		// 6. 審核人 / 時間
+		reviewer: {
+			type: String,
+			default: null,
+			trim: true,
+			comment: "審核人"
+		},
+		reviewedAt: {
+			type: Date,
+			default: null,
+			index: true,
+			comment: "審核時間"
+		},
+		// 使用時間
 		usedAt: {
 			type: Date,
 			default: null,
 			index: true,
 			comment: "首次使用時間（用於追蹤授權是否已被使用，只能使用一次）"
 		},
+		// 7. 備註
 		notes: {
 			type: String,
 			default: null,
-			comment: "管理員備註"
+			comment: "備註"
 		}
 	},
 	{
@@ -71,6 +112,8 @@ const transformOptions = {
 		if (ret.createdAt) ret.createdAt = ret.createdAt.toISOString();
 		if (ret.updatedAt) ret.updatedAt = ret.updatedAt.toISOString();
 		if (ret.usedAt) ret.usedAt = ret.usedAt.toISOString();
+		if (ret.appliedAt) ret.appliedAt = ret.appliedAt.toISOString();
+		if (ret.reviewedAt) ret.reviewedAt = ret.reviewedAt.toISOString();
 		return ret;
 	}
 };
