@@ -95,7 +95,7 @@
               <td class="py-3 px-4">
                 <div class="flex gap-2 flex-wrap">
                   <button
-                    v-if="license.status === 'pending' && userStore.user?.role === 'admin'"
+                    v-if="license.status === 'pending' && isAdmin"
                     @click="handleReviewLicense(license)"
                     :disabled="reviewingLicense === (license._id || license.id)"
                     class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
@@ -108,7 +108,8 @@
                   </button>
                   <button
                     @click="handleEditLicense(license)"
-                    class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
+                    :disabled="!canEditLicense(license)"
+                    class="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-sm transition cursor-pointer"
                   >
                     編輯
                   </button>
@@ -208,6 +209,9 @@
                 )
               "
             />
+            <p class="text-xs mt-1" :class="conditionalClass('text-gray-400', 'text-slate-500')">
+              預設為當前登入用戶：{{ userStore.account }}
+            </p>
           </div>
           <div>
             <label class="block text-sm font-medium theme-text mb-2">備註</label>
@@ -305,6 +309,7 @@
             <label class="block text-sm font-medium theme-text mb-2">狀態</label>
             <select
               v-model="editingLicense.status"
+              :disabled="!canEditStatus(editingLicense)"
               class="w-full px-4 py-2 rounded-lg border"
               :class="
                 conditionalClass(
@@ -313,11 +318,30 @@
                 )
               "
             >
-              <option value="pending">審核中</option>
+              <option 
+                value="pending"
+                :disabled="!canSetStatusToPending(editingLicense)"
+              >
+                審核中
+              </option>
               <option value="available">可啟用</option>
-              <option value="active">使用中</option>
+              <!-- 使用中狀態由系統自動設定，不允許手動選擇 -->
               <option value="inactive">已停用</option>
             </select>
+            <p 
+              v-if="!canEditStatus(editingLicense)"
+              class="text-xs mt-1"
+              :class="conditionalClass('text-yellow-400', 'text-yellow-600')"
+            >
+              提示：staff 無法將已審查的授權修改為「審核中」
+            </p>
+            <p 
+              v-if="editingLicense?.status === 'active'"
+              class="text-xs mt-1"
+              :class="conditionalClass('text-blue-400', 'text-blue-600')"
+            >
+              提示：「使用中」狀態由系統自動設定，無法手動修改
+            </p>
           </div>
           <div>
             <label class="block text-sm font-medium theme-text mb-2">備註</label>
@@ -369,6 +393,10 @@ const userStore = useUserStore()
 const notify = useNotifications()
 const { cardClass, conditionalClass } = useThemeClass()
 
+// 用戶權限
+const isAdmin = computed(() => userStore.isAdmin)
+const isStaff = computed(() => userStore.isStaff)
+
 // 本地狀態
 const error = ref('')
 const loadingLicenses = computed(() => userStore.loadingLicenses)
@@ -419,9 +447,59 @@ watch(
   { immediate: true },
 )
 
+// 權限控制函數
+const canEditLicense = (license) => {
+  // admin 可以編輯所有授權
+  if (isAdmin.value) return true
+  
+  // staff 只能編輯 pending 狀態的授權
+  if (isStaff.value) {
+    return license.status === 'pending'
+  }
+  
+  return false
+}
+
+const canEditStatus = (license) => {
+  if (!license) return false
+  
+  // admin 可以編輯所有狀態
+  if (isAdmin.value) return true
+  
+  // staff 不能改變狀態（只能編輯備註）
+  if (isStaff.value) {
+    return false
+  }
+  
+  return false
+}
+
+const canSetStatusToPending = (license) => {
+  if (!license) return false
+  
+  // admin 可以將任何狀態改為 pending
+  if (isAdmin.value) return true
+  
+  // staff 不能將已審查的授權改為 pending
+  if (isStaff.value) {
+    // 如果當前狀態不是 pending，則不能改為 pending
+    return license.status === 'pending'
+  }
+  
+  return false
+}
+
 // 初始化載入
 onMounted(async () => {
   await fetchLicenses()
+})
+
+// 當打開新增授權 Modal 時，自動填入當前用戶名稱
+watch(showCreateLicenseModal, (isOpen) => {
+  if (isOpen) {
+    // 自動填入當前登入用戶的名稱
+    newLicense.value.applicant = userStore.account || ''
+  }
 })
 
 // 授權管理功能
@@ -495,20 +573,57 @@ const handleReviewLicense = async (license) => {
 }
 
 const handleEditLicense = (license) => {
-  editingLicense.value = { ...license }
+  // 檢查權限
+  if (!canEditLicense(license)) {
+    if (isStaff.value && license.status !== 'pending') {
+      notify.notifyWarning('staff 只能編輯「審核中」狀態的授權')
+    }
+    return
+  }
+  
+  // 保存原始狀態，用於檢查是否嘗試將已審查的改為 pending
+  editingLicense.value = { ...license, _originalStatus: license.status }
   showEditLicenseModal.value = true
 }
 
 const handleUpdateLicense = async () => {
   if (!editingLicense.value) return
 
+  // 檢查是否嘗試設置為「使用中」（應該由系統自動設定）
+  if (editingLicense.value.status === 'active') {
+    notify.notifyWarning('「使用中」狀態由系統自動設定，無法手動修改')
+    return
+  }
+
+  // 檢查權限：staff 不能將已審查的授權改為 pending
+  if (isStaff.value) {
+    const originalStatus = editingLicense.value._originalStatus || editingLicense.value.status
+    // staff 不能改變狀態
+    if (editingLicense.value.status !== originalStatus) {
+      notify.notifyWarning('staff 無法修改授權狀態，只能編輯備註')
+      // 恢復原始狀態
+      editingLicense.value.status = originalStatus
+      return
+    }
+  }
+
   try {
     updatingLicense.value = true
     const licenseId = editingLicense.value._id || editingLicense.value.id
-    await userStore.updateLicense(licenseId, {
-      status: editingLicense.value.status,
+    
+    const updateData = {
       notes: editingLicense.value.notes || null,
-    })
+    }
+    
+    // 只有 admin 可以更新狀態
+    if (isAdmin.value) {
+      updateData.status = editingLicense.value.status
+    } else if (isStaff.value) {
+      // staff 只能更新備註，不更新狀態
+      // 狀態保持不變（已在上面檢查過）
+    }
+    
+    await userStore.updateLicense(licenseId, updateData)
     showEditLicenseModal.value = false
     editingLicense.value = null
     await fetchLicenses()

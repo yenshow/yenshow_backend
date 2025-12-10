@@ -23,20 +23,14 @@ const licenseSchema = new Schema(
 		serialNumber: {
 			type: String,
 			required: false,
-			unique: true,
-			sparse: true, // 允許 null，但如果有值則必須唯一
 			trim: true,
-			index: true,
 			comment: "SerialNumber（審核時自動生成）"
 		},
 		// 3. License Key（審核時自動生成）
 		licenseKey: {
 			type: String,
 			required: false,
-			unique: true,
-			sparse: true, // 允許 null，但如果有值則必須唯一
 			trim: true,
-			index: true,
 			comment: "License Key（審核時自動生成，格式：XXXX-XXXX-XXXX-XXXX）"
 		},
 		// 4. 狀態
@@ -94,8 +88,21 @@ const licenseSchema = new Schema(
 );
 
 // 索引優化
-licenseSchema.index({ licenseKey: 1 });
-licenseSchema.index({ serialNumber: 1 });
+// 使用 partialFilterExpression 確保只有非 null 值才檢查唯一性
+licenseSchema.index(
+	{ licenseKey: 1 },
+	{ 
+		unique: true,
+		partialFilterExpression: { licenseKey: { $exists: true, $ne: null } }
+	}
+);
+licenseSchema.index(
+	{ serialNumber: 1 },
+	{ 
+		unique: true,
+		partialFilterExpression: { serialNumber: { $exists: true, $ne: null } }
+	}
+);
 licenseSchema.index({ status: 1 });
 
 // 轉換配置
