@@ -371,8 +371,8 @@ const navLinks = computed(() => {
     links.push({ to: '/admin', name: 'admin', text: '用戶' })
   }
 
-  // 僅 admin 顯示權限管理
-  if (isAdmin.value) {
+  // staff 和 admin 都可以顯示權限管理
+  if (isAdmin.value || isStaff.value) {
     links.push({ to: '/licenses', name: 'licenses', text: '權限' })
   }
 

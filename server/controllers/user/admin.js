@@ -302,36 +302,36 @@ const generateSerialNumberAndLicenseKey = async () => {
 
 	if (attempts >= 10) {
 		throw ApiError.internal("無法生成唯一的 SerialNumber");
-	}
-
-	// 生成 License Key（基於 SerialNumber + 時間戳 + 隨機數）
-	let finalLicenseKey;
-	attempts = 0;
-
-	while (attempts < 10) {
-		const timestamp = Date.now();
-		const random = crypto.randomBytes(8).toString("hex");
-		const data = `${serialNumber}:${timestamp}:${random}`;
-		const hash = crypto.createHash("sha256").update(data).digest("hex");
-		const licenseKey = hash
-			.substring(0, 16)
-			.match(/.{1,4}/g)
-			.join("-")
-			.toUpperCase();
-
-		// 檢查是否已存在
-		const existingKey = await License.findOne({ licenseKey });
-		if (!existingKey) {
-			finalLicenseKey = licenseKey;
-			break;
 		}
 
-		attempts++;
-	}
+		// 生成 License Key（基於 SerialNumber + 時間戳 + 隨機數）
+		let finalLicenseKey;
+	attempts = 0;
 
-	if (attempts >= 10) {
-		throw ApiError.internal("無法生成唯一的 License Key");
-	}
+		while (attempts < 10) {
+			const timestamp = Date.now();
+			const random = crypto.randomBytes(8).toString("hex");
+			const data = `${serialNumber}:${timestamp}:${random}`;
+			const hash = crypto.createHash("sha256").update(data).digest("hex");
+			const licenseKey = hash
+				.substring(0, 16)
+				.match(/.{1,4}/g)
+				.join("-")
+				.toUpperCase();
+
+			// 檢查是否已存在
+			const existingKey = await License.findOne({ licenseKey });
+			if (!existingKey) {
+				finalLicenseKey = licenseKey;
+				break;
+			}
+
+			attempts++;
+		}
+
+		if (attempts >= 10) {
+			throw ApiError.internal("無法生成唯一的 License Key");
+		}
 
 	return { serialNumber, licenseKey: finalLicenseKey };
 };

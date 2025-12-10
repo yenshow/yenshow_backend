@@ -127,11 +127,11 @@ class LicenseController {
 		}
 
 		// 驗證成功，標記為已使用（只能使用一次），狀態變更為 active
-		if (!license.usedAt) {
-			license.usedAt = new Date();
+			if (!license.usedAt) {
+				license.usedAt = new Date();
 			license.status = "active"; // 使用後狀態變更為使用中
-			await license.save();
-		}
+				await license.save();
+			}
 
 			// 驗證成功
 			return successResponse(res, StatusCodes.OK, "驗證成功", {

@@ -50,7 +50,7 @@ const router = createRouter({
       path: '/licenses',
       name: 'licenses',
       component: () => import('@/views/LicenseView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true },
+      meta: { requiresAuth: true, requiresStaffOrAdmin: true },
     },
     {
       path: '/comeo',
@@ -76,6 +76,12 @@ router.beforeEach((to, from, next) => {
 
   // 檢查管理員權限
   if (to.meta.requiresAdmin && !userStore.isAdmin) {
+    next('/')
+    return
+  }
+
+  // 檢查員工或管理員權限
+  if (to.meta.requiresStaffOrAdmin && !userStore.isAdmin && !userStore.isStaff) {
     next('/')
     return
   }
