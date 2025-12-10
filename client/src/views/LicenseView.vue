@@ -307,7 +307,23 @@
           </div>
           <div>
             <label class="block text-sm font-medium theme-text mb-2">狀態</label>
+            <!-- 如果狀態為「使用中」，顯示為只讀輸入框 -->
+            <input
+              v-if="editingLicense?.status === 'active'"
+              :value="getStatusText('active')"
+              type="text"
+              disabled
+              class="w-full px-4 py-2 rounded-lg border opacity-50"
+              :class="
+                conditionalClass(
+                  'bg-[#2A3441] border-gray-600 theme-text',
+                  'bg-white border-slate-300',
+                )
+              "
+            />
+            <!-- 其他狀態顯示為下拉選單 -->
             <select
+              v-else
               v-model="editingLicense.status"
               :disabled="!canEditStatus(editingLicense)"
               class="w-full px-4 py-2 rounded-lg border"
@@ -325,11 +341,10 @@
                 審核中
               </option>
               <option value="available">可啟用</option>
-              <!-- 使用中狀態由系統自動設定，不允許手動選擇 -->
               <option value="inactive">已停用</option>
             </select>
             <p 
-              v-if="!canEditStatus(editingLicense)"
+              v-if="!canEditStatus(editingLicense) && editingLicense?.status !== 'active'"
               class="text-xs mt-1"
               :class="conditionalClass('text-yellow-400', 'text-yellow-600')"
             >
