@@ -2,9 +2,7 @@
   <div class="container mx-auto py-8">
     <div class="mb-8">
       <h1 class="text-3xl font-bold mb-4 theme-text">授權管理</h1>
-      <p :class="conditionalClass('text-gray-400', 'text-slate-500')">
-        管理授權申請、審核和狀態
-      </p>
+      <p :class="conditionalClass('text-gray-400', 'text-slate-500')">管理授權申請、審核和狀態</p>
     </div>
 
     <!-- 錯誤提示 -->
@@ -17,10 +15,7 @@
     </div>
 
     <!-- 載入中提示 -->
-    <div
-      v-if="loadingLicenses"
-      class="flex flex-col items-center justify-center py-12"
-    >
+    <div v-if="loadingLicenses" class="flex flex-col items-center justify-center py-12">
       <div
         class="animate-spin rounded-full h-12 w-12 border-b-2 border-t-2 mb-4"
         :class="conditionalClass('border-white', 'border-blue-600')"
@@ -29,10 +24,7 @@
     </div>
 
     <!-- 授權管理區塊 -->
-    <div
-      v-else
-      :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']"
-    >
+    <div v-else :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']">
       <!-- 頂部操作列 -->
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-xl font-semibold theme-text">授權管理</h2>
@@ -66,17 +58,31 @@
             >
               <td class="py-3 px-4 theme-text">{{ license.customerName || '-' }}</td>
               <td class="py-3 px-4 theme-text font-mono">{{ license.serialNumber || '-' }}</td>
-              <td class="py-3 px-4 theme-text font-mono text-sm">{{ license.licenseKey || '-' }}</td>
+              <td class="py-3 px-4 theme-text font-mono text-sm">
+                {{ license.licenseKey || '-' }}
+              </td>
               <td class="py-3 px-4">
                 <span
                   :class="
                     license.status === 'pending'
-                      ? conditionalClass('bg-yellow-500/20 text-yellow-300', 'bg-yellow-100 text-yellow-700')
+                      ? conditionalClass(
+                          'bg-yellow-500/20 text-yellow-300',
+                          'bg-yellow-100 text-yellow-700',
+                        )
                       : license.status === 'available'
-                      ? conditionalClass('bg-blue-500/20 text-blue-300', 'bg-blue-100 text-blue-700')
-                      : license.status === 'active'
-                      ? conditionalClass('bg-green-500/20 text-green-300', 'bg-green-100 text-green-700')
-                      : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
+                        ? conditionalClass(
+                            'bg-blue-500/20 text-blue-300',
+                            'bg-blue-100 text-blue-700',
+                          )
+                        : license.status === 'active'
+                          ? conditionalClass(
+                              'bg-green-500/20 text-green-300',
+                              'bg-green-100 text-green-700',
+                            )
+                          : conditionalClass(
+                              'bg-red-500/20 text-red-300',
+                              'bg-red-100 text-red-700',
+                            )
                   "
                   class="px-2 py-1 rounded-full text-sm"
                 >
@@ -85,11 +91,15 @@
               </td>
               <td class="py-3 px-4 theme-text text-sm">
                 <div>{{ license.applicant || '-' }}</div>
-                <div class="text-xs opacity-70">{{ license.appliedAt ? formatDate(license.appliedAt) : '-' }}</div>
+                <div class="text-xs opacity-70">
+                  {{ license.appliedAt ? formatDate(license.appliedAt) : '-' }}
+                </div>
               </td>
               <td class="py-3 px-4 theme-text text-sm">
                 <div>{{ license.reviewer || '-' }}</div>
-                <div class="text-xs opacity-70">{{ license.reviewedAt ? formatDate(license.reviewedAt) : '-' }}</div>
+                <div class="text-xs opacity-70">
+                  {{ license.reviewedAt ? formatDate(license.reviewedAt) : '-' }}
+                </div>
               </td>
               <td class="py-3 px-4 theme-text text-sm">{{ license.notes || '-' }}</td>
               <td class="py-3 px-4">
@@ -307,21 +317,23 @@
           </div>
           <div>
             <label class="block text-sm font-medium theme-text mb-2">狀態</label>
-            <!-- 如果狀態為「使用中」，顯示為只讀輸入框 -->
-            <input
+            <!-- 如果狀態為「使用中」，只允許 admin 改為「已停用」 -->
+            <select
               v-if="editingLicense?.status === 'active'"
-              :value="getStatusText('active')"
-              type="text"
-              disabled
-              class="w-full px-4 py-2 rounded-lg border opacity-50"
+              v-model="editingLicense.status"
+              :disabled="!isAdmin"
+              class="w-full px-4 py-2 rounded-lg border"
               :class="
                 conditionalClass(
                   'bg-[#2A3441] border-gray-600 theme-text',
                   'bg-white border-slate-300',
                 )
               "
-            />
-            <!-- 其他狀態顯示為下拉選單 -->
+            >
+              <option value="active">使用中</option>
+              <option value="inactive">已停用</option>
+            </select>
+            <!-- 其他狀態顯示為完整下拉選單 -->
             <select
               v-else
               v-model="editingLicense.status"
@@ -334,28 +346,32 @@
                 )
               "
             >
-              <option 
-                value="pending"
-                :disabled="!canSetStatusToPending(editingLicense)"
-              >
+              <option value="pending" :disabled="!canSetStatusToPending(editingLicense)">
                 審核中
               </option>
               <option value="available">可啟用</option>
               <option value="inactive">已停用</option>
             </select>
-            <p 
+            <p
               v-if="!canEditStatus(editingLicense) && editingLicense?.status !== 'active'"
               class="text-xs mt-1"
               :class="conditionalClass('text-yellow-400', 'text-yellow-600')"
             >
               提示：staff 無法將已審查的授權修改為「審核中」
             </p>
-            <p 
-              v-if="editingLicense?.status === 'active'"
+            <p
+              v-if="editingLicense?.status === 'active' && !isAdmin"
               class="text-xs mt-1"
               :class="conditionalClass('text-blue-400', 'text-blue-600')"
             >
-              提示：「使用中」狀態由系統自動設定，無法手動修改
+              提示：「使用中」狀態只能由管理員改為「已停用」以收回權限
+            </p>
+            <p
+              v-if="editingLicense?.status === 'active' && isAdmin"
+              class="text-xs mt-1"
+              :class="conditionalClass('text-blue-400', 'text-blue-600')"
+            >
+              提示：可以將「使用中」狀態改為「已停用」以收回權限
             </p>
           </div>
           <div>
@@ -466,41 +482,41 @@ watch(
 const canEditLicense = (license) => {
   // admin 可以編輯所有授權
   if (isAdmin.value) return true
-  
+
   // staff 只能編輯 pending 狀態的授權
   if (isStaff.value) {
     return license.status === 'pending'
   }
-  
+
   return false
 }
 
 const canEditStatus = (license) => {
   if (!license) return false
-  
+
   // admin 可以編輯所有狀態
   if (isAdmin.value) return true
-  
+
   // staff 不能改變狀態（只能編輯備註）
   if (isStaff.value) {
     return false
   }
-  
+
   return false
 }
 
 const canSetStatusToPending = (license) => {
   if (!license) return false
-  
+
   // admin 可以將任何狀態改為 pending
   if (isAdmin.value) return true
-  
+
   // staff 不能將已審查的授權改為 pending
   if (isStaff.value) {
     // 如果當前狀態不是 pending，則不能改為 pending
     return license.status === 'pending'
   }
-  
+
   return false
 }
 
@@ -567,7 +583,11 @@ const handleCreateLicense = async () => {
 }
 
 const handleReviewLicense = async (license) => {
-  if (!confirm(`確定要審核授權 "${license.customerName}" 嗎？審核後將自動生成 Serial Number 和 License Key。`)) {
+  if (
+    !confirm(
+      `確定要審核授權 "${license.customerName}" 嗎？審核後將自動生成 Serial Number 和 License Key。`,
+    )
+  ) {
     return
   }
 
@@ -595,7 +615,7 @@ const handleEditLicense = (license) => {
     }
     return
   }
-  
+
   // 保存原始狀態，用於檢查是否嘗試將已審查的改為 pending
   editingLicense.value = { ...license, _originalStatus: license.status }
   showEditLicenseModal.value = true
@@ -604,15 +624,17 @@ const handleEditLicense = (license) => {
 const handleUpdateLicense = async () => {
   if (!editingLicense.value) return
 
-  // 檢查是否嘗試設置為「使用中」（應該由系統自動設定）
-  if (editingLicense.value.status === 'active') {
-    notify.notifyWarning('「使用中」狀態由系統自動設定，無法手動修改')
+  const originalStatus = editingLicense.value._originalStatus || editingLicense.value.status
+
+  // 檢查是否嘗試將非「使用中」狀態改為「使用中」（應該由系統自動設定）
+  if (originalStatus !== 'active' && editingLicense.value.status === 'active') {
+    notify.notifyWarning('「使用中」狀態由系統自動設定，無法手動設置')
+    editingLicense.value.status = originalStatus
     return
   }
 
   // 檢查權限：staff 不能將已審查的授權改為 pending
   if (isStaff.value) {
-    const originalStatus = editingLicense.value._originalStatus || editingLicense.value.status
     // staff 不能改變狀態
     if (editingLicense.value.status !== originalStatus) {
       notify.notifyWarning('staff 無法修改授權狀態，只能編輯備註')
@@ -622,14 +644,22 @@ const handleUpdateLicense = async () => {
     }
   }
 
+  // 如果將「使用中」改為「已停用」，確認操作
+  if (originalStatus === 'active' && editingLicense.value.status === 'inactive') {
+    if (!confirm('確定要將此授權改為「已停用」以收回權限嗎？')) {
+      editingLicense.value.status = originalStatus
+      return
+    }
+  }
+
   try {
     updatingLicense.value = true
     const licenseId = editingLicense.value._id || editingLicense.value.id
-    
+
     const updateData = {
       notes: editingLicense.value.notes || null,
     }
-    
+
     // 只有 admin 可以更新狀態
     if (isAdmin.value) {
       updateData.status = editingLicense.value.status
@@ -637,11 +667,15 @@ const handleUpdateLicense = async () => {
       // staff 只能更新備註，不更新狀態
       // 狀態保持不變（已在上面檢查過）
     }
-    
+
     await userStore.updateLicense(licenseId, updateData)
     showEditLicenseModal.value = false
     editingLicense.value = null
     await fetchLicenses()
+
+    if (originalStatus === 'active' && updateData.status === 'inactive') {
+      notify.notifySuccess('授權已停用，權限已收回')
+    }
   } catch (err) {
     console.error('更新授權失敗:', err)
     const errorMsg = err.response?.data?.message || '更新授權失敗，請稍後再試'
@@ -652,7 +686,11 @@ const handleUpdateLicense = async () => {
 }
 
 const handleDeleteLicense = async (license) => {
-  if (!confirm(`確定要刪除授權 "${license.serialNumber || license.customerName}" 嗎？此操作不可恢復！`)) {
+  if (
+    !confirm(
+      `確定要刪除授權 "${license.serialNumber || license.customerName}" 嗎？此操作不可恢復！`,
+    )
+  ) {
     return
   }
 
@@ -685,7 +723,7 @@ const getStatusText = (status) => {
     pending: '審核中',
     available: '可啟用',
     active: '使用中',
-    inactive: '已停用'
+    inactive: '已停用',
   }
   return statusMap[status] || status
 }
@@ -716,4 +754,3 @@ button {
   white-space: nowrap;
 }
 </style>
-
