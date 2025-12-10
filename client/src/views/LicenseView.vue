@@ -61,7 +61,7 @@
           <tbody>
             <tr
               v-for="license in pagedLicenses"
-              :key="license._id || license.id"
+              :key="getLicenseId(license)"
               :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
             >
               <td class="py-3 px-4 theme-text">{{ license.customerName || '-' }}</td>
@@ -69,15 +69,7 @@
               <td class="py-3 px-4 theme-text font-mono text-sm">{{ license.licenseKey || '-' }}</td>
               <td class="py-3 px-4">
                 <span
-                  :class="
-                    license.status === 'pending'
-                      ? conditionalClass('bg-yellow-500/20 text-yellow-300', 'bg-yellow-100 text-yellow-700')
-                      : license.status === 'available'
-                      ? conditionalClass('bg-blue-500/20 text-blue-300', 'bg-blue-100 text-blue-700')
-                      : license.status === 'active'
-                      ? conditionalClass('bg-green-500/20 text-green-300', 'bg-green-100 text-green-700')
-                      : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
-                  "
+                  :class="getStatusClass(license.status)"
                   class="px-2 py-1 rounded-full text-sm"
                 >
                   {{ getStatusText(license.status) }}
@@ -97,11 +89,11 @@
                   <button
                     v-if="license.status === 'pending' && isAdmin"
                     @click="handleReviewLicense(license)"
-                    :disabled="reviewingLicense === (license._id || license.id)"
+                    :disabled="reviewingLicense === getLicenseId(license)"
                     class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                   >
                     <span
-                      v-if="reviewingLicense === (license._id || license.id)"
+                      v-if="reviewingLicense === getLicenseId(license)"
                       class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
                     ></span>
                     審核
@@ -115,11 +107,11 @@
                   </button>
                   <button
                     @click="handleDeleteLicense(license)"
-                    :disabled="deletingLicense === (license._id || license.id)"
+                    :disabled="deletingLicense === getLicenseId(license)"
                     class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                   >
                     <span
-                      v-if="deletingLicense === (license._id || license.id)"
+                      v-if="deletingLicense === getLicenseId(license)"
                       class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
                     ></span>
                     刪除
@@ -143,12 +135,7 @@
           <button
             @click="changeLicensePage(licensePagination.currentPage - 1)"
             :disabled="licensePagination.currentPage === 1"
-            :class="
-              conditionalClass(
-                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-              )
-            "
+            :class="paginationButtonClass"
           >
             上一頁
           </button>
@@ -158,12 +145,7 @@
           <button
             @click="changeLicensePage(licensePagination.currentPage + 1)"
             :disabled="licensePagination.currentPage === licensePagination.totalPages"
-            :class="
-              conditionalClass(
-                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-              )
-            "
+            :class="paginationButtonClass"
           >
             下一頁
           </button>
@@ -462,46 +444,23 @@ watch(
   { immediate: true },
 )
 
+// 輔助函數：獲取授權 ID
+const getLicenseId = (license) => license?._id || license?.id
+
 // 權限控制函數
 const canEditLicense = (license) => {
-  // admin 可以編輯所有授權
-  if (isAdmin.value) return true
-  
-  // staff 只能編輯 pending 狀態的授權
-  if (isStaff.value) {
-    return license.status === 'pending'
-  }
-  
-  return false
+  if (!license) return false
+  return isAdmin.value || (isStaff.value && license.status === 'pending')
 }
 
 const canEditStatus = (license) => {
   if (!license) return false
-  
-  // admin 可以編輯所有狀態
-  if (isAdmin.value) return true
-  
-  // staff 不能改變狀態（只能編輯備註）
-  if (isStaff.value) {
-    return false
-  }
-  
-  return false
+  return isAdmin.value // 只有 admin 可以改變狀態
 }
 
 const canSetStatusToPending = (license) => {
   if (!license) return false
-  
-  // admin 可以將任何狀態改為 pending
-  if (isAdmin.value) return true
-  
-  // staff 不能將已審查的授權改為 pending
-  if (isStaff.value) {
-    // 如果當前狀態不是 pending，則不能改為 pending
-    return license.status === 'pending'
-  }
-  
-  return false
+  return isAdmin.value || (isStaff.value && license.status === 'pending')
 }
 
 // 初始化載入
@@ -555,12 +514,9 @@ const handleCreateLicense = async () => {
     })
     showCreateLicenseModal.value = false
     newLicense.value = { customerName: '', applicant: '', notes: '' }
-    // 確保列表已更新
     await fetchLicenses()
   } catch (err) {
-    console.error('建立授權失敗:', err)
-    const errorMsg = err.response?.data?.message || '建立授權失敗，請稍後再試'
-    notify.notifyError(errorMsg)
+    handleError(err, '建立授權失敗')
   } finally {
     creatingLicense.value = false
   }
@@ -571,17 +527,15 @@ const handleReviewLicense = async (license) => {
     return
   }
 
+  const licenseId = getLicenseId(license)
+  reviewingLicense.value = licenseId
+
   try {
-    reviewingLicense.value = license._id || license.id
-    const licenseId = license._id || license.id
     await userStore.reviewLicense(licenseId)
     notify.notifySuccess('授權審核成功')
-    // 確保列表已更新
     await fetchLicenses()
   } catch (err) {
-    console.error('審核授權失敗:', err)
-    const errorMsg = err.response?.data?.message || '審核授權失敗，請稍後再試'
-    notify.notifyError(errorMsg)
+    handleError(err, '審核授權失敗')
   } finally {
     reviewingLicense.value = false
   }
@@ -604,48 +558,62 @@ const handleEditLicense = (license) => {
 const handleUpdateLicense = async () => {
   if (!editingLicense.value) return
 
+  const originalStatus = editingLicense.value._originalStatus || editingLicense.value.status
+
+  // 如果原始狀態是「使用中」，則不允許修改狀態（只能修改備註）
+  if (originalStatus === 'active') {
+    if (editingLicense.value.status !== 'active') {
+      notify.notifyWarning('「使用中」狀態的授權無法修改狀態，只能編輯備註')
+      editingLicense.value.status = 'active'
+      return
+    }
+    // 只更新備註
+    return await updateLicenseData({ notes: editingLicense.value.notes || null })
+  }
+
   // 檢查是否嘗試設置為「使用中」（應該由系統自動設定）
   if (editingLicense.value.status === 'active') {
     notify.notifyWarning('「使用中」狀態由系統自動設定，無法手動修改')
+    editingLicense.value.status = originalStatus
     return
   }
 
-  // 檢查權限：staff 不能將已審查的授權改為 pending
-  if (isStaff.value) {
-    const originalStatus = editingLicense.value._originalStatus || editingLicense.value.status
-    // staff 不能改變狀態
-    if (editingLicense.value.status !== originalStatus) {
-      notify.notifyWarning('staff 無法修改授權狀態，只能編輯備註')
-      // 恢復原始狀態
-      editingLicense.value.status = originalStatus
-      return
-    }
+  // 檢查權限：staff 不能改變狀態
+  if (isStaff.value && editingLicense.value.status !== originalStatus) {
+    notify.notifyWarning('staff 無法修改授權狀態，只能編輯備註')
+    editingLicense.value.status = originalStatus
+    return
   }
 
+  // 更新授權（admin 可以更新狀態，staff 只能更新備註）
+  const updateData = {
+    notes: editingLicense.value.notes || null,
+  }
+  if (isAdmin.value) {
+    updateData.status = editingLicense.value.status
+  }
+
+  await updateLicenseData(updateData)
+}
+
+// 統一的錯誤處理函數
+const handleError = (err, defaultMessage) => {
+  console.error(`${defaultMessage}:`, err)
+  const errorMsg = err.response?.data?.message || `${defaultMessage}，請稍後再試`
+  notify.notifyError(errorMsg)
+}
+
+// 統一的更新授權資料函數
+const updateLicenseData = async (updateData) => {
   try {
     updatingLicense.value = true
-    const licenseId = editingLicense.value._id || editingLicense.value.id
-    
-    const updateData = {
-      notes: editingLicense.value.notes || null,
-    }
-    
-    // 只有 admin 可以更新狀態
-    if (isAdmin.value) {
-      updateData.status = editingLicense.value.status
-    } else if (isStaff.value) {
-      // staff 只能更新備註，不更新狀態
-      // 狀態保持不變（已在上面檢查過）
-    }
-    
+    const licenseId = getLicenseId(editingLicense.value)
     await userStore.updateLicense(licenseId, updateData)
     showEditLicenseModal.value = false
     editingLicense.value = null
     await fetchLicenses()
   } catch (err) {
-    console.error('更新授權失敗:', err)
-    const errorMsg = err.response?.data?.message || '更新授權失敗，請稍後再試'
-    notify.notifyError(errorMsg)
+    handleError(err, '更新授權失敗')
   } finally {
     updatingLicense.value = false
   }
@@ -656,15 +624,14 @@ const handleDeleteLicense = async (license) => {
     return
   }
 
+  const licenseId = getLicenseId(license)
+  deletingLicense.value = licenseId
+
   try {
-    const licenseId = license._id || license.id
-    deletingLicense.value = licenseId
     await userStore.deleteLicense(licenseId)
     await fetchLicenses()
   } catch (err) {
-    console.error('刪除授權失敗:', err)
-    const errorMsg = err.response?.data?.message || '刪除授權失敗，請稍後再試'
-    notify.notifyError(errorMsg)
+    handleError(err, '刪除授權失敗')
   } finally {
     deletingLicense.value = null
   }
@@ -680,6 +647,7 @@ const changeLicensePage = (page) => {
   licensePagination.value.currentPage = page
 }
 
+// 狀態相關函數
 const getStatusText = (status) => {
   const statusMap = {
     pending: '審核中',
@@ -689,6 +657,24 @@ const getStatusText = (status) => {
   }
   return statusMap[status] || status
 }
+
+const getStatusClass = (status) => {
+  const statusClassMap = {
+    pending: conditionalClass('bg-yellow-500/20 text-yellow-300', 'bg-yellow-100 text-yellow-700'),
+    available: conditionalClass('bg-blue-500/20 text-blue-300', 'bg-blue-100 text-blue-700'),
+    active: conditionalClass('bg-green-500/20 text-green-300', 'bg-green-100 text-green-700'),
+    inactive: conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
+  }
+  return statusClassMap[status] || statusClassMap.inactive
+}
+
+// 分頁按鈕樣式
+const paginationButtonClass = computed(() =>
+  conditionalClass(
+    'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+    'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+  )
+)
 
 const formatDate = (dateString) => {
   if (!dateString) return '-'
