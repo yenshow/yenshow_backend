@@ -60,13 +60,26 @@ export function useGlobalSearch() {
 
   // 搜尋函數
   async function performSearch(keyword = inputKeyword.value) {
-    if (!keyword || keyword.trim() === '') return
+    if (!keyword || keyword.trim() === '') {
+      // 清空搜尋時清除過濾
+      searchStore.clearFilteredProductIds()
+      return
+    }
 
     inputKeyword.value = keyword
-    await searchStore.search(keyword)
+    const trimmedKeyword = keyword.trim()
+
+    // 執行搜尋
+    await searchStore.search(trimmedKeyword)
+
+    // 導航到搜尋結果頁面
+    const currentRoute = router.currentRoute.value
+    if (currentRoute.name !== 'search' || currentRoute.query.q !== trimmedKeyword) {
+      router.push({ name: 'search', query: { q: trimmedKeyword } })
+    }
   }
 
-  // 防抖搜尋，延遲 50ms
+  // 防抖搜尋，延遲 500ms（等待用戶輸入完畢）
   let searchTimeout = null
   function debouncedSearch(keyword) {
     inputKeyword.value = keyword
@@ -75,9 +88,15 @@ export function useGlobalSearch() {
       clearTimeout(searchTimeout)
     }
 
+    // 如果關鍵字為空，立即清除搜尋
+    if (!keyword || keyword.trim() === '') {
+      searchStore.clearFilteredProductIds()
+      return
+    }
+
     searchTimeout = setTimeout(() => {
       performSearch(keyword)
-    }, 50)
+    }, 500) // 增加到 500ms，讓用戶有時間輸入完畢
   }
 
   // 點擊搜尋結果進行導航
@@ -115,6 +134,12 @@ export function useGlobalSearch() {
   function clearSearch() {
     inputKeyword.value = ''
     searchStore.closeSearch()
+    searchStore.clearFilteredProductIds()
+    // 如果當前在搜尋結果頁面，導航回首頁
+    const currentRoute = router.currentRoute.value
+    if (currentRoute.name === 'search') {
+      router.push({ name: 'home' })
+    }
   }
 
   // 載入最近搜尋
@@ -129,6 +154,7 @@ export function useGlobalSearch() {
   function closeSearch() {
     inputKeyword.value = ''
     searchStore.closeSearch()
+    // 不自動清除過濾，讓表格保持過濾狀態
   }
 
   return {

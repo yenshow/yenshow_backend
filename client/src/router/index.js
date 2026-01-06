@@ -58,6 +58,12 @@ const router = createRouter({
       component: () => import('@/views/ComeoCaseStudyView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/search',
+      name: 'search',
+      component: () => import('@/views/SearchResultsView.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
 })
 

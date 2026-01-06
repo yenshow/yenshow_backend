@@ -203,7 +203,7 @@ class ProductsController {
 				model: Products,
 				keyword,
 				additionalConditions,
-				searchFields: ["code", "name.TW", "name.EN", "description.TW", "description.EN"],
+				searchFields: ["code", "name.TW", "name.EN"],
 				sort,
 				sortDirection,
 				limit: parseInt(limit),

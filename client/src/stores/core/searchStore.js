@@ -22,6 +22,8 @@ export const useSearchStore = defineStore('search', {
     activeTab: 'all', // 當前活動標籤 (all, series, categories, subCategories, specifications, products)
     recentSearches: [], // 最近搜尋紀錄
     maxRecentSearches: 5, // 最大搜尋紀錄數量
+    // 新增：用於產品表格過濾的產品 ID 列表
+    filteredProductIds: null, // null 表示不過濾，非 null 時只顯示列表中的產品
   }),
 
   getters: {
@@ -56,6 +58,11 @@ export const useSearchStore = defineStore('search', {
         0,
       )
     },
+
+    // 新增：獲取過濾後的產品 ID 列表（用於產品表格過濾）
+    searchFilteredProductIds: (state) => {
+      return state.filteredProductIds
+    },
   },
 
   actions: {
@@ -75,13 +82,8 @@ export const useSearchStore = defineStore('search', {
     closeSearch() {
       this.isVisible = false
       this.keyword = ''
-      this.results = {
-        series: [],
-        categories: [],
-        subCategories: [],
-        specifications: [],
-        products: [],
-      }
+      // 不清除搜尋結果，保留在搜尋結果頁面顯示
+      // 不清除 filteredProductIds，讓表格保持過濾狀態
     },
 
     // 設置活動標籤
@@ -128,17 +130,25 @@ export const useSearchStore = defineStore('search', {
       localStorage.removeItem('recentSearches')
     },
 
+    // 新增：設置產品表格過濾條件
+    setFilteredProductIds(productIds) {
+      this.filteredProductIds = productIds
+    },
+
+    // 新增：清除產品表格過濾條件
+    clearFilteredProductIds() {
+      this.filteredProductIds = null
+    },
+
     // 全局搜尋
     async search(keyword = this.keyword) {
       if (!keyword || keyword.trim() === '') {
-        // 清空結果
-        this.results = {
-          series: [],
-          categories: [],
-          subCategories: [],
-          specifications: [],
-          products: [],
-        }
+        // 清空結果 - 確保響應式更新
+        this.results.series = []
+        this.results.categories = []
+        this.results.subCategories = []
+        this.results.specifications = []
+        this.results.products = []
         return this.results
       }
 
@@ -192,11 +202,11 @@ export const useSearchStore = defineStore('search', {
           sortedProducts.sort((a, b) => {
             const aCodeMatch = a.code?.toLowerCase().includes(keywordLower) || false
             const bCodeMatch = b.code?.toLowerCase().includes(keywordLower) || false
-            
+
             // code 完全匹配優先於部分匹配
             const aCodeExact = a.code?.toLowerCase() === keywordLower
             const bCodeExact = b.code?.toLowerCase() === keywordLower
-            
+
             if (aCodeExact && !bCodeExact) return -1
             if (!aCodeExact && bCodeExact) return 1
             if (aCodeMatch && !bCodeMatch) return -1
@@ -205,27 +215,23 @@ export const useSearchStore = defineStore('search', {
           })
         }
 
-        // 更新結果
-        this.results = {
-          series: Array.isArray(series) ? series : [],
-          categories: Array.isArray(categories) ? categories : [],
-          subCategories: Array.isArray(subCategories) ? subCategories : [],
-          specifications: Array.isArray(specifications) ? specifications : [],
-          products: sortedProducts,
-        }
+        // 更新結果 - 確保響應式更新
+        this.results.series = Array.isArray(series) ? series : []
+        this.results.categories = Array.isArray(categories) ? categories : []
+        this.results.subCategories = Array.isArray(subCategories) ? subCategories : []
+        this.results.specifications = Array.isArray(specifications) ? specifications : []
+        this.results.products = sortedProducts
 
         return this.results
       } catch (error) {
         console.error('搜尋過程出錯:', error)
         this.error = error.message || '搜尋時發生錯誤'
-        // 確保結果是空陣列而不是 null
-        this.results = {
-          series: [],
-          categories: [],
-          subCategories: [],
-          specifications: [],
-          products: [],
-        }
+        // 確保結果是空陣列而不是 null - 確保響應式更新
+        this.results.series = []
+        this.results.categories = []
+        this.results.subCategories = []
+        this.results.specifications = []
+        this.results.products = []
         return this.results
       } finally {
         this.isLoading = false

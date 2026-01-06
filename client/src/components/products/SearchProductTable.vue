@@ -11,77 +11,7 @@
       "
     >
       <div class="px-4 lg:px-6">產品</div>
-      <!-- 子分類篩選器 (下拉式選單) -->
-      <div class="relative" ref="categoriesDropdownRef">
-        <button
-          @click="toggleCategoriesDropdown"
-          class="flex items-center gap-2 px-4 py-2 rounded-[10px] transition-colors"
-          :class="
-            conditionalClass(
-              'border-2 border-[#3F5069] hover:bg-[#3a434c]',
-              'border-2 border-slate-300 bg-white hover:bg-slate-50',
-            )
-          "
-          :disabled="!subCategories || subCategories.length === 0"
-        >
-          <span>{{ selectedCategoriesLabel }}</span>
-          <svg
-            class="w-5 h-5 transition-transform"
-            :class="{ 'rotate-180': isCategoriesDropdownOpen }"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              d="M19 9l-7 7-7-7"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-
-        <div
-          v-if="isCategoriesDropdownOpen"
-          class="absolute z-50 min-w-[200px] rounded-[10px] shadow-lg max-h-[300px] overflow-y-auto space-y-1"
-          :class="
-            conditionalClass(
-              'bg-[#1e293b] border border-[#3F5069]',
-              'bg-white border border-slate-200',
-            )
-          "
-        >
-          <button
-            class="w-full px-4 py-2 text-left flex justify-between items-center gap-2 transition-colors"
-            :class="conditionalClass('hover:bg-[#3a434c]', 'hover:bg-slate-100')"
-            @click="selectAllCategories"
-          >
-            <span>全部</span>
-            <span v-if="selectedSubCategoriesId === null" class="text-blue-400">✓</span>
-          </button>
-          <template v-if="subCategories && subCategories.length > 0">
-            <button
-              v-for="subCategory in subCategories"
-              :key="subCategory._id"
-              class="w-full px-4 py-2 text-left flex justify-between items-center gap-2 transition-colors"
-              :class="conditionalClass('hover:bg-[#3a434c]', 'hover:bg-slate-100')"
-              @click="selectSubCategories(subCategory._id)"
-            >
-              <span>{{ getLocalizedField(subCategory, 'name', '未命名子分類', 'TW') }}</span>
-              <span v-if="selectedSubCategoriesId === subCategory._id" class="text-blue-400"
-                >✓</span
-              >
-            </button>
-          </template>
-          <div
-            v-else
-            class="px-4 py-2 text-center"
-            :class="conditionalClass('text-gray-400', 'text-slate-500')"
-          >
-            無子分類可選擇
-          </div>
-        </div>
-      </div>
+      <div class="px-4 lg:px-6">子分類</div>
       <div class="px-4 lg:px-6">資料狀態</div>
       <div class="px-4 lg:px-6 flex justify-center gap-[8px] lg:gap-[12px]">上架</div>
       <div
@@ -165,19 +95,7 @@
             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           ></path>
         </svg>
-        <p class="mt-2">
-          {{
-            selectedSubCategoriesId
-              ? `子分類 "${selectedCategoriesLabel}" 下暫無產品`
-              : '該分類下暫無產品'
-          }}
-          <span
-            v-if="targetSpecificationIds && targetSpecificationIds.length === 0"
-            class="text-sm"
-          >
-            (因為還未定義任何規格)
-          </span>
-        </p>
+        <p class="mt-2">沒有找到相關產品</p>
       </div>
     </div>
     <div v-else :class="conditionalClass('divide-y divide-white/30', 'divide-y divide-slate-200')">
@@ -199,7 +117,7 @@
           <span class="truncate theme-text">{{ formatProductModel(product) }}</span>
         </div>
 
-        <!-- 規格欄 (改為產品名稱) -->
+        <!-- 子分類欄 (顯示產品名稱) -->
         <div class="truncate theme-text px-4 lg:px-6 text-left w-full">
           {{ getLocalizedField(product, 'name', '未命名產品', 'TW') }}
         </div>
@@ -383,36 +301,44 @@
     <ProductFormModal
       v-model:visible="showProductModal"
       :product-id="editingProductId"
-      :category-data="props.categoryData"
+      :category-data="categoryDataForModal"
       @submit-success="handleProductSubmitSuccess"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useNotifications } from '@/composables/notificationCenter'
 import { useLanguage } from '@/composables/useLanguage'
 import { useLanguageStore } from '@/stores/core/languageStore'
 import { useApi } from '@/composables/axios'
 import { useThemeClass } from '@/composables/useThemeClass'
-import { useSearchStore } from '@/stores/core/searchStore'
+import { useSeriesStore } from '@/stores/models/series'
 import ProductFormModal from '@/components/products/ProductFormModal.vue'
 
 const props = defineProps({
-  categoryData: {
-    type: Object,
+  products: {
+    type: Array,
     required: true,
-    default: () => ({ _id: '', name: '', subCategories: [] }),
+    default: () => [],
+  },
+  searchKeyword: {
+    type: String,
+    default: '',
   },
 })
 
-const emit = defineEmits(['product-updated', 'product-deleted', 'editProduct'])
+const emit = defineEmits(['product-clicked', 'product-deleted', 'product-updated'])
 
-// 使用通知和本地化功能
+const router = useRouter()
 const notify = useNotifications()
 const { getLocalizedField } = useLanguage()
 const languageStore = useLanguageStore()
+const { entityApi } = useApi()
+const { cardClass, conditionalClass } = useThemeClass()
+const seriesStore = useSeriesStore()
 
 // 僅依據 documentsByLang 與目前語言檢查是否有文件
 const hasDocs = (product) => {
@@ -420,14 +346,6 @@ const hasDocs = (product) => {
   const byLang = product?.documentsByLang
   return Array.isArray(byLang?.[lang]) && byLang[lang].length > 0
 }
-const { entityApi } = useApi()
-
-// 主題相關
-const { cardClass, conditionalClass } = useThemeClass()
-
-// 新增：讀取搜尋過濾條件
-const searchStore = useSearchStore()
-const searchFilteredProductIds = computed(() => searchStore.searchFilteredProductIds)
 
 // =====================================================
 // 基本狀態管理
@@ -439,15 +357,11 @@ const pagination = ref({
   totalPages: 0,
 })
 
-// const subCategories = ref([]) // 改為 computed
-const selectedSubCategoriesId = ref(null)
-const categoriesDropdownRef = ref(null)
 const tableTopRef = ref(null)
-const isCategoriesDropdownOpen = ref(false)
-
-// 排序狀態
 const sortDropdownRef = ref(null)
 const isSortDropdownOpen = ref(false)
+
+// 排序狀態
 const sortOptions = ref([
   { label: '最新更新', value: { field: 'updatedAt', order: 'desc' } },
   { label: '最早更新', value: { field: 'updatedAt', order: 'asc' } },
@@ -459,13 +373,14 @@ const currentSort = ref(sortOptions.value[0].value)
 // 編輯產品相關
 const showProductModal = ref(false)
 const editingProductId = ref('')
+const categoryDataForModal = ref(null)
 
 // 刪除產品相關
 const deleting = ref(false)
 const showDeleteConfirm = ref(false)
 const productToDelete = ref(null)
 
-// 友善顯示產品型號：優先使用 name.EN，其次使用 code；無論來源為何，將第一個連字號替換為空白
+// 友善顯示產品型號
 const formatProductModel = (product) => {
   const source =
     (product?.name?.EN && typeof product.name.EN === 'string' && product.name.EN.trim()) ||
@@ -474,63 +389,33 @@ const formatProductModel = (product) => {
   return source.replace('-', ' ')
 }
 
-// =====================================================
-// 計算屬性 (Derived from props and state)
-// =====================================================
-
-// 從 categoryData 計算子分類列表
-const subCategories = computed(() => {
-  return props.categoryData?.subCategories || []
-})
-
-// New: Extract all products directly from the prop structure
-const allProductsFromProp = computed(() => {
-  const productsList = []
-  if (props.categoryData?.subCategories) {
-    props.categoryData.subCategories.forEach((subCategory) => {
-      if (subCategory.specifications) {
-        subCategory.specifications.forEach((spec) => {
-          if (spec.products && Array.isArray(spec.products)) {
-            // Add subCategory and specification context if needed later
-            spec.products.forEach((product) => {
-              // Ensure basic product structure, add context
-              productsList.push({
-                ...product,
-                _subCategoryId: subCategory._id, // Add subCategory ID for filtering
-                _specificationId: spec._id, // Add specification ID for context
-              })
-            })
-          }
-        })
-      }
-    })
+// 獲取系列名稱
+const getSeriesName = (product) => {
+  const seriesId = product.series?._id || product.series
+  if (seriesId && seriesStore.items.length > 0) {
+    const series = seriesStore.items.find((s) => s._id === seriesId)
+    return getLocalizedField(series, 'name', series?.code || '', 'TW')
   }
-  console.log(productsList)
-  return productsList
-})
+  return ''
+}
 
-// New: Filter products based on selected subcategory
+// =====================================================
+// 計算屬性
+// =====================================================
+
+// 過濾和排序產品
 const filteredProducts = computed(() => {
-  let productsToFilter = []
-  if (allProductsFromProp.value) {
-    if (selectedSubCategoriesId.value === null) {
-      productsToFilter = allProductsFromProp.value
-    } else {
-      productsToFilter = allProductsFromProp.value.filter(
-        (p) => p._subCategoryId === selectedSubCategoriesId.value,
-      )
-    }
+  // 確保 products 是一個數組
+  if (!Array.isArray(props.products) || props.products.length === 0) {
+    return []
   }
 
-  // 新增：應用搜尋過濾
-  if (searchFilteredProductIds.value !== null && searchFilteredProductIds.value.length > 0) {
-    const filterSet = new Set(searchFilteredProductIds.value)
-    productsToFilter = productsToFilter.filter((p) => filterSet.has(p._id))
-  }
+  // 創建新數組並排序（不修改原數組）
+  const productsToFilter = [...props.products]
 
   // 排序邏輯
   const { field, order } = currentSort.value
-  return [...productsToFilter].sort((a, b) => {
+  return productsToFilter.sort((a, b) => {
     const valA = a[field]
     const valB = b[field]
 
@@ -540,7 +425,6 @@ const filteredProducts = computed(() => {
     const dateA = new Date(valA).getTime()
     const dateB = new Date(valB).getTime()
 
-    // 增強排序穩定性，處理無效日期
     if (isNaN(dateA)) return 1
     if (isNaN(dateB)) return -1
 
@@ -548,13 +432,13 @@ const filteredProducts = computed(() => {
   })
 })
 
-// New: Watch filtered products to update pagination state
+// 監聽 props.products 變化，更新分頁
 watch(
-  filteredProducts,
-  (newFilteredProducts) => {
-    const total = newFilteredProducts.length
+  () => props.products,
+  (newProducts) => {
+    const total = Array.isArray(newProducts) ? newProducts.length : 0
     pagination.value.totalItems = total
-    pagination.value.totalPages = Math.ceil(total / pagination.value.itemsPerPage) || 1 // Ensure totalPages is at least 1
+    pagination.value.totalPages = Math.ceil(total / pagination.value.itemsPerPage) || 1
 
     if (pagination.value.currentPage > pagination.value.totalPages) {
       pagination.value.currentPage = pagination.value.totalPages
@@ -566,39 +450,6 @@ watch(
   { immediate: true, deep: true },
 )
 
-// 計算目標規格 IDs (Still potentially useful for display logic/debugging)
-const targetSpecificationIds = computed(() => {
-  let ids = []
-  if (selectedSubCategoriesId.value) {
-    // 只查詢選定子分類下的規格
-    const selectedSub = subCategories.value.find((sc) => sc._id === selectedSubCategoriesId.value)
-    if (selectedSub && selectedSub.specifications) {
-      ids = selectedSub.specifications.map((spec) => spec._id).filter((id) => id) // 提取 ID 並過濾無效 ID
-    }
-  } else {
-    // 查詢所有子分類下的所有規格
-    subCategories.value.forEach((sc) => {
-      if (sc.specifications) {
-        sc.specifications.forEach((spec) => {
-          if (spec._id) {
-            ids.push(spec._id)
-          }
-        })
-      }
-    })
-    ids = [...new Set(ids)]
-  }
-  return ids
-})
-
-// 計算選中的子分類標籤
-const selectedCategoriesLabel = computed(() => {
-  if (!selectedSubCategoriesId.value) return '子分類'
-  const selected = subCategories.value.find((s) => s._id === selectedSubCategoriesId.value)
-  if (!selected) return '選擇子分類' // Handle case where selected id might be invalid momentarily
-  return getLocalizedField(selected, 'name', '未命名子分類', 'TW')
-})
-
 const currentSortLabel = computed(() => {
   const option = sortOptions.value.find(
     (opt) =>
@@ -607,7 +458,7 @@ const currentSortLabel = computed(() => {
   return option ? option.label : '排序'
 })
 
-// 顯示的產品列表 (Now handles frontend pagination)
+// 顯示的產品列表
 const displayedProducts = computed(() => {
   const start = (pagination.value.currentPage - 1) * pagination.value.itemsPerPage
   const end = start + pagination.value.itemsPerPage
@@ -617,11 +468,6 @@ const displayedProducts = computed(() => {
 // =====================================================
 // 事件處理功能
 // =====================================================
-
-// 處理下拉選單操作
-const toggleCategoriesDropdown = () => {
-  isCategoriesDropdownOpen.value = !isCategoriesDropdownOpen.value
-}
 
 const toggleSortDropdown = () => {
   isSortDropdownOpen.value = !isSortDropdownOpen.value
@@ -633,28 +479,6 @@ const setSort = (sortValue) => {
   pagination.value.currentPage = 1
 }
 
-// 選擇全部子分類
-const selectAllCategories = () => {
-  if (selectedSubCategoriesId.value !== null) {
-    selectedSubCategoriesId.value = null
-    isCategoriesDropdownOpen.value = false
-    // pagination.value.currentPage = 1 // Reset page when filter changes
-  } else {
-    isCategoriesDropdownOpen.value = false
-  }
-}
-
-// 選擇子分類
-const selectSubCategories = (subCategoriesId) => {
-  if (selectedSubCategoriesId.value !== subCategoriesId) {
-    selectedSubCategoriesId.value = subCategoriesId
-    isCategoriesDropdownOpen.value = false
-    // pagination.value.currentPage = 1 // Reset page when filter changes
-  } else {
-    isCategoriesDropdownOpen.value = false
-  }
-}
-
 // 切換頁面
 const changePage = (page) => {
   if (page < 1 || page > pagination.value.totalPages || page === pagination.value.currentPage) {
@@ -662,10 +486,9 @@ const changePage = (page) => {
   }
   pagination.value.currentPage = page
 
-  // 切換分頁後自動捲動到表格頂端（預留約 100px ）
   nextTick(() => {
     if (tableTopRef.value) {
-      const offset = 150 // 預留空間 (px)
+      const offset = 150
       const targetTop = tableTopRef.value.getBoundingClientRect().top + window.scrollY - offset
       const scrollTop = targetTop < 0 ? 0 : targetTop
       window.scrollTo({ top: scrollTop, behavior: 'smooth' })
@@ -673,15 +496,29 @@ const changePage = (page) => {
   })
 }
 
+// 處理產品點擊
+const handleProductClick = (product) => {
+  emit('product-clicked', product)
+}
+
 // 編輯產品
 const editProduct = (product) => {
   editingProductId.value = product._id
+  // ProductFormModal 會自己從產品資料中獲取分類資訊，所以傳入空物件即可
+  categoryDataForModal.value = { _id: '', name: '', subCategories: [] }
   showProductModal.value = true
 }
 
 // 處理產品提交成功
 const handleProductSubmitSuccess = (payload) => {
   emit('product-updated', payload)
+  // 更新本地產品資料
+  if (payload.product && props.products) {
+    const index = props.products.findIndex((p) => p._id === payload.product._id)
+    if (index > -1) {
+      Object.assign(props.products[index], payload.product)
+    }
+  }
 }
 
 // 確認刪除
@@ -718,7 +555,9 @@ const toggleProductActive = async (product) => {
     const result = await entityApi('products').update(product._id, updatedData)
 
     if (result) {
-      emit('product-updated', { product: result, isNew: false }) // Rely on parent to update props
+      emit('product-updated', { product: result, isNew: false })
+      // 更新本地狀態
+      Object.assign(product, result)
     } else {
       notify.notifyError('更新產品狀態失敗 (API)')
     }
@@ -733,9 +572,6 @@ const toggleProductActive = async (product) => {
 
 // 點擊外部關閉下拉選單
 const handleClickOutside = (event) => {
-  if (categoriesDropdownRef.value && !categoriesDropdownRef.value.contains(event.target)) {
-    isCategoriesDropdownOpen.value = false
-  }
   if (sortDropdownRef.value && !sortDropdownRef.value.contains(event.target)) {
     isSortDropdownOpen.value = false
   }
@@ -749,17 +585,15 @@ const handleImageError = (event) => {
 
 // 格式化日期
 const formatDate = (dateString) => {
-  if (!dateString) return '' // 如果沒有日期字串，返回空
+  if (!dateString) return ''
 
   const date = new Date(dateString)
 
-  // 檢查創建的日期物件是否有效
   if (isNaN(date.getTime())) {
-    console.warn(`[ProductTable] formatDate: 無法解析的日期字串:`, dateString)
-    return '無效日期' // 如果日期無效，返回提示信息
+    console.warn(`[SearchProductTable] formatDate: 無法解析的日期字串:`, dateString)
+    return '無效日期'
   }
 
-  // 如果日期有效，正常格式化
   return `${date.getFullYear()}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date
     .getDate()
     .toString()
@@ -767,32 +601,17 @@ const formatDate = (dateString) => {
 }
 
 // =====================================================
-// 生命週期鉤子和監聽器
+// 生命週期鉤子
 // =====================================================
 
-// 監聽 categoryData ID 變化，僅重置選擇和頁碼
-watch(
-  () => props.categoryData?._id, // Only watch the ID
-  (newId, oldId) => {
-    if (newId !== oldId) {
-      // Trigger on actual ID change or initial load
-      selectedSubCategoriesId.value = null // Reset subcategory selection
-      pagination.value.currentPage = 1 // Reset page number
-      // 當分類改變時，清除搜尋過濾（因為可能切換到不同的分類）
-      // searchStore.clearFilteredProductIds() // 註解掉，讓搜尋過濾持續有效
-      // No need to call loadProducts. Prop change triggers computed updates.
-    }
-  },
-  { immediate: true }, // Ensures initial setup
-)
-
-// Keep Mount/Unmount for handleClickOutside
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
-  // Initial data processing is handled by computed properties and immediate watchers
+  // 載入系列列表
+  if (seriesStore.items.length === 0) {
+    seriesStore.fetchAll()
+  }
 })
 
-// Need to add onUnmounted back if keeping the event listener
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
