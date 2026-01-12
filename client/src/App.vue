@@ -303,7 +303,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
-import { useSiteStore } from '@/stores/siteStore'
+import { useSiteStore } from '@/stores/core/siteStore'
 import { useThemeStore } from '@/stores/core/theme'
 import { storeToRefs } from 'pinia'
 import { useNotifications } from '@/composables/notificationCenter'

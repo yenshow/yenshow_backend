@@ -42,6 +42,11 @@
 }
 
 /* 明亮模式的基本設置 */
+html {
+  /* 預留滾動條空間，避免布局偏移 */
+  scrollbar-gutter: stable;
+}
+
 body {
   background-color: var(--body-bg);
   color: var(--body-color);
@@ -53,6 +58,8 @@ body {
   transition:
     background-color var(--transition-duration),
     color var(--transition-duration);
+  /* 預留滾動條空間，避免布局偏移 */
+  scrollbar-gutter: stable;
 }
 
 /* 黑暗主題 */
@@ -116,22 +123,27 @@ body {
   color: var(--primary-color-text);
 }
 
-/* 頁面切換動畫 - 柔和的淡入淡出效果 */
-.fade-enter-active,
+/* 頁面切換動畫 - 優化後的快速淡入淡出效果 */
+.fade-enter-active {
+  transition:
+    opacity 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+
 .fade-leave-active {
   transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
+    opacity 0.15s ease-in,
+    transform 0.15s ease-in;
 }
 
 .fade-enter-from {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(-6px);
 }
 
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: translateY(4px);
 }
 
 .fade-enter-to,

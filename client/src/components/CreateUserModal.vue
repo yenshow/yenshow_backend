@@ -30,9 +30,9 @@
                     'w-full px-4 h-[40px] rounded-lg focus:outline-none focus:border-blue-500',
                   ]"
                 >
-                  <option value="client">客戶</option>
-                  <option value="staff">員工</option>
-                  <option value="admin">管理員</option>
+                  <option value="client" class="text-black/70">客戶</option>
+                  <option value="staff" class="text-black/70">員工</option>
+                  <option value="admin" class="text-black/70">管理員</option>
                 </select>
               </div>
 

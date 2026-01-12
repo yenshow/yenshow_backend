@@ -12,16 +12,11 @@
           {{ title }}
         </h2>
 
-        <!-- 載入中狀態 -->
-        <div v-if="loading" class="text-center py-8">
-          <div
-            class="inline-block animate-spin rounded-full h-8 w-8 border-b-2"
-            :class="conditionalClass('border-white', 'border-blue-600')"
-          ></div>
-          <p class="mt-2" :class="conditionalClass('text-gray-400', 'text-slate-500')">
-            正在載入數據...
-          </p>
-        </div>
+        <!-- 載入過渡（防止閃爍） -->
+        <LoadingSpinner
+          v-if="loading"
+          container-class="text-center py-8"
+        />
 
         <!-- 錯誤提示和重試按鈕 -->
         <div v-if="error" class="text-center py-8">
@@ -245,6 +240,7 @@ import { useNotifications } from '@/composables/notificationCenter'
 import { createEntityStore } from '@/stores/entityStore'
 import { useApi } from '@/composables/axios'
 import { useThemeClass } from '@/composables/useThemeClass'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
 // 獲取主題相關工具
 const { cardClass, inputClass, conditionalClass } = useThemeClass()

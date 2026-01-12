@@ -39,16 +39,11 @@
         {{ isEditing ? '編輯產品' : '新增產品' }}
       </h2>
 
-      <!-- 加載指示器 -->
-      <div v-if="loading" class="text-center py-8">
-        <div
-          class="inline-block animate-spin rounded-full h-8 w-8 border-b-2"
-          :class="conditionalClass('border-white', 'border-blue-600')"
-        ></div>
-        <p class="mt-2" :class="conditionalClass('text-gray-400', 'text-slate-500')">
-          正在加載數據...
-        </p>
-      </div>
+      <!-- 載入過渡（防止閃爍） -->
+      <LoadingSpinner
+        v-if="loading"
+        container-class="text-center py-8"
+      />
 
       <!-- 錯誤提示 -->
       <div
@@ -606,6 +601,7 @@ import { useFormValidation } from '@/composables/useFormValidation'
 import { useProductsStore } from '@/stores/models/products'
 import { useThemeClass } from '@/composables/useThemeClass'
 import LanguageSwitcher from '@/components/common/languageSwitcher.vue'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
 const props = defineProps({
   visible: {

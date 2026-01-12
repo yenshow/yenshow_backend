@@ -48,563 +48,565 @@
       <button @click="error = ''" class="float-right text-red-100 hover:text-white">&times;</button>
     </div>
 
-    <!-- 載入中提示 -->
-    <div v-if="loading" class="flex flex-col items-center justify-center py-12">
-      <div
-        class="animate-spin rounded-full h-12 w-12 border-b-2 border-t-2 mb-4"
-        :class="conditionalClass('border-white', 'border-blue-600')"
-      ></div>
-      <p :class="conditionalClass('text-gray-300', 'text-slate-500')">正在載入資料...</p>
-    </div>
+    <!-- 載入與內容切換過渡 -->
+    <Transition name="fade" mode="out-in">
+      <LoadingSpinner v-if="loading" key="loading" container-class="py-12" />
+      <div v-else key="content" :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']">
+        <!-- 頂部操作列 -->
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-xl font-semibold theme-text">
+            {{ activeTab === 'news' ? '消息列表' : '問題列表' }}
+          </h2>
+          <button
+            @click="handleAddItem"
+            class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
+          >
+            新增{{ activeTab === 'news' ? '消息' : '問題' }}
+          </button>
+        </div>
 
-    <!-- 內容管理區塊 -->
-    <div v-else :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']">
-      <!-- 頂部操作列 -->
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-semibold theme-text">
-          {{ activeTab === 'news' ? '消息列表' : '問題列表' }}
-        </h2>
-        <button
-          @click="handleAddItem"
-          class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
+        <!-- 最新消息列表 -->
+        <div
+          v-if="activeTab === 'news'"
+          :class="[
+            'min-h-[580px]',
+            { 'overflow-x-auto': !isCategoryDropdownOpen && !isSortDropdownOpen },
+          ]"
         >
-          新增{{ activeTab === 'news' ? '消息' : '問題' }}
-        </button>
-      </div>
-
-      <!-- 最新消息列表 -->
-      <div
-        v-if="activeTab === 'news'"
-        :class="[
-          'min-h-[580px]',
-          { 'overflow-x-auto': !isCategoryDropdownOpen && !isSortDropdownOpen },
-        ]"
-      >
-        <table class="w-full text-center">
-          <thead :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')">
-            <tr>
-              <th class="py-3 px-4 lg:px-6 theme-text opacity-50">標題 (TW)</th>
-              <th class="py-3 px-4 lg:px-6 relative" ref="categoryDropdownRef">
-                <button
-                  @click="toggleCategoryDropdown"
-                  class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
-                  :class="
-                    conditionalClass(
-                      'border-2 border-[#3F5069] hover:bg-[#3a434c]',
-                      'border-2 border-slate-300 bg-white hover:bg-slate-50',
-                    )
-                  "
-                  :disabled="newsCategories.length === 0"
-                >
-                  <span>{{ selectedNewsCategoryLabel }}</span>
-                  <svg
-                    v-if="newsCategories.length > 0"
-                    class="w-4 h-4 transition-transform"
-                    :class="{ 'rotate-180': isCategoryDropdownOpen }"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M19 9l-7 7-7-7"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </button>
-                <div
-                  v-if="isCategoryDropdownOpen"
-                  :class="[
-                    cardClass,
-                    'absolute left-1/2 -translate-x-1/2 z-20 mt-2 min-w-[160px] rounded-lg shadow-xl max-h-60 overflow-y-auto text-left',
-                  ]"
-                >
-                  <div
-                    :class="conditionalClass('bg-gray-800/80', 'bg-white/80')"
-                    class="backdrop-blur-sm rounded-lg"
-                  >
-                    <button
-                      @click="selectNewsCategory(null)"
-                      class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
-                      :class="
-                        conditionalClass(
-                          'hover:bg-white/10 text-white',
-                          'hover:bg-slate-100 text-slate-700',
-                        )
-                      "
-                    >
-                      <span>全部分類</span>
-                      <span v-if="!selectedNewsCategory" class="text-blue-400">✓</span>
-                    </button>
-                    <button
-                      v-for="category in newsCategories"
-                      :key="category"
-                      @click="selectNewsCategory(category)"
-                      class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
-                      :class="
-                        conditionalClass(
-                          'hover:bg-white/10 text-white',
-                          'hover:bg-slate-100 text-slate-700',
-                        )
-                      "
-                    >
-                      <span>{{ category }}</span>
-                      <span v-if="selectedNewsCategory === category" class="text-blue-400">✓</span>
-                    </button>
-                  </div>
-                </div>
-              </th>
-              <th class="py-3 px-4 lg:px-6 relative" ref="sortDropdownRef">
-                <button
-                  @click="toggleSortDropdown"
-                  class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
-                  :class="
-                    conditionalClass(
-                      'border-2 border-[#3F5069] hover:bg-[#3a434c]',
-                      'border-2 border-slate-300 bg-white hover:bg-slate-50',
-                    )
-                  "
-                >
-                  <span>{{ currentSortLabel }}</span>
-                  <svg
-                    class="w-4 h-4 transition-transform"
-                    :class="{ 'rotate-180': isSortDropdownOpen }"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M19 9l-7 7-7-7"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </button>
-                <div
-                  v-if="isSortDropdownOpen"
-                  :class="[
-                    cardClass,
-                    'absolute right-0 z-20 mt-2 min-w-[180px] rounded-lg shadow-xl max-h-60 overflow-y-auto text-left',
-                  ]"
-                >
-                  <div
-                    :class="conditionalClass('bg-gray-800/80', 'bg-white/80')"
-                    class="backdrop-blur-sm rounded-lg"
-                  >
-                    <button
-                      v-for="option in sortOptions"
-                      :key="option.label"
-                      @click="setSort(option.value)"
-                      class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
-                      :class="
-                        conditionalClass(
-                          'hover:bg-white/10 text-white',
-                          'hover:bg-slate-100 text-slate-700',
-                        )
-                      "
-                    >
-                      <span>{{ option.label }}</span>
-                      <span
-                        v-if="
-                          currentSort.field === option.value.field &&
-                          currentSort.order === option.value.order
-                        "
-                        class="text-blue-400"
-                        >✓</span
-                      >
-                    </button>
-                  </div>
-                </div>
-              </th>
-              <th class="py-3 px-4 theme-text opacity-50">作者</th>
-              <th class="py-3 px-4 theme-text opacity-50">封面圖</th>
-              <th class="py-3 px-4 theme-text opacity-50">圖片</th>
-              <th class="py-3 px-4 theme-text opacity-50">影片</th>
-              <th class="py-3 px-4 theme-text opacity-50">文件</th>
-              <th class="py-3 px-4 theme-text opacity-50">狀態</th>
-              <th class="py-3 px-4 theme-text opacity-50">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="item in pagedItems"
-              :key="item._id"
-              :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
+          <table class="w-full text-center">
+            <thead
+              :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')"
             >
-              <td class="py-3 px-4 theme-text max-w-[450px] truncate">
-                {{ item.title?.TW || '-' }}
-              </td>
-              <td class="py-3 px-4 theme-text">{{ item.category || '-' }}</td>
-              <td class="py-3 px-4 theme-text">
-                {{
-                  formatDate(currentSort.field === 'createdAt' ? item.createdAt : item.publishDate)
-                }}
-              </td>
-              <td class="py-3 px-4 theme-text">{{ item.author || '-' }}</td>
-              <td
-                class="py-3 px-4"
-                :title="'封面圖: ' + (item.coverImageUrl ? '✓' : '✗')"
-                :class="item.coverImageUrl ? 'text-green-500' : 'text-red-500'"
-              >
-                {{ item.coverImageUrl ? '✓' : '✗' }}
-              </td>
-              <td
-                class="py-3 px-4"
-                :title="'圖片: ' + (hasContentImages(item.content) ? '✓' : '✗')"
-                :class="hasContentImages(item.content) ? 'text-green-500' : 'text-red-500'"
-              >
-                {{ hasContentImages(item.content) ? '✓' : '✗' }}
-              </td>
-              <td
-                class="py-3 px-4"
-                :title="'影片: ' + (hasContentVideos(item.content) ? '✓' : '✗')"
-                :class="hasContentVideos(item.content) ? 'text-green-500' : 'text-red-500'"
-              >
-                {{ hasContentVideos(item.content) ? '✓' : '✗' }}
-              </td>
-              <td
-                class="py-3 px-4"
-                :title="'文件: ' + (hasContentDocuments(item.content) ? '✓' : '✗')"
-                :class="hasContentDocuments(item.content) ? 'text-green-500' : 'text-red-500'"
-              >
-                {{ hasContentDocuments(item.content) ? '✓' : '✗' }}
-              </td>
-              <td class="py-3 px-4">
-                <span
-                  :class="statusDisplayClass(item.status, item.isActive, 'news')"
-                  class="px-2 py-1 rounded-full text-sm"
-                >
-                  {{ getStatusLabel(item.status, item.isActive, 'news') }}
-                </span>
-              </td>
-              <td class="py-3 px-4">
-                <div class="flex gap-2 justify-center">
+              <tr>
+                <th class="py-3 px-4 lg:px-6 theme-text opacity-50">標題 (TW)</th>
+                <th class="py-3 px-4 lg:px-6 relative" ref="categoryDropdownRef">
                   <button
-                    @click="handleEditItem(item)"
-                    class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
+                    @click="toggleCategoryDropdown"
+                    class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
+                    :class="
+                      conditionalClass(
+                        'border-2 border-[#3F5069] hover:bg-[#3a434c]',
+                        'border-2 border-slate-300 bg-white hover:bg-slate-50',
+                      )
+                    "
+                    :disabled="newsCategories.length === 0"
                   >
-                    編輯
+                    <span>{{ selectedNewsCategoryLabel }}</span>
+                    <svg
+                      v-if="newsCategories.length > 0"
+                      class="w-4 h-4 transition-transform"
+                      :class="{ 'rotate-180': isCategoryDropdownOpen }"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M19 9l-7 7-7-7"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
                   </button>
-                  <button
-                    @click="handleDeleteItem(item)"
-                    :disabled="deletingItem === item._id"
-                    class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                  >
-                    <span
-                      v-if="deletingItem === item._id"
-                      class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                    ></span>
-                    刪除
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="!newsStore.items || newsStore.items.length === 0">
-              <td
-                colspan="10"
-                class="text-center py-6"
-                :class="conditionalClass('text-gray-400', 'text-slate-500')"
-              >
-                目前沒有任何最新消息
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- 常見問題列表 -->
-      <div
-        v-else-if="activeTab === 'faq'"
-        :class="[
-          'min-h-[580px]',
-          { 'overflow-x-auto': !isFaqCategoryDropdownOpen && !isSortDropdownOpen },
-        ]"
-      >
-        <table class="w-full text-center">
-          <thead :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')">
-            <tr>
-              <th class="py-3 px-4 theme-text opacity-50">問題 (TW)</th>
-              <th class="py-3 px-4 relative" ref="faqCategoryDropdownRef">
-                <button
-                  @click="toggleFaqCategoryDropdown"
-                  class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
-                  :class="
-                    conditionalClass(
-                      'border-2 border-[#3F5069] hover:bg-[#3a434c]',
-                      'border-2 border-slate-300 bg-white hover:bg-slate-50',
-                    )
-                  "
-                  :disabled="faqCategories.length === 0"
-                >
-                  <span>{{ selectedFaqCategoryLabel }}</span>
-                  <svg
-                    v-if="faqCategories.length > 0"
-                    class="w-4 h-4 transition-transform"
-                    :class="{ 'rotate-180': isFaqCategoryDropdownOpen }"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M19 9l-7 7-7-7"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </button>
-                <div
-                  v-if="isFaqCategoryDropdownOpen"
-                  :class="[
-                    cardClass,
-                    'absolute left-1/2 -translate-x-1/2 z-20 mt-2 min-w-[160px] rounded-lg shadow-xl max-h-60 overflow-y-auto text-left',
-                  ]"
-                >
                   <div
-                    :class="conditionalClass('bg-gray-800/80', 'bg-white/80')"
-                    class="backdrop-blur-sm rounded-lg"
+                    v-if="isCategoryDropdownOpen"
+                    :class="[
+                      cardClass,
+                      'absolute left-1/2 -translate-x-1/2 z-20 mt-2 min-w-[160px] rounded-lg shadow-xl max-h-60 overflow-y-auto text-left',
+                    ]"
                   >
-                    <button
-                      @click="selectFaqCategory(null)"
-                      class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
-                      :class="
-                        conditionalClass(
-                          'hover:bg-white/10 text-white',
-                          'hover:bg-slate-100 text-slate-700',
-                        )
-                      "
+                    <div
+                      :class="conditionalClass('bg-gray-800/80', 'bg-white/80')"
+                      class="backdrop-blur-sm rounded-lg"
                     >
-                      <span>全部分類</span>
-                      <span v-if="!selectedFaqCategory" class="text-blue-400">✓</span>
-                    </button>
-                    <button
-                      v-for="category in faqCategories"
-                      :key="category"
-                      @click="selectFaqCategory(category)"
-                      class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
-                      :class="
-                        conditionalClass(
-                          'hover:bg-white/10 text-white',
-                          'hover:bg-slate-100 text-slate-700',
-                        )
-                      "
-                    >
-                      <span>{{ category }}</span>
-                      <span v-if="selectedFaqCategory === category" class="text-blue-400">✓</span>
-                    </button>
-                  </div>
-                </div>
-              </th>
-              <th class="py-3 px-4 relative" ref="sortDropdownRef">
-                <button
-                  @click="toggleSortDropdown"
-                  class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
-                  :class="
-                    conditionalClass(
-                      'border-2 border-[#3F5069] hover:bg-[#3a434c]',
-                      'border-2 border-slate-300 bg-white hover:bg-slate-50',
-                    )
-                  "
-                >
-                  <span>{{ currentSortLabel }}</span>
-                  <svg
-                    class="w-4 h-4 transition-transform"
-                    :class="{ 'rotate-180': isSortDropdownOpen }"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M19 9l-7 7-7-7"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </button>
-                <div
-                  v-if="isSortDropdownOpen"
-                  :class="[
-                    cardClass,
-                    'absolute right-0 z-20 mt-2 min-w-[180px] rounded-lg shadow-xl max-h-60 overflow-y-auto text-left',
-                  ]"
-                >
-                  <div
-                    :class="conditionalClass('bg-gray-800/80', 'bg-white/80')"
-                    class="backdrop-blur-sm rounded-lg"
-                  >
-                    <button
-                      v-for="option in sortOptions"
-                      :key="option.label"
-                      @click="setSort(option.value)"
-                      class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
-                      :class="
-                        conditionalClass(
-                          'hover:bg-white/10 text-white',
-                          'hover:bg-slate-100 text-slate-700',
-                        )
-                      "
-                    >
-                      <span>{{ option.label }}</span>
-                      <span
-                        v-if="
-                          currentSort.field === option.value.field &&
-                          currentSort.order === option.value.order
+                      <button
+                        @click="selectNewsCategory(null)"
+                        class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
+                        :class="
+                          conditionalClass(
+                            'hover:bg-white/10 text-white',
+                            'hover:bg-slate-100 text-slate-700',
+                          )
                         "
-                        class="text-blue-400"
-                        >✓</span
                       >
+                        <span>全部分類</span>
+                        <span v-if="!selectedNewsCategory" class="text-blue-400">✓</span>
+                      </button>
+                      <button
+                        v-for="category in newsCategories"
+                        :key="category"
+                        @click="selectNewsCategory(category)"
+                        class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
+                        :class="
+                          conditionalClass(
+                            'hover:bg-white/10 text-white',
+                            'hover:bg-slate-100 text-slate-700',
+                          )
+                        "
+                      >
+                        <span>{{ category }}</span>
+                        <span v-if="selectedNewsCategory === category" class="text-blue-400"
+                          >✓</span
+                        >
+                      </button>
+                    </div>
+                  </div>
+                </th>
+                <th class="py-3 px-4 lg:px-6 relative" ref="sortDropdownRef">
+                  <button
+                    @click="toggleSortDropdown"
+                    class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
+                    :class="
+                      conditionalClass(
+                        'border-2 border-[#3F5069] hover:bg-[#3a434c]',
+                        'border-2 border-slate-300 bg-white hover:bg-slate-50',
+                      )
+                    "
+                  >
+                    <span>{{ currentSortLabel }}</span>
+                    <svg
+                      class="w-4 h-4 transition-transform"
+                      :class="{ 'rotate-180': isSortDropdownOpen }"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M19 9l-7 7-7-7"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <div
+                    v-if="isSortDropdownOpen"
+                    :class="[
+                      cardClass,
+                      'absolute right-0 z-20 mt-2 min-w-[180px] rounded-lg shadow-xl max-h-60 overflow-y-auto text-left',
+                    ]"
+                  >
+                    <div
+                      :class="conditionalClass('bg-gray-800/80', 'bg-white/80')"
+                      class="backdrop-blur-sm rounded-lg"
+                    >
+                      <button
+                        v-for="option in sortOptions"
+                        :key="option.label"
+                        @click="setSort(option.value)"
+                        class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
+                        :class="
+                          conditionalClass(
+                            'hover:bg-white/10 text-white',
+                            'hover:bg-slate-100 text-slate-700',
+                          )
+                        "
+                      >
+                        <span>{{ option.label }}</span>
+                        <span
+                          v-if="
+                            currentSort.field === option.value.field &&
+                            currentSort.order === option.value.order
+                          "
+                          class="text-blue-400"
+                          >✓</span
+                        >
+                      </button>
+                    </div>
+                  </div>
+                </th>
+                <th class="py-3 px-4 theme-text opacity-50">作者</th>
+                <th class="py-3 px-4 theme-text opacity-50">封面圖</th>
+                <th class="py-3 px-4 theme-text opacity-50">圖片</th>
+                <th class="py-3 px-4 theme-text opacity-50">影片</th>
+                <th class="py-3 px-4 theme-text opacity-50">文件</th>
+                <th class="py-3 px-4 theme-text opacity-50">狀態</th>
+                <th class="py-3 px-4 theme-text opacity-50">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="item in pagedItems"
+                :key="item._id"
+                :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
+              >
+                <td class="py-3 px-4 theme-text max-w-[450px] truncate">
+                  {{ item.title?.TW || '-' }}
+                </td>
+                <td class="py-3 px-4 theme-text">{{ item.category || '-' }}</td>
+                <td class="py-3 px-4 theme-text">
+                  {{
+                    formatDate(
+                      currentSort.field === 'createdAt' ? item.createdAt : item.publishDate,
+                    )
+                  }}
+                </td>
+                <td class="py-3 px-4 theme-text">{{ item.author || '-' }}</td>
+                <td
+                  class="py-3 px-4"
+                  :title="'封面圖: ' + (item.coverImageUrl ? '✓' : '✗')"
+                  :class="item.coverImageUrl ? 'text-green-500' : 'text-red-500'"
+                >
+                  {{ item.coverImageUrl ? '✓' : '✗' }}
+                </td>
+                <td
+                  class="py-3 px-4"
+                  :title="'圖片: ' + (hasContentImages(item.content) ? '✓' : '✗')"
+                  :class="hasContentImages(item.content) ? 'text-green-500' : 'text-red-500'"
+                >
+                  {{ hasContentImages(item.content) ? '✓' : '✗' }}
+                </td>
+                <td
+                  class="py-3 px-4"
+                  :title="'影片: ' + (hasContentVideos(item.content) ? '✓' : '✗')"
+                  :class="hasContentVideos(item.content) ? 'text-green-500' : 'text-red-500'"
+                >
+                  {{ hasContentVideos(item.content) ? '✓' : '✗' }}
+                </td>
+                <td
+                  class="py-3 px-4"
+                  :title="'文件: ' + (hasContentDocuments(item.content) ? '✓' : '✗')"
+                  :class="hasContentDocuments(item.content) ? 'text-green-500' : 'text-red-500'"
+                >
+                  {{ hasContentDocuments(item.content) ? '✓' : '✗' }}
+                </td>
+                <td class="py-3 px-4">
+                  <span
+                    :class="statusDisplayClass(item.status, item.isActive, 'news')"
+                    class="px-2 py-1 rounded-full text-sm"
+                  >
+                    {{ getStatusLabel(item.status, item.isActive, 'news') }}
+                  </span>
+                </td>
+                <td class="py-3 px-4">
+                  <div class="flex gap-2 justify-center">
+                    <button
+                      @click="handleEditItem(item)"
+                      class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
+                    >
+                      編輯
+                    </button>
+                    <button
+                      @click="handleDeleteItem(item)"
+                      :disabled="deletingItem === item._id"
+                      class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
+                    >
+                      <span
+                        v-if="deletingItem === item._id"
+                        class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
+                      ></span>
+                      刪除
                     </button>
                   </div>
-                </div>
-              </th>
-              <th class="py-3 px-4 theme-text opacity-50">作者</th>
-              <th class="py-3 px-4 theme-text opacity-50">圖片</th>
-              <th class="py-3 px-4 theme-text opacity-50">文件</th>
-              <th class="py-3 px-4 theme-text opacity-50">影片</th>
-              <th class="py-3 px-4 theme-text opacity-50">狀態</th>
-              <th class="py-3 px-4 theme-text opacity-50">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="item in pagedItems"
-              :key="item._id"
-              :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
-            >
-              <td class="py-3 px-4 theme-text max-w-[450px] truncate">
-                {{ item.question?.TW || '-' }}
-              </td>
-              <td class="py-3 px-4 theme-text">
-                {{
-                  typeof item.category === 'object' && item.category
-                    ? typeof item.category.main === 'object'
-                      ? item.category.main[languageStore.currentLang] ||
-                        item.category.main.TW ||
-                        '-'
-                      : item.category.main || '-'
-                    : item.category || '-'
-                }}
-              </td>
-              <td class="py-3 px-4 theme-text">
-                {{
-                  formatDate(
-                    currentSort.field === 'createdAt'
-                      ? item.createdAt
-                      : item.publishDate || item.createdAt,
-                  )
-                }}
-              </td>
-              <td class="py-3 px-4 theme-text">{{ item.author || '-' }}</td>
-              <td
-                class="py-3 px-4"
-                :title="'圖片: ' + (item.imageUrl && item.imageUrl.length > 0 ? '✓' : '✗')"
-                :class="
-                  item.imageUrl && item.imageUrl.length > 0 ? 'text-green-500' : 'text-red-500'
-                "
-              >
-                {{ item.imageUrl && item.imageUrl.length > 0 ? '✓' : '✗' }}
-              </td>
-              <td
-                class="py-3 px-4"
-                :title="'文件: ' + (item.documentUrl && item.documentUrl.length > 0 ? '✓' : '✗')"
-                :class="
-                  item.documentUrl && item.documentUrl.length > 0
-                    ? 'text-green-500'
-                    : 'text-red-500'
-                "
-              >
-                {{ item.documentUrl && item.documentUrl.length > 0 ? '✓' : '✗' }}
-              </td>
-              <td
-                class="py-3 px-4"
-                :title="'影片: ' + (item.videoUrl && item.videoUrl.length > 0 ? '✓' : '✗')"
-                :class="
-                  item.videoUrl && item.videoUrl.length > 0 ? 'text-green-500' : 'text-red-500'
-                "
-              >
-                {{ item.videoUrl && item.videoUrl.length > 0 ? '✓' : '✗' }}
-              </td>
-              <td class="py-3 px-4">
-                <span
-                  :class="statusDisplayClass(null, item.isActive, 'faq')"
-                  class="px-2 py-1 rounded-full text-sm"
+                </td>
+              </tr>
+              <tr v-if="!newsStore.items || newsStore.items.length === 0">
+                <td
+                  colspan="10"
+                  class="text-center py-6"
+                  :class="conditionalClass('text-gray-400', 'text-slate-500')"
                 >
-                  {{ getStatusLabel(null, item.isActive, 'faq') }}
-                </span>
-              </td>
-              <td class="py-3 px-4">
-                <div class="flex gap-2 justify-center">
-                  <button
-                    @click="handleEditItem(item)"
-                    class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
-                  >
-                    編輯
-                  </button>
-                  <button
-                    @click="handleDeleteItem(item)"
-                    :disabled="deletingItem === item._id"
-                    class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                  >
-                    <span
-                      v-if="deletingItem === item._id"
-                      class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                    ></span>
-                    刪除
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="!faqStore.items || faqStore.items.length === 0">
-              <td
-                colspan="9"
-                class="text-center py-6"
-                :class="conditionalClass('text-gray-400', 'text-slate-500')"
-              >
-                目前沒有任何常見問題
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                  目前沒有任何最新消息
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <!-- 共用的分頁控制 -->
-      <div
-        v-if="pagination.totalPages > 1"
-        class="py-4 flex justify-center gap-2 border-t"
-        :class="conditionalClass('border-white/10', 'border-slate-200')"
-      >
-        <button
-          @click="changePage(pagination.currentPage - 1)"
-          :disabled="pagination.currentPage === 1"
-          :class="
-            conditionalClass(
-              'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-              'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-            )
-          "
+        <!-- 常見問題列表 -->
+        <div
+          v-else-if="activeTab === 'faq'"
+          :class="[
+            'min-h-[580px]',
+            { 'overflow-x-auto': !isFaqCategoryDropdownOpen && !isSortDropdownOpen },
+          ]"
         >
-          上一頁
-        </button>
-        <span class="px-3 py-1 theme-text">
-          {{ pagination.currentPage }} / {{ pagination.totalPages }}
-        </span>
-        <button
-          @click="changePage(pagination.currentPage + 1)"
-          :disabled="pagination.currentPage === pagination.totalPages"
-          :class="
-            conditionalClass(
-              'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-              'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-            )
-          "
+          <table class="w-full text-center">
+            <thead
+              :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')"
+            >
+              <tr>
+                <th class="py-3 px-4 theme-text opacity-50">問題 (TW)</th>
+                <th class="py-3 px-4 relative" ref="faqCategoryDropdownRef">
+                  <button
+                    @click="toggleFaqCategoryDropdown"
+                    class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
+                    :class="
+                      conditionalClass(
+                        'border-2 border-[#3F5069] hover:bg-[#3a434c]',
+                        'border-2 border-slate-300 bg-white hover:bg-slate-50',
+                      )
+                    "
+                    :disabled="faqCategories.length === 0"
+                  >
+                    <span>{{ selectedFaqCategoryLabel }}</span>
+                    <svg
+                      v-if="faqCategories.length > 0"
+                      class="w-4 h-4 transition-transform"
+                      :class="{ 'rotate-180': isFaqCategoryDropdownOpen }"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M19 9l-7 7-7-7"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <div
+                    v-if="isFaqCategoryDropdownOpen"
+                    :class="[
+                      cardClass,
+                      'absolute left-1/2 -translate-x-1/2 z-20 mt-2 min-w-[160px] rounded-lg shadow-xl max-h-60 overflow-y-auto text-left',
+                    ]"
+                  >
+                    <div
+                      :class="conditionalClass('bg-gray-800/80', 'bg-white/80')"
+                      class="backdrop-blur-sm rounded-lg"
+                    >
+                      <button
+                        @click="selectFaqCategory(null)"
+                        class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
+                        :class="
+                          conditionalClass(
+                            'hover:bg-white/10 text-white',
+                            'hover:bg-slate-100 text-slate-700',
+                          )
+                        "
+                      >
+                        <span>全部分類</span>
+                        <span v-if="!selectedFaqCategory" class="text-blue-400">✓</span>
+                      </button>
+                      <button
+                        v-for="category in faqCategories"
+                        :key="category"
+                        @click="selectFaqCategory(category)"
+                        class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
+                        :class="
+                          conditionalClass(
+                            'hover:bg-white/10 text-white',
+                            'hover:bg-slate-100 text-slate-700',
+                          )
+                        "
+                      >
+                        <span>{{ category }}</span>
+                        <span v-if="selectedFaqCategory === category" class="text-blue-400">✓</span>
+                      </button>
+                    </div>
+                  </div>
+                </th>
+                <th class="py-3 px-4 relative" ref="sortDropdownRef">
+                  <button
+                    @click="toggleSortDropdown"
+                    class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
+                    :class="
+                      conditionalClass(
+                        'border-2 border-[#3F5069] hover:bg-[#3a434c]',
+                        'border-2 border-slate-300 bg-white hover:bg-slate-50',
+                      )
+                    "
+                  >
+                    <span>{{ currentSortLabel }}</span>
+                    <svg
+                      class="w-4 h-4 transition-transform"
+                      :class="{ 'rotate-180': isSortDropdownOpen }"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M19 9l-7 7-7-7"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <div
+                    v-if="isSortDropdownOpen"
+                    :class="[
+                      cardClass,
+                      'absolute right-0 z-20 mt-2 min-w-[180px] rounded-lg shadow-xl max-h-60 overflow-y-auto text-left',
+                    ]"
+                  >
+                    <div
+                      :class="conditionalClass('bg-gray-800/80', 'bg-white/80')"
+                      class="backdrop-blur-sm rounded-lg"
+                    >
+                      <button
+                        v-for="option in sortOptions"
+                        :key="option.label"
+                        @click="setSort(option.value)"
+                        class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
+                        :class="
+                          conditionalClass(
+                            'hover:bg-white/10 text-white',
+                            'hover:bg-slate-100 text-slate-700',
+                          )
+                        "
+                      >
+                        <span>{{ option.label }}</span>
+                        <span
+                          v-if="
+                            currentSort.field === option.value.field &&
+                            currentSort.order === option.value.order
+                          "
+                          class="text-blue-400"
+                          >✓</span
+                        >
+                      </button>
+                    </div>
+                  </div>
+                </th>
+                <th class="py-3 px-4 theme-text opacity-50">作者</th>
+                <th class="py-3 px-4 theme-text opacity-50">圖片</th>
+                <th class="py-3 px-4 theme-text opacity-50">文件</th>
+                <th class="py-3 px-4 theme-text opacity-50">影片</th>
+                <th class="py-3 px-4 theme-text opacity-50">狀態</th>
+                <th class="py-3 px-4 theme-text opacity-50">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="item in pagedItems"
+                :key="item._id"
+                :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
+              >
+                <td class="py-3 px-4 theme-text max-w-[450px] truncate">
+                  {{ item.question?.TW || '-' }}
+                </td>
+                <td class="py-3 px-4 theme-text">
+                  {{
+                    typeof item.category === 'object' && item.category
+                      ? typeof item.category.main === 'object'
+                        ? item.category.main[languageStore.currentLang] ||
+                          item.category.main.TW ||
+                          '-'
+                        : item.category.main || '-'
+                      : item.category || '-'
+                  }}
+                </td>
+                <td class="py-3 px-4 theme-text">
+                  {{
+                    formatDate(
+                      currentSort.field === 'createdAt'
+                        ? item.createdAt
+                        : item.publishDate || item.createdAt,
+                    )
+                  }}
+                </td>
+                <td class="py-3 px-4 theme-text">{{ item.author || '-' }}</td>
+                <td
+                  class="py-3 px-4"
+                  :title="'圖片: ' + (item.imageUrl && item.imageUrl.length > 0 ? '✓' : '✗')"
+                  :class="
+                    item.imageUrl && item.imageUrl.length > 0 ? 'text-green-500' : 'text-red-500'
+                  "
+                >
+                  {{ item.imageUrl && item.imageUrl.length > 0 ? '✓' : '✗' }}
+                </td>
+                <td
+                  class="py-3 px-4"
+                  :title="'文件: ' + (item.documentUrl && item.documentUrl.length > 0 ? '✓' : '✗')"
+                  :class="
+                    item.documentUrl && item.documentUrl.length > 0
+                      ? 'text-green-500'
+                      : 'text-red-500'
+                  "
+                >
+                  {{ item.documentUrl && item.documentUrl.length > 0 ? '✓' : '✗' }}
+                </td>
+                <td
+                  class="py-3 px-4"
+                  :title="'影片: ' + (item.videoUrl && item.videoUrl.length > 0 ? '✓' : '✗')"
+                  :class="
+                    item.videoUrl && item.videoUrl.length > 0 ? 'text-green-500' : 'text-red-500'
+                  "
+                >
+                  {{ item.videoUrl && item.videoUrl.length > 0 ? '✓' : '✗' }}
+                </td>
+                <td class="py-3 px-4">
+                  <span
+                    :class="statusDisplayClass(null, item.isActive, 'faq')"
+                    class="px-2 py-1 rounded-full text-sm"
+                  >
+                    {{ getStatusLabel(null, item.isActive, 'faq') }}
+                  </span>
+                </td>
+                <td class="py-3 px-4">
+                  <div class="flex gap-2 justify-center">
+                    <button
+                      @click="handleEditItem(item)"
+                      class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
+                    >
+                      編輯
+                    </button>
+                    <button
+                      @click="handleDeleteItem(item)"
+                      :disabled="deletingItem === item._id"
+                      class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
+                    >
+                      <span
+                        v-if="deletingItem === item._id"
+                        class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
+                      ></span>
+                      刪除
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!faqStore.items || faqStore.items.length === 0">
+                <td
+                  colspan="9"
+                  class="text-center py-6"
+                  :class="conditionalClass('text-gray-400', 'text-slate-500')"
+                >
+                  目前沒有任何常見問題
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 共用的分頁控制 -->
+        <div
+          v-if="pagination.totalPages > 1"
+          class="py-4 flex justify-center gap-2 border-t"
+          :class="conditionalClass('border-white/10', 'border-slate-200')"
         >
-          下一頁
-        </button>
+          <button
+            @click="changePage(pagination.currentPage - 1)"
+            :disabled="pagination.currentPage === 1"
+            :class="
+              conditionalClass(
+                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+              )
+            "
+          >
+            上一頁
+          </button>
+          <span class="px-3 py-1 theme-text">
+            {{ pagination.currentPage }} / {{ pagination.totalPages }}
+          </span>
+          <button
+            @click="changePage(pagination.currentPage + 1)"
+            :disabled="pagination.currentPage === pagination.totalPages"
+            :class="
+              conditionalClass(
+                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+              )
+            "
+          >
+            下一頁
+          </button>
+        </div>
       </div>
-    </div>
+    </Transition>
 
     <!-- 動態 Modal -->
     <NewsModal
@@ -634,6 +636,8 @@ import { useLanguageStore } from '@/stores/core/languageStore'
 import { useApi } from '@/composables/axios'
 import NewsModal from '@/components/news/NewsModal.vue'
 import FaqModal from '@/components/FaqModal.vue'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { usePageInitialization } from '@/composables/usePageInitialization'
 
 const newsStore = useNewsStore()
 const faqStore = useFaqStore()
@@ -641,13 +645,24 @@ const languageStore = useLanguageStore()
 const notify = useNotifications()
 const { cardClass, conditionalClass } = useThemeClass()
 
-// 本地狀態
-const error = ref('')
-// 從 store 獲取 loading 狀態
+// 使用統一的頁面初始化管理（關閉智能時間管理，立即顯示 loading）
+const {
+  loading: initLoading,
+  initialize,
+  loadNonCriticalBatch,
+  withLoading,
+} = usePageInitialization({
+  useSmartTiming: false, // 關閉智能時間管理，立即顯示 loading，避免額外延遲
+})
+
+// 結合初始化和 store 的 loading 狀態
 const loading = computed(() => {
   const store = currentStore()
-  return store ? store.isLoading : false
+  return initLoading.value || (store ? store.isLoading : false)
 })
+
+// 本地狀態
+const error = ref('')
 const activeTab = ref('news') // 'news' or 'faq'
 const showModal = ref(false)
 const editingItem = ref(null) // 正在編輯的項目 (News 或 Faq)
@@ -743,10 +758,15 @@ const filteredItems = computed(() => {
     })
   }
 
-  // 前端排序
+  // 前端排序（優化：只在有資料時排序）
+  if (items.length === 0) {
+    return items
+  }
+
   const { field, order } = currentSort.value
-  return [...items].sort((a, b) => {
-    const valA = a[field] || a.createdAt // fallback to createdAt if publishDate doesn't exist
+  // 使用 slice 創建副本再排序，避免修改原陣列
+  const sorted = items.slice().sort((a, b) => {
+    const valA = a[field] || a.createdAt
     const valB = b[field] || b.createdAt
 
     if (!valA) return order === 'desc' ? 1 : -1
@@ -760,6 +780,8 @@ const filteredItems = computed(() => {
 
     return order === 'desc' ? dateB - dateA : dateA - dateB
   })
+
+  return sorted
 })
 
 // 前端分頁：依據 activeTab 決定分頁資料來源
@@ -792,7 +814,11 @@ const setActiveTab = async (tab) => {
   isFaqCategoryDropdownOpen.value = false
   // 切換資料類型時回到第一頁，避免沿用上一個 Tab 的頁碼
   pagination.value.currentPage = 1
-  await fetchData()
+
+  // 使用 withLoading 包裝，確保切換時顯示 loading
+  await withLoading(async () => {
+    await fetchData()
+  })
 }
 
 // 分類下拉選單操作
@@ -831,7 +857,7 @@ const setSort = (sortValue) => {
   // 不需要 fetchData()，computed 會自動更新
 }
 
-// 監聽 filteredItems 變化以自動更新分頁資訊
+// 監聽 filteredItems 變化以自動更新分頁資訊（移除 deep，優化性能）
 watch(
   filteredItems,
   (newFilteredItems) => {
@@ -847,7 +873,7 @@ watch(
       pagination.value.currentPage = 1
     }
   },
-  { immediate: true, deep: true },
+  { immediate: true }, // 移除 deep: true，優化性能
 )
 
 // 初始化載入
@@ -855,20 +881,25 @@ onMounted(async () => {
   // 確保初始載入時使用正確的分頁設定
   pagination.value.currentPage = 1
   pagination.value.itemsPerPage = 10
-  await fetchData()
-  // 初次加載全量分類（避免下拉選項隨列表改變）
-  try {
-    const { entityApi } = useApi()
-    const api = entityApi('news', { responseKey: 'news' })
-    allNewsCategories.value = await api.getCategories()
-    const faqApi = entityApi('faqs', { responseKey: 'faqs' })
-    allFaqCategories.value = await faqApi.getCategories()
-  } catch (e) {
-    console.warn('載入分類清單失敗', e?.message || e)
-  }
 
-  // 載入所有新聞（用於相關新聞選擇器）
-  await loadAllNewsForSelection()
+  // 初始化關鍵資料（阻塞顯示）
+  await initialize(async () => {
+    await fetchData()
+  })
+
+  // 載入非關鍵資料（不阻塞顯示）
+  loadNonCriticalBatch([
+    // 載入全量分類（避免下拉選項隨列表改變）
+    async () => {
+      const { entityApi } = useApi()
+      const api = entityApi('news', { responseKey: 'news' })
+      allNewsCategories.value = await api.getCategories()
+      const faqApi = entityApi('faqs', { responseKey: 'faqs' })
+      allFaqCategories.value = await faqApi.getCategories()
+    },
+    // 載入所有新聞（用於相關新聞選擇器）
+    loadAllNewsForSelection,
+  ])
 
   document.addEventListener('click', handleClickOutside)
 })

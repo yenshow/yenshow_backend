@@ -13,17 +13,14 @@
       <button @click="error = ''" class="float-right text-red-100 hover:text-white">&times;</button>
     </div>
 
-    <!-- 載入中提示 -->
-    <div v-if="loading" class="flex flex-col items-center justify-center py-12">
-      <div
-        class="animate-spin rounded-full h-12 w-12 border-b-2 border-t-2 mb-4"
-        :class="conditionalClass('border-white', 'border-blue-600')"
-      ></div>
-      <p :class="conditionalClass('text-gray-300', 'text-slate-500')">正在載入資料...</p>
-    </div>
-
-    <!-- 內容管理區塊 -->
-    <div v-else :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']">
+    <!-- 載入與內容切換過渡 -->
+    <Transition name="fade" mode="out-in">
+      <LoadingSpinner
+        v-if="loading"
+        key="loading"
+        container-class="py-12"
+      />
+      <div v-else key="content" :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']">
       <!-- 頂部操作列 -->
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-xl font-semibold theme-text">案例列表</h2>
@@ -298,7 +295,8 @@
           下一頁
         </button>
       </div>
-    </div>
+      </div>
+    </Transition>
 
     <!-- 新增/編輯案例模態框 -->
     <CaseStudyModal
@@ -315,19 +313,28 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useNotifications } from '@/composables/notificationCenter'
 import { useThemeClass } from '@/composables/useThemeClass'
-import { useSiteStore } from '@/stores/siteStore'
+import { useSiteStore } from '@/stores/core/siteStore'
 import { useCaseStudyStore } from '@/stores/caseStudyStore'
 import CaseStudyModal from '@/components/comeo/CaseStudyModal.vue'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { usePageInitialization } from '@/composables/usePageInitialization'
 
 const notify = useNotifications()
 const { cardClass, conditionalClass } = useThemeClass()
 const siteStore = useSiteStore()
 const caseStudyStore = useCaseStudyStore()
 
+// 使用統一的頁面初始化管理
+const { loading: initLoading, initialize } = usePageInitialization()
+
 // 響應式資料
 const error = ref('')
 const caseStudies = computed(() => caseStudyStore.items)
-const loading = computed(() => caseStudyStore.isLoading)
+
+// 結合 store 的 loading 狀態
+const loading = computed(() => {
+  return initLoading.value || caseStudyStore.isLoading
+})
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const selectedCaseStudy = ref(null)
@@ -500,10 +507,14 @@ onMounted(async () => {
   // 確保設置為 comeo site
   siteStore.setSite('comeo')
 
-  // 設定分頁並載入資料（一次請求）
+  // 設定分頁
   pagination.value.currentPage = 1
   pagination.value.itemsPerPage = 10
-  await loadCaseStudies()
+
+  // 初始化關鍵資料
+  await initialize(async () => {
+    await loadCaseStudies()
+  })
 
   document.addEventListener('click', handleClickOutside)
 })

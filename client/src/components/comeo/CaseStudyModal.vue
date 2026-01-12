@@ -27,15 +27,11 @@
         {{ isEdit ? '編輯案例' : '新增案例' }}
       </h2>
 
-      <div v-if="loading" class="text-center py-8">
-        <div
-          class="inline-block animate-spin rounded-full h-8 w-8 border-b-2"
-          :class="conditionalClass('border-white', 'border-blue-600')"
-        ></div>
-        <p class="mt-2" :class="conditionalClass('text-gray-400', 'text-slate-500')">
-          正在載入資料...
-        </p>
-      </div>
+      <!-- 載入過渡（防止閃爍） -->
+      <LoadingSpinner
+        v-if="loading"
+        container-class="text-center py-8"
+      />
 
       <form v-else @submit.prevent="submitForm" class="space-y-[12px] lg:space-y-[24px]">
         <!-- 頁籤導航 -->
@@ -523,8 +519,9 @@ import { useApi } from '@/composables/axios'
 import { useNotifications } from '@/composables/notificationCenter'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { useFormValidation } from '@/composables/useFormValidation'
-import { useSiteStore } from '@/stores/siteStore'
+import { useSiteStore } from '@/stores/core/siteStore'
 import { useUserStore } from '@/stores/userStore'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
 const props = defineProps({
   modelValue: {

@@ -14,17 +14,14 @@
       <button @click="error = ''" class="float-right text-red-100 hover:text-white">&times;</button>
     </div>
 
-    <!-- 載入中提示 -->
-    <div v-if="loadingLicenses" class="flex flex-col items-center justify-center py-12">
-      <div
-        class="animate-spin rounded-full h-12 w-12 border-b-2 border-t-2 mb-4"
-        :class="conditionalClass('border-white', 'border-blue-600')"
-      ></div>
-      <p :class="conditionalClass('text-gray-300', 'text-slate-500')">正在載入授權資料...</p>
-    </div>
-
-    <!-- 授權管理區塊 -->
-    <div v-else :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']">
+    <!-- 載入與內容切換過渡 -->
+    <Transition name="fade" mode="out-in">
+      <LoadingSpinner
+        v-if="loadingLicenses"
+        key="loading"
+        container-class="py-12"
+      />
+      <div v-else key="content" :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']">
       <!-- 頂部操作列 -->
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-xl font-semibold theme-text">授權管理</h2>
@@ -179,7 +176,8 @@
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </Transition>
 
     <!-- 新增授權 Modal -->
     <div
@@ -330,8 +328,8 @@
                 )
               "
             >
-              <option value="active">使用中</option>
-              <option value="inactive">已停用</option>
+              <option value="active" class="text-black/70">使用中</option>
+              <option value="inactive" class="text-black/70">已停用</option>
             </select>
             <!-- 其他狀態顯示為完整下拉選單 -->
             <select
@@ -346,11 +344,15 @@
                 )
               "
             >
-              <option value="pending" :disabled="!canSetStatusToPending(editingLicense)">
+              <option
+                value="pending"
+                :disabled="!canSetStatusToPending(editingLicense)"
+                class="text-black/70"
+              >
                 審核中
               </option>
-              <option value="available">可啟用</option>
-              <option value="inactive">已停用</option>
+              <option value="available" class="text-black/70">可啟用</option>
+              <option value="inactive" class="text-black/70">已停用</option>
             </select>
             <p
               v-if="!canEditStatus(editingLicense) && editingLicense?.status !== 'active'"
@@ -419,6 +421,8 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { useNotifications } from '@/composables/notificationCenter'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { usePageInitialization } from '@/composables/usePageInitialization'
 
 const userStore = useUserStore()
 const notify = useNotifications()
@@ -428,9 +432,11 @@ const { cardClass, conditionalClass } = useThemeClass()
 const isAdmin = computed(() => userStore.isAdmin)
 const isStaff = computed(() => userStore.isStaff)
 
+// 使用統一的頁面初始化管理
+const { loading: loadingLicenses, initialize } = usePageInitialization()
+
 // 本地狀態
 const error = ref('')
-const loadingLicenses = computed(() => userStore.loadingLicenses)
 
 // 授權管理狀態 - 使用 store
 const licenses = computed(() => {
@@ -522,7 +528,9 @@ const canSetStatusToPending = (license) => {
 
 // 初始化載入
 onMounted(async () => {
-  await fetchLicenses()
+  await initialize(async () => {
+    await fetchLicenses()
+  })
 })
 
 // 當打開新增授權 Modal 時，自動填入當前用戶名稱

@@ -23,7 +23,7 @@
 <script setup>
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
-import { useSiteStore } from '@/stores/siteStore'
+import { useSiteStore } from '@/stores/core/siteStore'
 import { useThemeClass } from '@/composables/useThemeClass'
 
 const router = useRouter()

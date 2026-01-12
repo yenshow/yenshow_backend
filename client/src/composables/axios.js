@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useUserStore } from '@/stores/userStore'
 import { useNotifications } from '@/composables/notificationCenter'
 import { useLanguageStore } from '@/stores/core/languageStore'
-import { useSiteStore } from '@/stores/siteStore'
+import { useSiteStore } from '@/stores/core/siteStore'
 
 // 延遲初始化的 API 實例
 let api = null

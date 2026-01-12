@@ -29,19 +29,11 @@
         </button>
       </div>
 
-      <!-- 加載指示器 -->
-      <div
+      <!-- 載入過渡（防止閃爍） -->
+      <LoadingSpinner
         v-if="loading"
-        class="text-center py-8 flex-grow flex flex-col justify-center items-center"
-      >
-        <div
-          class="inline-block animate-spin rounded-full h-12 w-12 border-b-4"
-          :class="conditionalClass('border-white', 'border-blue-600')"
-        ></div>
-        <p class="mt-4 text-lg" :class="conditionalClass('text-gray-300', 'text-slate-600')">
-          正在載入資料...
-        </p>
-      </div>
+        container-class="py-8 flex-grow flex flex-col justify-center items-center"
+      />
 
       <!-- 表單內容 -->
       <form
@@ -619,6 +611,7 @@ import { useFormValidation } from '@/composables/useFormValidation'
 import { v4 as uuidv4 } from 'uuid'
 import LanguageSwitcher from '@/components/common/languageSwitcher.vue'
 import { useUserStore } from '@/stores/userStore'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
 // Dynamically import block editor components
 const RichTextBlockEditor = defineAsyncComponent(

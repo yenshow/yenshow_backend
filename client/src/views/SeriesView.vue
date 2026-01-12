@@ -17,19 +17,21 @@
       {{ errorMessage || hierarchyStore.error }}
     </div>
 
-    <!-- 載入中提示 (層級數據) -->
-    <div v-if="isChildLoading" class="flex items-center justify-center py-8">
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-      <span class="ml-3">正在載入分類資料...</span>
-    </div>
-
-    <!-- 主內容區域 (渲染 CategoryBlock) -->
-    <router-view
-      v-else
-      :key="currentSeries"
-      :categories-data="categoriesDataForChild"
-      @refresh-hierarchy="loadDataForCurrentSeries"
-    />
+    <!-- 載入與內容切換過渡 -->
+    <Transition name="fade" mode="out-in">
+      <LoadingSpinner
+        v-if="isChildLoading"
+        key="loading"
+        container-class="py-8"
+      />
+      <router-view
+        v-else
+        key="content"
+        :key="currentSeries"
+        :categories-data="categoriesDataForChild"
+        @refresh-hierarchy="loadDataForCurrentSeries"
+      />
+    </Transition>
   </div>
 </template>
 
@@ -49,6 +51,7 @@ import { useSeriesStore } from '@/stores/models/series'
 import { useHierarchyStore } from '@/stores/hierarchyStore'
 import { useNotifications } from '@/composables/notificationCenter'
 import SeriesSwitch from '@/components/products/SeriesSwitch.vue'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
 // =====================================================
 // Initialization

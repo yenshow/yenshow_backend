@@ -34,22 +34,14 @@
         </button>
       </div>
 
-      <!-- 載入中 -->
-      <div v-if="isLoading" class="flex items-center justify-center py-16">
-        <div
-          class="animate-spin inline-block w-12 h-12 border-4 rounded-full"
-          :class="
-            conditionalClass(
-              'border-gray-300 border-t-blue-500',
-              'border-slate-200 border-t-blue-500',
-            )
-          "
-        ></div>
-        <span class="ml-4 theme-text">搜尋中...</span>
-      </div>
-
-      <!-- 無結果 -->
-      <div v-else-if="!isLoading && productsList.length === 0" class="text-center py-16">
+      <!-- 載入與內容切換過渡 -->
+      <Transition name="fade" mode="out-in">
+        <LoadingSpinner
+          v-if="isLoading"
+          key="loading"
+          container-class="py-16"
+        />
+        <div v-else-if="!isLoading && productsList.length === 0" key="empty" class="text-center py-16">
         <svg
           class="w-16 h-16 mx-auto mb-4"
           fill="none"
@@ -68,16 +60,16 @@
           <span v-if="searchKeyword">找不到與「{{ searchKeyword }}」相關的產品</span>
           <span v-else>請輸入搜尋關鍵字</span>
         </p>
-      </div>
-
-      <!-- 搜尋結果表格 -->
-      <SearchProductTable
-        v-else
-        :products="productsList"
-        :search-keyword="searchKeyword"
-        @product-clicked="handleProductClick"
-        @product-deleted="handleProductDelete"
-      />
+        </div>
+        <SearchProductTable
+          v-else
+          key="results"
+          :products="productsList"
+          :search-keyword="searchKeyword"
+          @product-clicked="handleProductClick"
+          @product-deleted="handleProductDelete"
+        />
+      </Transition>
     </div>
   </div>
 </template>
@@ -90,6 +82,8 @@ import { useSeriesStore } from '@/stores/models/series'
 import { useThemeClass } from '@/composables/useThemeClass'
 import SeriesSwitch from '@/components/products/SeriesSwitch.vue'
 import SearchProductTable from '@/components/products/SearchProductTable.vue'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { usePageInitialization } from '@/composables/usePageInitialization'
 
 const route = useRoute()
 const router = useRouter()
@@ -97,12 +91,19 @@ const searchStore = useSearchStore()
 const seriesStore = useSeriesStore()
 const { conditionalClass } = useThemeClass()
 
+// 使用統一的頁面初始化管理
+const { loading: initLoading, initialize } = usePageInitialization()
+
 // 從路由查詢參數獲取搜尋關鍵字
 const searchKeyword = computed(() => route.query.q || '')
 
 // 搜尋結果 - 直接使用 store 的結果（已經是響應式的）
 const searchResults = computed(() => searchStore.results)
-const isLoading = computed(() => searchStore.isLoading)
+
+// 結合初始化和搜尋的 loading 狀態
+const isLoading = computed(() => {
+  return initLoading.value || searchStore.isLoading
+})
 
 // 產品列表（用於傳遞給表格組件）- 直接使用 store 的響應式數據
 const productsList = computed(() => {
@@ -126,14 +127,17 @@ const currentSeries = computed(() => {
 
 // 載入系列列表
 onMounted(async () => {
-  if (seriesStore.items.length === 0) {
-    await seriesStore.fetchAll()
-  }
+  await initialize(async () => {
+    // 載入系列列表（如果還沒有）
+    if (seriesStore.items.length === 0) {
+      await seriesStore.fetchAll()
+    }
 
-  // 如果有搜尋關鍵字但沒有搜尋結果，執行搜尋
-  if (searchKeyword.value && productsList.value.length === 0 && !isLoading.value) {
-    await searchStore.search(searchKeyword.value)
-  }
+    // 如果有搜尋關鍵字但沒有搜尋結果，執行搜尋
+    if (searchKeyword.value && productsList.value.length === 0 && !searchStore.isLoading) {
+      await searchStore.search(searchKeyword.value)
+    }
+  })
 })
 
 // 監聽路由查詢參數變化

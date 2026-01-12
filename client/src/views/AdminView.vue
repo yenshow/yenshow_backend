@@ -65,17 +65,14 @@
       <button @click="error = ''" class="float-right text-red-100 hover:text-white">&times;</button>
     </div>
 
-    <!-- 載入中提示 -->
-    <div v-if="loading" class="flex flex-col items-center justify-center py-12">
-      <div
-        class="animate-spin rounded-full h-12 w-12 border-b-2 border-t-2 mb-4"
-        :class="conditionalClass('border-white', 'border-blue-600')"
-      ></div>
-      <p :class="conditionalClass('text-gray-300', 'text-slate-500')">正在載入用戶資料...</p>
-    </div>
-
-    <!-- 用戶管理區塊 -->
-    <div v-else :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']">
+    <!-- 載入與內容切換過渡 -->
+    <Transition name="fade" mode="out-in">
+      <LoadingSpinner
+        v-if="loading"
+        key="loading"
+        container-class="py-12"
+      />
+      <div v-else key="content" :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']">
       <!-- 頂部操作列 -->
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-xl font-semibold theme-text">
@@ -161,11 +158,8 @@
                     :disabled="deletingUser === user._id"
                     class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                   >
-                    <span
-                      v-if="deletingUser === user._id"
-                      class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                    ></span>
-                    刪除
+                    <span v-if="deletingUser === user._id" class="mr-1 opacity-70">處理中...</span>
+                    <span v-else>刪除</span>
                   </button>
                 </div>
               </td>
@@ -394,11 +388,8 @@
                     :disabled="deletingUser === user._id"
                     class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                   >
-                    <span
-                      v-if="deletingUser === user._id"
-                      class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                    ></span>
-                    刪除
+                    <span v-if="deletingUser === user._id" class="mr-1 opacity-70">處理中...</span>
+                    <span v-else>刪除</span>
                   </button>
                 </div>
               </td>
@@ -445,7 +436,8 @@
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </Transition>
 
     <!-- 新增用戶 Modal，根據activeTab設置預設角色 -->
     <CreateUserModal
@@ -465,13 +457,15 @@ import { useUserStore } from '@/stores/userStore'
 import { useThemeClass } from '@/composables/useThemeClass'
 import CreateUserModal from '@/components/CreateUserModal.vue'
 import { useNotifications } from '@/composables/notificationCenter'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { usePageInitialization } from '@/composables/usePageInitialization'
 
 const userStore = useUserStore()
 const notify = useNotifications()
 const { cardClass, conditionalClass } = useThemeClass()
 
-// 本地狀態
-const loading = computed(() => userStore.loading)
+// 使用統一的頁面初始化管理
+const { loading, initialize } = usePageInitialization()
 const storeUsers = computed(() => userStore.users || [])
 const error = ref('')
 const showCreateUserModal = ref(false)
@@ -548,7 +542,9 @@ const defaultRoleByTab = computed(() => {
 
 // 初始化載入
 onMounted(async () => {
-  await fetchUsers()
+  await initialize(async () => {
+    await fetchUsers()
+  })
 })
 
 const fetchUsers = async () => {
