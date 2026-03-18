@@ -201,13 +201,11 @@ export const getLicense = async (req, res, next) => {
  * status 自動設為 pending（審核中）
  * serialNumber 和 licenseKey 在審核時才生成
  */
+const VALID_BA_FEATURES = ["people_counting", "lighting", "environment", "surveillance", "vehicle_access"];
+
 export const createLicense = async (req, res, next) => {
 	try {
-		const { product, customerName, applicant, notes } = req.body;
-
-		if (!product || !["line-bot", "BA-system"].includes(product)) {
-			throw ApiError.badRequest("需要提供有效的產品類別（line-bot 或 BA-system）");
-		}
+		const { customerName, applicant, features, notes } = req.body;
 
 		if (!customerName) {
 			throw ApiError.badRequest("需要提供客戶名稱");
@@ -217,8 +215,17 @@ export const createLicense = async (req, res, next) => {
 			throw ApiError.badRequest("需要提供申請人");
 		}
 
+		if (!Array.isArray(features) || features.length === 0) {
+			throw ApiError.badRequest("必須指定至少一個功能模組");
+		}
+		const invalidFeatures = features.filter((f) => !VALID_BA_FEATURES.includes(f));
+		if (invalidFeatures.length > 0) {
+			throw ApiError.badRequest(`無效的功能模組：${invalidFeatures.join(", ")}`);
+		}
+
 		const newLicense = await License.create({
-			product,
+			product: "BA-system",
+			features,
 			customerName,
 			applicant,
 			appliedAt: new Date(),
@@ -345,7 +352,7 @@ const generateSerialNumberAndLicenseKey = async () => {
 export const updateLicense = async (req, res, next) => {
 	try {
 		const { id } = req.params;
-		const { status, notes } = req.body;
+		const { status, features, notes } = req.body;
 		const reviewer = getReviewer(req.user);
 
 		const license = await License.findById(id);
@@ -354,26 +361,35 @@ export const updateLicense = async (req, res, next) => {
 			throw ApiError.notFound("授權不存在");
 		}
 
-		// 更新欄位
+		// 更新 features（BA-system 專用）
+		if (features !== undefined) {
+			if (!Array.isArray(features) || features.length === 0) {
+				throw ApiError.badRequest("必須指定至少一個功能模組");
+			}
+			const invalidFeatures = features.filter((f) => !VALID_BA_FEATURES.includes(f));
+			if (invalidFeatures.length > 0) {
+				throw ApiError.badRequest(`無效的功能模組：${invalidFeatures.join(", ")}`);
+			}
+			license.features = features;
+		}
+
+		// 更新狀態
 		if (status !== undefined) {
 			if (!["pending", "available", "active", "inactive"].includes(status)) {
 				throw ApiError.badRequest("無效的狀態值");
 			}
 			
-			// 如果狀態變更為 available，且還沒有 serialNumber 和 licenseKey，則自動生成
 			if (status === "available" && (!license.serialNumber || !license.licenseKey)) {
 				const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
 				license.serialNumber = serialNumber;
 				license.licenseKey = licenseKey;
 				
-				// 如果還沒有審核人資訊，則記錄當前操作者為審核人
 				if (!license.reviewer) {
 					license.reviewer = reviewer;
 					license.reviewedAt = new Date();
 				}
 			}
 			
-			// 如果狀態變更為 active，且尚未使用過，則記錄使用時間
 			if (status === "active" && !license.usedAt) {
 				license.usedAt = new Date();
 			}

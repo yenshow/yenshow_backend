@@ -17,6 +17,7 @@ router.post("/activate", licenseStrictRateLimit, LicenseController.activate);
 
 // 離線授權操作（敏感操作，使用嚴格速率限制）
 router.post("/offline-activate", licenseStrictRateLimit, LicenseController.offlineActivate);
+router.post("/offline-refresh", licenseStrictRateLimit, LicenseController.offlineRefresh);
 router.post("/offline-verify", licenseStrictRateLimit, LicenseController.offlineVerify);
 
 export default router;

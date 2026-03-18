@@ -421,12 +421,16 @@ export const useUserStore = defineStore(
         async () => {
           console.log('創建授權開始:', licenseData)
 
-          const { data } = await apiAuth.post('/api/users/licenses', {
+          const requestBody = {
             product: licenseData.product,
             customerName: licenseData.customerName,
             applicant: licenseData.applicant,
             notes: licenseData.notes || null,
-          })
+          }
+          if (licenseData.product === 'BA-system' && Array.isArray(licenseData.features)) {
+            requestBody.features = licenseData.features
+          }
+          const { data } = await apiAuth.post('/api/users/licenses', requestBody)
           console.log('創建授權回應:', data)
 
           if (!data || !data.success) {
@@ -460,10 +464,12 @@ export const useUserStore = defineStore(
         async () => {
           console.log('更新授權開始:', { licenseId, licenseData })
 
-          const { data } = await apiAuth.put(`/api/users/licenses/${licenseId}`, {
-            status: licenseData.status,
+          const requestBody = {
             notes: licenseData.notes || null,
-          })
+          }
+          if (licenseData.status !== undefined) requestBody.status = licenseData.status
+          if (Array.isArray(licenseData.features)) requestBody.features = licenseData.features
+          const { data } = await apiAuth.put(`/api/users/licenses/${licenseId}`, requestBody)
           console.log('更新授權回應:', data)
 
           if (!data || !data.success) {

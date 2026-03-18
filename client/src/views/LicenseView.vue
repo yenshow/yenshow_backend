@@ -2,7 +2,7 @@
   <div class="container mx-auto py-8">
     <div class="mb-8">
       <h1 class="text-3xl font-bold mb-4 theme-text">授權管理</h1>
-      <p :class="conditionalClass('text-gray-400', 'text-slate-500')">管理授權申請、審核和狀態</p>
+      <p :class="conditionalClass('text-gray-400', 'text-slate-500')">管理 BA 系統授權申請、審核和狀態</p>
     </div>
 
     <!-- 錯誤提示 -->
@@ -14,39 +14,13 @@
       <button @click="error = ''" class="float-right text-red-100 hover:text-white">&times;</button>
     </div>
 
-    <!-- 產品 Tab 切換 -->
-    <div class="flex gap-1 mb-6">
-      <button
-        v-for="tab in productTabs"
-        :key="tab.value"
-        @click="handleTabChange(tab.value)"
-        :class="[
-          'px-5 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer',
-          activeTab === tab.value
-            ? 'bg-blue-500 text-white shadow-lg'
-            : conditionalClass(
-                'bg-white/5 text-gray-300 hover:bg-white/10',
-                'bg-slate-100 text-slate-600 hover:bg-slate-200',
-              ),
-        ]"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
-
     <!-- 載入與內容切換過渡 -->
     <Transition name="fade" mode="out-in">
-      <LoadingSpinner
-        v-if="loadingLicenses"
-        key="loading"
-        container-class="py-12"
-      />
+      <LoadingSpinner v-if="loadingLicenses" key="loading" container-class="py-12" />
       <div v-else key="content" :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']">
         <!-- 頂部操作列 -->
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-xl font-semibold theme-text">
-            {{ currentTabLabel }} 授權
-          </h2>
+          <h2 class="text-xl font-semibold theme-text">BA System 授權</h2>
           <button
             @click="showCreateLicenseModal = true"
             class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
@@ -57,9 +31,12 @@
         <!-- 授權管理列表 -->
         <div class="overflow-x-auto">
           <table class="w-full">
-            <thead :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')">
+            <thead
+              :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')"
+            >
               <tr>
                 <th class="text-left py-3 px-4 theme-text">客戶名稱</th>
+                <th class="text-left py-3 px-4 theme-text">授權模組</th>
                 <th class="text-left py-3 px-4 theme-text">Serial Number</th>
                 <th class="text-left py-3 px-4 theme-text">License Key</th>
                 <th class="text-left py-3 px-4 theme-text">狀態</th>
@@ -76,6 +53,18 @@
                 :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
               >
                 <td class="py-3 px-4 theme-text">{{ license.customerName || '-' }}</td>
+                <td class="py-3 px-4">
+                  <div class="flex flex-wrap gap-1">
+                    <span
+                      v-for="feat in (license.features || [])"
+                      :key="feat"
+                      class="px-1.5 py-0.5 rounded text-xs bg-indigo-500/20 text-indigo-300"
+                    >
+                      {{ getFeatureLabel(feat) }}
+                    </span>
+                    <span v-if="!license.features?.length" class="text-xs opacity-50 theme-text">-</span>
+                  </div>
+                </td>
                 <td class="py-3 px-4 theme-text font-mono">{{ license.serialNumber || '-' }}</td>
                 <td class="py-3 px-4 theme-text font-mono text-sm">
                   {{ license.licenseKey || '-' }}
@@ -138,17 +127,21 @@
               </tr>
               <tr v-if="licenses.length === 0">
                 <td
-                  colspan="8"
+                  colspan="9"
                   class="text-center py-6"
                   :class="conditionalClass('text-gray-400', 'text-slate-500')"
                 >
-                  目前沒有 {{ currentTabLabel }} 的授權記錄
+                  目前沒有授權記錄
                 </td>
               </tr>
             </tbody>
           </table>
           <!-- 分頁控制 -->
-          <div v-if="licensePagination.totalPages > 1" class="py-4 flex justify-center gap-2">
+          <div
+            v-if="licensePagination.totalPages > 1"
+            class="py-4 flex justify-center gap-2 border-t"
+            :class="conditionalClass('border-white/10', 'border-slate-200')"
+          >
             <button
               @click="changeLicensePage(licensePagination.currentPage - 1)"
               :disabled="licensePagination.currentPage === 1"
@@ -191,21 +184,30 @@
         <h3 class="text-xl font-semibold theme-text mb-4">新增授權</h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium theme-text mb-2">產品類別 *</label>
-            <select
-              v-model="newLicense.product"
-              class="w-full px-4 py-2 rounded-lg border"
-              :class="
-                conditionalClass(
-                  'bg-[#2A3441] border-gray-600 theme-text',
-                  'bg-white border-slate-300',
-                )
-              "
-            >
-              <option v-for="tab in productTabs" :key="tab.value" :value="tab.value" class="text-black/70">
-                {{ tab.label }}
-              </option>
-            </select>
+            <label class="block text-sm font-medium theme-text mb-2">授權功能模組 *</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label
+                v-for="feat in BA_FEATURES"
+                :key="feat.value"
+                class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer border transition"
+                :class="[
+                  newLicense.features.includes(feat.value)
+                    ? 'border-indigo-500 bg-indigo-500/10'
+                    : conditionalClass('border-gray-600 bg-[#2A3441]', 'border-slate-300 bg-white'),
+                ]"
+              >
+                <input
+                  type="checkbox"
+                  :value="feat.value"
+                  v-model="newLicense.features"
+                  class="accent-indigo-500"
+                />
+                <span class="text-sm theme-text">{{ feat.label }}</span>
+              </label>
+            </div>
+            <p class="text-xs mt-1" :class="conditionalClass('text-gray-400', 'text-slate-500')">
+              請選擇此授權包含的功能模組
+            </p>
           </div>
           <div>
             <label class="block text-sm font-medium theme-text mb-2">客戶名稱 *</label>
@@ -259,7 +261,12 @@
         <div class="flex gap-2 mt-6">
           <button
             @click="handleCreateLicense"
-            :disabled="creatingLicense || !newLicense.customerName || !newLicense.applicant || !newLicense.product"
+            :disabled="
+              creatingLicense ||
+              !newLicense.customerName ||
+              !newLicense.applicant ||
+              newLicense.features.length === 0
+            "
             class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
           >
             <span
@@ -284,23 +291,46 @@
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       @click.self="showEditLicenseModal = false"
     >
-      <div :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm w-full max-w-md']" @click.stop>
+      <div :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm w-full max-w-md max-h-[90vh] overflow-y-auto']" @click.stop>
         <h3 class="text-xl font-semibold theme-text mb-4">編輯授權</h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium theme-text mb-2">產品類別</label>
-            <input
-              :value="getProductLabel(editingLicense?.product)"
-              type="text"
-              disabled
-              class="w-full px-4 py-2 rounded-lg border opacity-50"
-              :class="
-                conditionalClass(
-                  'bg-[#2A3441] border-gray-600 theme-text',
-                  'bg-white border-slate-300',
-                )
-              "
-            />
+            <label class="block text-sm font-medium theme-text mb-2">
+              授權功能模組
+              <span v-if="isAdmin" class="text-indigo-400 text-xs ml-1">(可編輯)</span>
+            </label>
+            <!-- Admin 可編輯 features -->
+            <div v-if="isAdmin" class="grid grid-cols-2 gap-2">
+              <label
+                v-for="feat in BA_FEATURES"
+                :key="feat.value"
+                class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer border transition"
+                :class="[
+                  editingLicense?.features?.includes(feat.value)
+                    ? 'border-indigo-500 bg-indigo-500/10'
+                    : conditionalClass('border-gray-600 bg-[#2A3441]', 'border-slate-300 bg-white'),
+                ]"
+              >
+                <input
+                  type="checkbox"
+                  :value="feat.value"
+                  v-model="editingLicense.features"
+                  class="accent-indigo-500"
+                />
+                <span class="text-sm theme-text">{{ feat.label }}</span>
+              </label>
+            </div>
+            <!-- 非 Admin 只能查看 -->
+            <div v-else class="flex flex-wrap gap-1">
+              <span
+                v-for="feat in (editingLicense?.features || [])"
+                :key="feat"
+                class="px-2 py-1 rounded text-xs bg-indigo-500/20 text-indigo-300"
+              >
+                {{ getFeatureLabel(feat) }}
+              </span>
+              <span v-if="!editingLicense?.features?.length" class="text-sm opacity-50 theme-text">無</span>
+            </div>
           </div>
           <div>
             <label class="block text-sm font-medium theme-text mb-2">客戶名稱</label>
@@ -349,56 +379,75 @@
           </div>
           <div>
             <label class="block text-sm font-medium theme-text mb-2">狀態</label>
-            <select
-              v-if="editingLicense?.status === 'active'"
-              v-model="editingLicense.status"
-              :disabled="!isAdmin"
-              class="w-full px-4 py-2 rounded-lg border"
-              :class="
-                conditionalClass(
-                  'bg-[#2A3441] border-gray-600 theme-text',
-                  'bg-white border-slate-300',
-                )
-              "
-            >
-              <option value="active" class="text-black/70">使用中</option>
-              <option value="inactive" class="text-black/70">已停用</option>
-            </select>
-            <select
-              v-else
-              v-model="editingLicense.status"
-              :disabled="!canEditStatus(editingLicense)"
-              class="w-full px-4 py-2 rounded-lg border"
-              :class="
-                conditionalClass(
-                  'bg-[#2A3441] border-gray-600 theme-text',
-                  'bg-white border-slate-300',
-                )
-              "
-            >
-              <option
-                value="pending"
-                :disabled="!canSetStatusToPending(editingLicense)"
-                class="text-black/70"
+            <div class="relative" ref="statusDropdownRef">
+              <button
+                type="button"
+                @click="toggleStatusDropdown"
+                class="flex items-center justify-between gap-2 w-full px-4 py-2 rounded-[10px] transition-colors theme-text"
+                :class="
+                  conditionalClass(
+                    'border-2 border-[#3F5069] hover:bg-[#3a434c]',
+                    'border-2 border-slate-300 bg-white hover:bg-slate-50',
+                  )
+                "
+                :disabled="isStatusDropdownDisabled"
               >
-                審核中
-              </option>
-              <option value="available" class="text-black/70">可啟用</option>
-              <option value="inactive" class="text-black/70">已停用</option>
-            </select>
+                <span>{{ statusDropdownLabel }}</span>
+                <svg
+                  class="w-4 h-4 transition-transform"
+                  :class="{ 'rotate-180': isStatusDropdownOpen }"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M19 9l-7 7-7-7"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+
+              <div
+                v-if="isStatusDropdownOpen"
+                :class="[
+                  cardClass,
+                  'absolute left-0 right-0 z-20 mt-2 rounded-lg shadow-xl max-h-60 overflow-y-auto text-left',
+                ]"
+              >
+                <div
+                  :class="conditionalClass('bg-gray-800/80', 'bg-white/80')"
+                  class="backdrop-blur-sm rounded-lg"
+                >
+                  <button
+                    v-for="option in statusDropdownOptions"
+                    :key="option.value"
+                    type="button"
+                    @click="selectStatus(option)"
+                    class="w-full text-left px-4 py-2 flex justify-between items-center transition-colors"
+                    :class="[
+                      conditionalClass(
+                        'hover:bg-white/10 text-white',
+                        'hover:bg-slate-100 text-slate-700',
+                      ),
+                      option.disabled ? 'opacity-50 cursor-not-allowed' : '',
+                    ]"
+                    :disabled="option.disabled"
+                  >
+                    <span>{{ option.label }}</span>
+                    <span v-if="editingLicense?.status === option.value" class="text-blue-400">✓</span>
+                  </button>
+                </div>
+              </div>
+            </div>
             <p
               v-if="!canEditStatus(editingLicense) && editingLicense?.status !== 'active'"
               class="text-xs mt-1"
               :class="conditionalClass('text-yellow-400', 'text-yellow-600')"
             >
               提示：staff 無法將已審查的授權修改為「審核中」
-            </p>
-            <p
-              v-if="editingLicense?.status === 'active' && !isAdmin"
-              class="text-xs mt-1"
-              :class="conditionalClass('text-blue-400', 'text-blue-600')"
-            >
-              提示：「使用中」狀態只能由管理員改為「已停用」以收回權限
             </p>
             <p
               v-if="editingLicense?.status === 'active' && isAdmin"
@@ -449,7 +498,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch, computed, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { useNotifications } from '@/composables/notificationCenter'
@@ -467,22 +516,17 @@ const { loading: loadingLicenses, initialize } = usePageInitialization()
 
 const error = ref('')
 
-// 產品 Tab
-const productTabs = [
-  { value: 'line-bot', label: 'LINE Bot' },
-  { value: 'BA-system', label: 'BA System' },
+const BA_FEATURES = [
+  { value: 'people_counting', label: '人流計數' },
+  { value: 'lighting', label: '燈控管理' },
+  { value: 'environment', label: '環境監測' },
+  { value: 'surveillance', label: '影像監控' },
+  { value: 'vehicle_access', label: '車輛門禁' },
 ]
 
-const activeTab = ref('line-bot')
-
-const currentTabLabel = computed(() => {
-  const tab = productTabs.find((t) => t.value === activeTab.value)
-  return tab ? tab.label : ''
-})
-
-const getProductLabel = (product) => {
-  const tab = productTabs.find((t) => t.value === product)
-  return tab ? tab.label : product || '-'
+const getFeatureLabel = (featureValue) => {
+  const feat = BA_FEATURES.find((f) => f.value === featureValue)
+  return feat ? feat.label : featureValue
 }
 
 const licenses = computed(() => {
@@ -492,12 +536,16 @@ const licenses = computed(() => {
 
 const showCreateLicenseModal = ref(false)
 const showEditLicenseModal = ref(false)
-const newLicense = ref({ product: 'line-bot', customerName: '', applicant: '', notes: '' })
+const newLicense = ref({ customerName: '', applicant: '', features: [], notes: '' })
 const reviewingLicense = ref(false)
 const editingLicense = ref(null)
 const creatingLicense = ref(false)
 const updatingLicense = ref(false)
 const deletingLicense = ref(null)
+
+// 狀態下拉選單（統一樣式）
+const statusDropdownRef = ref(null)
+const isStatusDropdownOpen = ref(false)
 
 // 分頁
 const licensePagination = ref({
@@ -560,33 +608,37 @@ const getStatusClass = (status) => {
   return classMap[status] || ''
 }
 
-// Tab 切換
-const handleTabChange = async (tab) => {
-  activeTab.value = tab
-  licensePagination.value.currentPage = 1
-  await fetchLicenses()
-}
-
 // 初始化
 onMounted(async () => {
   await initialize(async () => {
     await fetchLicenses()
   })
+
+  document.addEventListener('click', handleClickOutside)
 })
 
-// 新增 Modal 預設帶入當前 tab 的 product + 當前用戶
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
+// 新增 Modal 預設帶入當前用戶
 watch(showCreateLicenseModal, (isOpen) => {
   if (isOpen) {
-    newLicense.value.product = activeTab.value
     newLicense.value.applicant = userStore.account || ''
   }
 })
 
-// 載入授權列表（按當前 tab）
+watch(showEditLicenseModal, (isOpen) => {
+  if (!isOpen) {
+    isStatusDropdownOpen.value = false
+  }
+})
+
+// 載入授權列表
 const fetchLicenses = async () => {
   try {
     error.value = ''
-    await userStore.getAllLicenses({ product: activeTab.value })
+    await userStore.getAllLicenses({ product: 'BA-system' })
   } catch (err) {
     console.error('載入授權列表失敗：', err)
     const errorMsg =
@@ -600,10 +652,6 @@ const fetchLicenses = async () => {
 }
 
 const handleCreateLicense = async () => {
-  if (!newLicense.value.product) {
-    notify.notifyWarning('請選擇產品類別')
-    return
-  }
   if (!newLicense.value.customerName) {
     notify.notifyWarning('請輸入客戶名稱')
     return
@@ -612,17 +660,22 @@ const handleCreateLicense = async () => {
     notify.notifyWarning('請輸入申請人')
     return
   }
+  if (newLicense.value.features.length === 0) {
+    notify.notifyWarning('必須選擇至少一個功能模組')
+    return
+  }
 
   try {
     creatingLicense.value = true
     await userStore.createLicense({
-      product: newLicense.value.product,
+      product: 'BA-system',
       customerName: newLicense.value.customerName,
       applicant: newLicense.value.applicant,
+      features: newLicense.value.features,
       notes: newLicense.value.notes || null,
     })
     showCreateLicenseModal.value = false
-    newLicense.value = { product: activeTab.value, customerName: '', applicant: '', notes: '' }
+    newLicense.value = { customerName: '', applicant: '', features: [], notes: '' }
     await fetchLicenses()
   } catch (err) {
     console.error('建立授權失敗:', err)
@@ -662,7 +715,13 @@ const handleEditLicense = (license) => {
     }
     return
   }
-  editingLicense.value = { ...license, _originalStatus: license.status }
+  editingLicense.value = {
+    ...license,
+    features: [...(license.features || [])],
+    _originalStatus: license.status,
+    _originalFeatures: [...(license.features || [])],
+  }
+  isStatusDropdownOpen.value = false
   showEditLicenseModal.value = true
 }
 
@@ -690,6 +749,11 @@ const handleUpdateLicense = async () => {
     }
   }
 
+  if (editingLicense.value.features.length === 0) {
+    notify.notifyWarning('必須保留至少一個功能模組')
+    return
+  }
+
   try {
     updatingLicense.value = true
     const licenseId = editingLicense.value._id || editingLicense.value.id
@@ -697,15 +761,23 @@ const handleUpdateLicense = async () => {
 
     if (isAdmin.value) {
       updateData.status = editingLicense.value.status
+      updateData.features = editingLicense.value.features
     }
 
     await userStore.updateLicense(licenseId, updateData)
     showEditLicenseModal.value = false
+
+    const featuresChanged =
+      JSON.stringify([...editingLicense.value.features].sort()) !==
+      JSON.stringify([...(editingLicense.value._originalFeatures || [])].sort())
+
     editingLicense.value = null
     await fetchLicenses()
 
     if (originalStatus === 'active' && updateData.status === 'inactive') {
       notify.notifySuccess('授權已停用，權限已收回')
+    } else if (featuresChanged) {
+      notify.notifySuccess('授權模組已更新。離線設備需重新產生回應檔。')
     }
   } catch (err) {
     console.error('更新授權失敗:', err)
@@ -738,7 +810,12 @@ const handleDeleteLicense = async (license) => {
 }
 
 const changeLicensePage = (page) => {
-  if (page < 1 || page > licensePagination.value.totalPages || page === licensePagination.value.currentPage) return
+  if (
+    page < 1 ||
+    page > licensePagination.value.totalPages ||
+    page === licensePagination.value.currentPage
+  )
+    return
   licensePagination.value.currentPage = page
 }
 
@@ -750,6 +827,62 @@ const getStatusText = (status) => {
     inactive: '已停用',
   }
   return statusMap[status] || status
+}
+
+const isStatusDropdownDisabled = computed(() => {
+  if (!editingLicense.value) return true
+
+  const originalStatus = editingLicense.value._originalStatus || editingLicense.value.status
+  if (originalStatus === 'active') return !isAdmin.value
+
+  return !canEditStatus(editingLicense.value)
+})
+
+const statusDropdownLabel = computed(() => {
+  if (!editingLicense.value?.status) return '狀態'
+  return getStatusText(editingLicense.value.status)
+})
+
+const statusDropdownOptions = computed(() => {
+  if (!editingLicense.value) return []
+
+  const originalStatus = editingLicense.value._originalStatus || editingLicense.value.status
+
+  if (originalStatus === 'active') {
+    return [
+      { value: 'active', label: '使用中', disabled: true },
+      { value: 'inactive', label: '已停用', disabled: !isAdmin.value },
+    ]
+  }
+
+  return [
+    {
+      value: 'pending',
+      label: '審核中',
+      disabled: !canSetStatusToPending(editingLicense.value),
+    },
+    { value: 'available', label: '可啟用', disabled: false },
+    { value: 'inactive', label: '已停用', disabled: false },
+  ]
+})
+
+const toggleStatusDropdown = () => {
+  if (isStatusDropdownDisabled.value) return
+  isStatusDropdownOpen.value = !isStatusDropdownOpen.value
+}
+
+const selectStatus = (option) => {
+  if (!editingLicense.value) return
+  if (option?.disabled) return
+
+  editingLicense.value.status = option.value
+  isStatusDropdownOpen.value = false
+}
+
+const handleClickOutside = (event) => {
+  if (statusDropdownRef.value && !statusDropdownRef.value.contains(event.target)) {
+    isStatusDropdownOpen.value = false
+  }
 }
 
 const formatDate = (dateString) => {

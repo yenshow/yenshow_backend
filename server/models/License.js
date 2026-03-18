@@ -19,6 +19,13 @@ const licenseSchema = new Schema(
 			index: true,
 			comment: "產品/系統類別：line-bot=LINE Bot, BA-system=BA 系統"
 		},
+		// 0.1 授權功能模組（BA-system 專用，買斷制）
+		features: {
+			type: [String],
+			enum: ["people_counting", "lighting", "environment", "surveillance", "vehicle_access"],
+			default: [],
+			comment: "授權功能模組（僅 BA-system 使用）"
+		},
 		// 1. 客戶名稱
 		customerName: {
 			type: String,
