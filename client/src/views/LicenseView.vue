@@ -2,7 +2,9 @@
   <div class="container mx-auto py-8">
     <div class="mb-8">
       <h1 class="text-3xl font-bold mb-4 theme-text">授權管理</h1>
-      <p :class="conditionalClass('text-gray-400', 'text-slate-500')">管理 BA 系統授權申請、審核和狀態</p>
+      <p :class="conditionalClass('text-gray-400', 'text-slate-500')">
+        管理 BA 系統授權申請、審核和狀態
+      </p>
     </div>
 
     <!-- 錯誤提示 -->
@@ -56,13 +58,15 @@
                 <td class="py-3 px-4">
                   <div class="flex flex-wrap gap-1">
                     <span
-                      v-for="feat in (license.features || [])"
+                      v-for="feat in license.features || []"
                       :key="feat"
                       class="px-1.5 py-0.5 rounded text-xs bg-indigo-500/20 text-indigo-300"
                     >
                       {{ getFeatureLabel(feat) }}
                     </span>
-                    <span v-if="!license.features?.length" class="text-xs opacity-50 theme-text">-</span>
+                    <span v-if="!license.features?.length" class="text-xs opacity-50 theme-text"
+                      >-</span
+                    >
                   </div>
                 </td>
                 <td class="py-3 px-4 theme-text font-mono">{{ license.serialNumber || '-' }}</td>
@@ -291,7 +295,13 @@
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       @click.self="showEditLicenseModal = false"
     >
-      <div :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm w-full max-w-md max-h-[90vh] overflow-y-auto']" @click.stop>
+      <div
+        :class="[
+          cardClass,
+          'rounded-xl p-6 backdrop-blur-sm w-full max-w-md max-h-[90vh] overflow-y-auto',
+        ]"
+        @click.stop
+      >
         <h3 class="text-xl font-semibold theme-text mb-4">編輯授權</h3>
         <div class="space-y-4">
           <div>
@@ -323,13 +333,15 @@
             <!-- 非 Admin 只能查看 -->
             <div v-else class="flex flex-wrap gap-1">
               <span
-                v-for="feat in (editingLicense?.features || [])"
+                v-for="feat in editingLicense?.features || []"
                 :key="feat"
                 class="px-2 py-1 rounded text-xs bg-indigo-500/20 text-indigo-300"
               >
                 {{ getFeatureLabel(feat) }}
               </span>
-              <span v-if="!editingLicense?.features?.length" class="text-sm opacity-50 theme-text">無</span>
+              <span v-if="!editingLicense?.features?.length" class="text-sm opacity-50 theme-text"
+                >無</span
+              >
             </div>
           </div>
           <div>
@@ -437,7 +449,9 @@
                     :disabled="option.disabled"
                   >
                     <span>{{ option.label }}</span>
-                    <span v-if="editingLicense?.status === option.value" class="text-blue-400">✓</span>
+                    <span v-if="editingLicense?.status === option.value" class="text-blue-400"
+                      >✓</span
+                    >
                   </button>
                 </div>
               </div>
@@ -517,11 +531,11 @@ const { loading: loadingLicenses, initialize } = usePageInitialization()
 const error = ref('')
 
 const BA_FEATURES = [
-  { value: 'people_counting', label: '人流計數' },
-  { value: 'lighting', label: '燈控管理' },
-  { value: 'environment', label: '環境監測' },
+  { value: 'people_counting', label: '人流統計' },
+  { value: 'lighting', label: '照明系統' },
+  { value: 'environment', label: '環境品質' },
   { value: 'surveillance', label: '影像監控' },
-  { value: 'vehicle_access', label: '車輛門禁' },
+  { value: 'vehicle_access', label: '車輛進出' },
 ]
 
 const getFeatureLabel = (featureValue) => {
