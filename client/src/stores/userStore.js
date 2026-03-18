@@ -78,7 +78,7 @@ export const useUserStore = defineStore(
         console.error('登入錯誤:', error)
         const errorResult = notify.handleApiError(error, {
           defaultMessage: '登入失敗',
-          showToast: true,
+          showToast: false,
         })
         return errorResult.message
       }
@@ -198,7 +198,7 @@ export const useUserStore = defineStore(
         console.error('獲取用戶列表錯誤:', error)
         const errorResult = notify.handleApiError(error, {
           defaultMessage: '獲取用戶列表失敗',
-          showToast: true,
+          showToast: false,
         })
         error.value = errorResult.message
         throw error
@@ -361,6 +361,7 @@ export const useUserStore = defineStore(
         },
         {
           defaultMessage: '刪除用戶失敗',
+          showToast: false,
           onFinally: () => {
             loading.value = false
           },
@@ -406,7 +407,7 @@ export const useUserStore = defineStore(
         }
         const errorResult = notify.handleApiError(error, {
           defaultMessage: '獲取授權列表失敗',
-          showToast: true,
+          showToast: false,
         })
         errorLicenses.value = errorResult.message
         throw error
@@ -442,7 +443,7 @@ export const useUserStore = defineStore(
           } else {
             console.error('回應中找不到授權數據:', data)
             // 如果找不到新授權，重新載入列表（但不設置 loading，避免卡住）
-            getAllLicenses().catch(err => {
+            getAllLicenses().catch((err) => {
               console.error('重新載入授權列表失敗:', err)
             })
             return { success: true, message: data.message || '授權建立成功，但無法獲取新授權詳情' }
@@ -477,14 +478,14 @@ export const useUserStore = defineStore(
               const targetId = licenseId.toString()
               return id && (id.toString() === targetId || id === targetId)
             })
-            
+
             if (index !== -1) {
               console.log('找到授權索引:', index, '更新狀態')
               licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
             } else {
               console.warn('找不到要更新的授權，ID:', licenseId)
               // 如果找不到，重新載入列表
-              getAllLicenses().catch(err => {
+              getAllLicenses().catch((err) => {
                 console.error('重新載入授權列表失敗:', err)
               })
             }
@@ -492,7 +493,7 @@ export const useUserStore = defineStore(
           } else {
             console.error('回應中找不到授權數據:', data)
             // 嘗試重新載入授權列表
-            getAllLicenses().catch(err => {
+            getAllLicenses().catch((err) => {
               console.error('重新載入授權列表失敗:', err)
             })
             return { success: true, message: data.message || '更新授權成功，但無法獲取更新詳情' }
@@ -524,14 +525,14 @@ export const useUserStore = defineStore(
               const targetId = licenseId.toString()
               return id && (id.toString() === targetId || id === targetId)
             })
-            
+
             if (index !== -1) {
               console.log('找到授權索引:', index, '更新狀態')
               licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
             } else {
               console.warn('找不到要更新的授權，ID:', licenseId)
               // 如果找不到，重新載入列表
-              getAllLicenses().catch(err => {
+              getAllLicenses().catch((err) => {
                 console.error('重新載入授權列表失敗:', err)
               })
             }
@@ -539,7 +540,7 @@ export const useUserStore = defineStore(
           } else {
             console.error('回應中找不到授權數據:', data)
             // 嘗試重新載入授權列表
-            getAllLicenses().catch(err => {
+            getAllLicenses().catch((err) => {
               console.error('重新載入授權列表失敗:', err)
             })
             return { success: true, message: data.message || '審核授權成功，但無法獲取更新詳情' }
@@ -568,14 +569,14 @@ export const useUserStore = defineStore(
             const targetId = licenseId.toString()
             return id && (id.toString() === targetId || id === targetId)
           })
-          
+
           if (index !== -1) {
             console.log('找到授權索引:', index, '移除授權')
             licenses.value.splice(index, 1)
           } else {
             console.warn('找不到要刪除的授權，ID:', licenseId)
             // 如果找不到，重新載入列表
-            getAllLicenses().catch(err => {
+            getAllLicenses().catch((err) => {
               console.error('重新載入授權列表失敗:', err)
             })
           }
