@@ -11,6 +11,14 @@ import { Schema, model } from "mongoose";
  */
 const licenseSchema = new Schema(
 	{
+		// 0. 產品/系統類別
+		product: {
+			type: String,
+			enum: ["line-bot", "BA-system"],
+			required: [true, "產品類別必填"],
+			index: true,
+			comment: "產品/系統類別：line-bot=LINE Bot, BA-system=BA 系統"
+		},
 		// 1. 客戶名稱
 		customerName: {
 			type: String,
@@ -73,6 +81,20 @@ const licenseSchema = new Schema(
 			default: null,
 			index: true,
 			comment: "首次使用時間（用於追蹤授權是否已被使用，只能使用一次）"
+		},
+		// 設備指紋（離線授權綁定設備用）
+		deviceFingerprint: {
+			type: String,
+			default: null,
+			trim: true,
+			comment: "設備指紋（離線授權時綁定設備，格式由客戶端決定）"
+		},
+		// 啟用方式
+		activationMethod: {
+			type: String,
+			enum: ["online", "offline", null],
+			default: null,
+			comment: "啟用方式：online=線上啟用, offline=離線啟用"
 		},
 		// 7. 備註
 		notes: {

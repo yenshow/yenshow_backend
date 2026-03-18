@@ -369,46 +369,38 @@ export const useUserStore = defineStore(
     }
 
     // ===== 授權管理功能 =====
-    const getAllLicenses = async () => {
+    const getAllLicenses = async (params = {}) => {
       loadingLicenses.value = true
       errorLicenses.value = ''
 
       try {
-        console.log('獲取授權列表開始')
-        const response = await apiAuth.get('/api/users/licenses')
-        console.log('獲取授權列表完整回應:', response)
+        const queryParams = {}
+        if (params.product) queryParams.product = params.product
+        if (params.status) queryParams.status = params.status
+
+        const response = await apiAuth.get('/api/users/licenses', { params: queryParams })
         const { data } = response
-        console.log('獲取授權列表回應 data:', data)
 
         if (!data) {
-          console.error('回應為空')
           throw new Error('伺服器回應為空')
         }
 
         if (!data.success) {
-          console.error('回應 success 為 false:', data)
           throw new Error(data?.message || '獲取授權列表失敗')
         }
 
-        // 根據實際後端回應格式提取授權列表
         if (Array.isArray(data.licenses)) {
-          console.log('找到 licenses 陣列，數量:', data.licenses.length)
           licenses.value = data.licenses
         } else if (data.result && Array.isArray(data.result.licenses)) {
-          console.log('找到 result.licenses 陣列，數量:', data.result.licenses.length)
           licenses.value = data.result.licenses
         } else {
-          console.error('回應格式不符合預期，完整回應:', JSON.stringify(data, null, 2))
-          // 即使格式不對，也嘗試設置空陣列，避免卡住
           licenses.value = []
-          throw new Error('回應中找不到授權列表，回應格式: ' + JSON.stringify(Object.keys(data)))
+          throw new Error('回應中找不到授權列表')
         }
 
-        console.log('授權列表載入成功，共', licenses.value.length, '筆')
         return data.message || '獲取授權列表成功'
       } catch (error) {
         console.error('獲取授權列表錯誤:', error)
-        // 確保 licenses 始終是陣列
         if (!Array.isArray(licenses.value)) {
           licenses.value = []
         }
@@ -419,7 +411,6 @@ export const useUserStore = defineStore(
         errorLicenses.value = errorResult.message
         throw error
       } finally {
-        console.log('獲取授權列表完成，設置 loadingLicenses = false')
         loadingLicenses.value = false
       }
     }
@@ -430,6 +421,7 @@ export const useUserStore = defineStore(
           console.log('創建授權開始:', licenseData)
 
           const { data } = await apiAuth.post('/api/users/licenses', {
+            product: licenseData.product,
             customerName: licenseData.customerName,
             applicant: licenseData.applicant,
             notes: licenseData.notes || null,

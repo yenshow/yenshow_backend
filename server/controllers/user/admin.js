@@ -161,11 +161,11 @@ export const deleteUser = async (req, res, next) => {
  */
 export const getLicenses = async (req, res, next) => {
 	try {
-		const { status, sort = "-createdAt" } = req.query;
+		const { status, product, sort = "-createdAt" } = req.query;
 		const filter = {};
 
-		// 過濾條件
 		if (status) filter.status = status;
+		if (product) filter.product = product;
 
 		const licenses = await License.find(filter).sort(sort);
 
@@ -196,15 +196,19 @@ export const getLicense = async (req, res, next) => {
 
 /**
  * 建立新授權
- * 只需提供：客戶名稱、申請人、備註
+ * 必填：product、客戶名稱、申請人
+ * 選填：備註
  * status 自動設為 pending（審核中）
  * serialNumber 和 licenseKey 在審核時才生成
  */
 export const createLicense = async (req, res, next) => {
 	try {
-		const { customerName, applicant, notes } = req.body;
+		const { product, customerName, applicant, notes } = req.body;
 
-		// 驗證必填欄位
+		if (!product || !["line-bot", "BA-system"].includes(product)) {
+			throw ApiError.badRequest("需要提供有效的產品類別（line-bot 或 BA-system）");
+		}
+
 		if (!customerName) {
 			throw ApiError.badRequest("需要提供客戶名稱");
 		}
@@ -213,14 +217,13 @@ export const createLicense = async (req, res, next) => {
 			throw ApiError.badRequest("需要提供申請人");
 		}
 
-		// 建立新授權（status 自動設為 pending，申請時間自動記錄）
 		const newLicense = await License.create({
+			product,
 			customerName,
 			applicant,
 			appliedAt: new Date(),
 			status: "pending",
 			notes: notes || null
-			// serialNumber 和 licenseKey 在審核時才生成（預設為 null）
 		});
 
 		return successResponse(res, StatusCodes.CREATED, "授權建立成功", {
