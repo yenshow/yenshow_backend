@@ -2,12 +2,12 @@
 
 > 最後更新：2026-03-19
 
+---
+
 ## 1. 系統概覽
 
 本平台為 **BA（Building Automation）系統** 提供 **買斷制、功能模組授權**。
 一張授權對應一組 SN / LK，授權可包含多個功能模組（Feature Keys）。
-
-### 核心特性
 
 | 項目 | 說明 |
 |------|------|
@@ -36,10 +36,10 @@ pending ──(審核)──→ available ──(啟用)──→ active ──(
 
 | 狀態 | 說明 | 可執行動作 |
 |------|------|-----------|
-| `pending` | 申請已送出，等待管理員審核 | 審核 → available |
-| `available` | 已審核並產生 SN / LK，可被啟用 | 啟用（線上或離線） |
-| `active` | 已啟用，正常使用中 | check-status 同步、離線刷新、停用 → inactive |
-| `inactive` | 已停用（管理員操作） | 管理員可透過 updateLicense 改回 active/available |
+| `pending` | 等待管理員審核 | 審核 → available |
+| `available` | 已產生 SN / LK，可啟用 | 線上啟用 / 離線啟用 |
+| `active` | 使用中 | check-status、離線刷新、停用 → inactive |
+| `inactive` | 已停用（管理員操作） | 管理員可改回 active / available |
 
 ---
 
@@ -51,13 +51,13 @@ pending ──(審核)──→ available ──(啟用)──→ active ──(
 | `features` | [String] | 授權功能模組陣列 |
 | `customerName` | String | 客戶名稱（必填） |
 | `serialNumber` | String | 審核時自動產生（`SN-YYYYMMDD-XXXX`） |
-| `licenseKey` | String | 審核時自動產生（`XXXX-XXXX-XXXX-XXXX`，SHA256） |
+| `licenseKey` | String | 審核時自動產生（`XXXX-XXXX-XXXX-XXXX`） |
 | `status` | String | `pending` / `available` / `active` / `inactive` |
 | `applicant` | String | 申請人（必填） |
 | `appliedAt` | Date | 申請時間 |
 | `reviewer` | String | 審核人 |
 | `reviewedAt` | Date | 審核時間 |
-| `usedAt` | Date | 首次啟用時間（啟用後不可再次啟用） |
+| `usedAt` | Date | 首次啟用時間（一次性） |
 | `deviceFingerprint` | String | 離線啟用時綁定的設備指紋 |
 | `activationMethod` | String | `"online"` / `"offline"` / `null` |
 | `notes` | String | 備註 |
@@ -68,54 +68,38 @@ pending ──(審核)──→ available ──(啟用)──→ active ──(
 
 ### 4.1 公開 API（`/api/license`）
 
-不需登入，有 rate limit。BA 系統後端或離線操作頁面直接呼叫。
+不需登入，有 rate limit。
 
-| 方法 | 路徑 | 說明 | Rate Limit |
+| 方法 | 路徑 | 用途 | Rate Limit |
 |------|------|------|------------|
-| POST | `/activate` | 線上啟用（一次性） | 嚴格（1h / 20次） |
-| POST | `/check-status` | 心跳同步（純讀取） | 一般（15min / 10次） |
-| POST | `/offline-activate` | 離線首次啟用 | 嚴格（1h / 20次） |
-| POST | `/offline-refresh` | 離線刷新（features 更新後重新產生回應檔） | 嚴格（1h / 20次） |
+| POST | `/activate` | 線上啟用（一次性） | 嚴格 |
+| POST | `/check-status` | 心跳同步（純讀取） | 一般 |
+| POST | `/offline-activate` | 離線首次啟用 | 嚴格 |
+| POST | `/offline-refresh` | 離線刷新（features 變更後） | 嚴格 |
 
 ### 4.2 管理 API（`/api/users/licenses`）
 
 需登入 + ADMIN / STAFF 權限。
 
-| 方法 | 路徑 | 說明 | 權限 |
+| 方法 | 路徑 | 用途 | 權限 |
 |------|------|------|------|
-| GET | `/` | 取得授權列表 | ADMIN, STAFF |
-| GET | `/:id` | 取得單筆授權 | ADMIN, STAFF |
-| POST | `/` | 新建授權（status=pending） | ADMIN, STAFF |
+| GET | `/` | 授權列表 | ADMIN, STAFF |
+| GET | `/:id` | 單筆授權 | ADMIN, STAFF |
+| POST | `/` | 新建授權 | ADMIN, STAFF |
 | POST | `/:id/review` | 審核 → 產生 SN/LK | ADMIN |
-| PUT | `/:id` | 更新授權（features、status、notes） | ADMIN, STAFF |
-| DELETE | `/:id` | 刪除授權 | ADMIN, STAFF |
+| PUT | `/:id` | 更新（features、status、notes） | ADMIN, STAFF |
+| DELETE | `/:id` | 刪除 | ADMIN, STAFF |
 
 ---
 
-## 5. 公開 API 詳細說明
+## 5. 回應格式
 
-### 5.1 POST `/api/license/activate`
-
-線上啟用授權。BA 系統後端在使用者輸入 LK 後呼叫此 API。
-
-**Request**
-
-```json
-{ "licenseKey": "XXXX-XXXX-XXXX-XXXX" }
-```
-
-或
-
-```json
-{ "serialNumber": "SN-20260318-0001" }
-```
-
-**成功 Response（200）**
+### 5.1 線上 API 回應格式（activate、check-status）
 
 ```json
 {
   "success": true,
-  "message": "授權啟用成功",
+  "message": "...",
   "result": {
     "serialNumber": "SN-20260318-0001",
     "licenseKey": "XXXX-XXXX-XXXX-XXXX",
@@ -128,64 +112,14 @@ pending ──(審核)──→ available ──(啟用)──→ active ──(
 }
 ```
 
-**錯誤碼**
+### 5.2 離線回應檔格式（offline-activate、offline-refresh 共用）
 
-| code | 說明 |
-|------|------|
-| `LICENSE_NOT_FOUND` | SN 或 LK 不存在 |
-| `LICENSE_NOT_AVAILABLE` | 狀態不是 available |
-| `LICENSE_ALREADY_USED` | 已啟用過 |
-
-### 5.2 POST `/api/license/check-status`
-
-心跳 / 定期同步。BA 系統定期呼叫以同步最新 features 或偵測 inactive。
-
-**Request**（建議用 LK，安全性較高）
-
-```json
-{ "licenseKey": "XXXX-XXXX-XXXX-XXXX" }
-```
-
-**成功 Response（200）**
+兩個離線 API 產出**完全相同的欄位集**，BA 端只需一套 import / 驗簽邏輯。
 
 ```json
 {
   "success": true,
-  "message": "獲取授權狀態成功",
-  "result": {
-    "serialNumber": "SN-20260318-0001",
-    "licenseKey": "XXXX-XXXX-XXXX-XXXX",
-    "product": "BA-system",
-    "features": ["people_counting", "lighting", "environment"],
-    "status": "active",
-    "customerName": "測試公司",
-    "usedAt": "2026-03-19T..."
-  }
-}
-```
-
-> **重要**：`result` 直接包含授權欄位，不再用 `result.license` 包裹。
-
-### 5.3 POST `/api/license/offline-activate`
-
-離線首次啟用。操作人員在 `yenshow.com/license/activate` 上傳請求檔後觸發。
-
-**Request**
-
-```json
-{
-  "serialNumber": "SN-20260318-0001",
-  "deviceFingerprint": "abc123...",
-  "nonce": "random-uuid"
-}
-```
-
-**成功 Response（200）**
-
-```json
-{
-  "success": true,
-  "message": "離線授權啟用成功",
+  "message": "...",
   "result": {
     "serialNumber": "SN-20260318-0001",
     "licenseKey": "XXXX-XXXX-XXXX-XXXX",
@@ -195,21 +129,80 @@ pending ──(審核)──→ available ──(啟用)──→ active ──(
     "status": "active",
     "deviceFingerprint": "abc123...",
     "activatedAt": "2026-03-19T...",
+    "refreshedAt": null,
     "nonce": "random-uuid",
     "signature": "hmac-sha256-hex..."
   }
 }
 ```
 
-回應檔由前端自動下載為 `.json`，操作人員帶回離線設備匯入。
+**欄位差異說明：**
+
+| 欄位 | offline-activate | offline-refresh |
+|------|------------------|-----------------|
+| `activatedAt` | 啟用時間（剛寫入） | 原始啟用時間（不變） |
+| `refreshedAt` | `null` | 刷新時間（本次） |
+
+BA 端可用 `refreshedAt` 是否為 `null` 來判斷匯入的是首次啟用還是更新。
 
 ---
 
-## 6. POST `/api/license/offline-refresh`
+## 6. API 詳細說明
 
-離線授權刷新。admin 在後台修改 features 後，操作人員到 `yenshow.com/license/activate`（更新模式）輸入 SN，產生新的簽名回應檔帶回離線設備。
+### 6.1 POST `/api/license/activate`
 
-**不會改變** `status`、`usedAt`、`deviceFingerprint`。僅限 `active` 狀態的授權。
+線上啟用。BA 後端在使用者輸入 LK 後呼叫。
+
+**Request**
+
+```json
+{ "licenseKey": "XXXX-XXXX-XXXX-XXXX" }
+```
+
+**錯誤碼**
+
+| code | 說明 |
+|------|------|
+| `LICENSE_NOT_FOUND` | LK 不存在 |
+| `LICENSE_NOT_AVAILABLE` | 狀態非 available |
+| `LICENSE_ALREADY_USED` | 已啟用過 |
+
+### 6.2 POST `/api/license/check-status`
+
+心跳同步。BA 定期呼叫以取得最新 features 或偵測 inactive。建議用 LK 查詢。
+
+**Request**
+
+```json
+{ "licenseKey": "XXXX-XXXX-XXXX-XXXX" }
+```
+
+### 6.3 POST `/api/license/offline-activate`
+
+離線首次啟用。操作人員在 `yenshow.com/license/activate`（啟用模式）上傳 BA 產生的 request file。
+
+**Request**（即 BA 產生的 request file 內容）
+
+```json
+{
+  "serialNumber": "SN-20260318-0001",
+  "deviceFingerprint": "abc123...",
+  "nonce": "random-uuid"
+}
+```
+
+**錯誤碼**
+
+| code | 說明 |
+|------|------|
+| `LICENSE_NOT_FOUND` | SN 不存在 |
+| `LICENSE_NOT_AVAILABLE` | 狀態非 available |
+| `LICENSE_ALREADY_USED` | 已啟用過 |
+| `DEVICE_MISMATCH` | 設備指紋不符 |
+
+### 6.4 POST `/api/license/offline-refresh`
+
+離線刷新。操作人員在 `yenshow.com/license/activate`（更新模式）輸入 SN。
 
 **Request**
 
@@ -221,142 +214,191 @@ pending ──(審核)──→ available ──(啟用)──→ active ──(
 }
 ```
 
-> `deviceFingerprint` 和 `nonce` 為選填。若提供 `deviceFingerprint`，會與 DB 比對。
+> `deviceFingerprint` 和 `nonce` 為選填。
 
-**成功 Response（200）**
+**錯誤碼**
 
-```json
-{
-  "success": true,
-  "message": "離線授權刷新成功",
-  "result": {
-    "serialNumber": "SN-20260318-0001",
-    "licenseKey": "XXXX-XXXX-XXXX-XXXX",
-    "customerName": "測試公司",
-    "product": "BA-system",
-    "features": ["people_counting", "lighting", "environment"],
-    "status": "active",
-    "deviceFingerprint": "abc123...",
-    "activatedAt": "2026-03-19T...",
-    "refreshedAt": "2026-03-19T...",
-    "nonce": null,
-    "signature": "hmac-sha256-hex..."
-  }
-}
-```
+| code | 說明 |
+|------|------|
+| `LICENSE_NOT_FOUND` | SN 不存在 |
+| `LICENSE_NOT_ACTIVE` | 授權尚未啟用 |
+| `DEVICE_MISMATCH` | 設備指紋不符 |
 
 ---
 
-## 7. 回應格式規範
+## 7. 離線簽名機制
 
-所有公開 API 遵循統一的回應格式：
-
-```json
-{
-  "success": true,
-  "message": "...",
-  "result": {
-    "serialNumber": "...",
-    "licenseKey": "...",
-    "product": "BA-system",
-    "features": [...],
-    "status": "...",
-    "customerName": "...",
-    "usedAt": "..."
-  }
-}
-```
-
-**規則**：
-- `result` 為扁平物件，不再包裹 `result.license`
-- 所有 API（activate、check-status、offline-activate）回傳相同的 result 結構
-- 錯誤回應使用 HTTP status code + `code` 欄位
-
----
-
-## 8. 離線簽名機制
-
-### 8.1 演算法
+### 7.1 演算法
 
 - HMAC-SHA256
 - 金鑰：環境變數 `LICENSE_SIGN_SECRET`
-- 將 payload 的 key 字母排序後 JSON 序列化，再簽名
+- 簽名流程：取 payload 中 `signature` 以外的**所有欄位** → key 字母排序 → JSON 序列化 → HMAC
 
-### 8.2 簽名範圍
+### 7.2 BA 端驗簽虛擬碼
 
-簽名覆蓋 `signature` 以外的所有欄位。BA 系統端以相同方式驗簽（需持有同一 secret 或使用非對稱方案）。
+```
+input  = 回應檔 JSON（完整物件）
+fields = 移除 input.signature 後的剩餘欄位
+sorted = 依 key 字母排序
+data   = JSON.stringify(sorted)
+expect = HMAC-SHA256(data, LICENSE_SIGN_SECRET)
+valid  = timingSafeEqual(expect, input.signature)
+```
 
-### 8.3 安全注意事項
+> **重點**：不要寫死欄位清單。`signature` 以外的所有 key 都要參與簽名，這樣不論回應檔來自 activate 或 refresh 都能正確驗簽。
 
-- `LICENSE_SIGN_SECRET` 必須安全存放，不可洩漏到前端
-- 離線場景下，BA 系統本地需儲存回應檔以供離線驗簽
-- `offline-refresh` 為公開 API，但僅回傳 DB 現有資料並簽名，無法提升權限
+### 7.3 安全注意事項
+
+- `LICENSE_SIGN_SECRET` 必須安全存放，不可洩漏到前端或客戶端
+- BA 系統需持有同一 secret 才能驗簽
+- 離線場景下，BA 本地需儲存回應檔以供日後驗簽
+
+---
+
+## 8. 完整流程圖
+
+### 8.1 線上啟用
+
+```
+使用者在 BA 前端輸入 License Key
+  → BA 後端呼叫 POST /api/license/activate { licenseKey }
+  → 平台回傳 result（含 features）
+  → BA 存入本地 DB → 啟用對應模組
+```
+
+### 8.2 心跳同步
+
+```
+BA 後端定期呼叫 POST /api/license/check-status { licenseKey }
+  → 比對 result.features 與本地 → 有差異則更新
+  → result.status === "inactive" → 清空本地 features → 封鎖功能
+```
+
+### 8.3 離線啟用（首次）— 需要 request file
+
+```
+┌─ BA 系統（離線設備）─────────────────────────┐
+│ 1. 產生 request file                         │
+│    { serialNumber, deviceFingerprint, nonce } │
+│ 2. 匯出 .json → 用 USB 帶走                  │
+└──────────────────────────────────────────────┘
+        ↓ 操作人員帶到有網路的電腦
+┌─ yenshow.com/license/activate（啟用模式）────┐
+│ 3. 上傳 request file                         │
+│ 4. 平台呼叫 offline-activate API             │
+│ 5. 下載簽名 response file                    │
+└──────────────────────────────────────────────┘
+        ↓ 操作人員帶回離線設備
+┌─ BA 系統（離線設備）─────────────────────────┐
+│ 6. 匯入 response file                        │
+│ 7. BA 驗簽 → 通過後存入本地 → 啟用模組        │
+└──────────────────────────────────────────────┘
+```
+
+### 8.4 離線刷新（features 變更後）— 不需要 request file
+
+```
+┌─ 授權平台後台 ───────────────────────────────┐
+│ 1. admin 修改該授權的 features                │
+└──────────────────────────────────────────────┘
+
+┌─ yenshow.com/license/activate（更新模式）────┐
+│ 2. 操作人員輸入 Serial Number                 │
+│    （選填 deviceFingerprint）                 │
+│ 3. 平台呼叫 offline-refresh API              │
+│ 4. 下載簽名 response file                    │
+└──────────────────────────────────────────────┘
+        ↓ 操作人員帶回離線設備
+┌─ BA 系統（離線設備）─────────────────────────┐
+│ 5. 匯入 response file                        │
+│ 6. BA 驗簽 → 通過後覆蓋本地 features          │
+└──────────────────────────────────────────────┘
+```
+
+**兩個流程的關鍵差異：**
+
+| | 離線啟用（8.3） | 離線刷新（8.4） |
+|---|---|---|
+| 起始 | BA 產生 request file | 只需 SN |
+| Nuxt 模式 | 「啟用授權」 | 「更新授權」 |
+| 平台 API | `offline-activate` | `offline-refresh` |
+| 平台行為 | 寫入 status=active、usedAt | 不修改 DB |
+| 回應檔 `refreshedAt` | `null` | 有值 |
 
 ---
 
 ## 9. BA 系統端實作指引
 
-### 9.1 線上啟用流程
+### 9.1 離線 import 統一邏輯
+
+BA 的「離線匯入（回應檔 JSON）」功能只需一個 import handler，同時處理啟用和刷新的回應檔：
 
 ```
-使用者輸入 License Key
-  → BA 後端呼叫 POST /api/license/activate { licenseKey }
-  → 收到 result.features → 存入本地 DB → 啟用對應模組
+handleImport(responseFileJson):
+  1. 解析 JSON
+  2. 取出 signature，對剩餘欄位排序後 HMAC 驗簽
+  3. 驗簽失敗 → 拒絕匯入
+  4. 驗簽成功：
+     - 更新本地 license_features = responseFileJson.features
+     - 更新本地 license_license_key = responseFileJson.licenseKey
+     - 更新本地 license_serial_number = responseFileJson.serialNumber
+     - 判斷類型：
+       if (refreshedAt === null)  → 首次啟用，設定 activation_method = "offline"
+       else                      → 刷新，不改 activation_method
+     - 更新 license_updated_at = now
 ```
 
-### 9.2 心跳同步流程
+### 9.2 本地落地資料（PostgreSQL `system_settings`）
 
-```
-BA 後端定期（如每 24h）呼叫 POST /api/license/check-status { licenseKey }
-  → 比對 result.features 與本地 → 有差異則更新本地
-  → 檢查 result.status === "inactive" → 是則鎖定功能
-```
+| key | 說明 |
+|-----|------|
+| `license_license_key` | LK — 線上查詢 / 心跳的主要鍵 |
+| `license_features` | 已啟用的 feature keys（feature gate 唯一依據） |
+| `license_serial_number` | SN — 回顯 / 稽核用 |
+| `license_activation_method` | `online` / `offline` / `open_all` / `manual` |
+| `license_updated_at` | 最後更新時間 |
 
-### 9.3 離線啟用流程
+> `open_all` 和 `manual` 是 BA 端的本地狀態，不存在於授權平台 DB。
 
-```
-1. BA 系統產生請求檔（含 serialNumber + deviceFingerprint + nonce）
-2. 操作人員帶請求檔到有網路的電腦，開啟 yenshow.com/license/activate
-3. 上傳請求檔 → 平台回傳簽名回應檔 → 下載
-4. 帶回應檔回 BA 系統匯入 → BA 驗簽 → 存入本地
-```
+### 9.3 BA 對外 API（前端 → BA 後端 → 平台）
 
-### 9.4 功能模組追加流程（離線設備）
+| BA 端路由 | 行為 |
+|-----------|------|
+| `GET /api/license` | 回傳本地授權狀態供前端顯示 |
+| `POST /api/license/activate` | 轉呼叫平台 `activate`，成功後落地 |
+| `POST /api/license/check-status` | 轉呼叫平台 `check-status`，同步 features；若 inactive 則清空本地 features |
+| `POST /api/license/offline-import` | 本地驗簽 + 落地（見 9.1） |
 
-```
-1. admin 在後台修改該授權的 features
-2. admin 點「離線刷新」→ 下載新的簽名回應檔
-3. 操作人員帶回應檔到 BA 系統匯入 → 覆蓋本地授權資料
-```
+### 9.4 Feature Gate
 
-### 9.5 BA 本地儲存建議
+由 BA 後端 middleware `requireFeature(featureKey)` 執行，未授權回 403 `FEATURE_NOT_LICENSED`。
 
-BA 系統應在本地儲存：
-- `licenseKey`：用於 check-status 查詢
-- `features`：當前已啟用的功能模組列表
-- `signature` + 原始回應檔：離線環境下的驗簽依據
+### 9.5 開發/測試開關（正式環境必須關閉）
+
+| 環境變數 | 說明 |
+|----------|------|
+| `LICENSE_OPEN_ALL_FEATURES=true` | BA 後端跳過 feature gate |
+| `NUXT_PUBLIC_LICENSE_OPEN_ALL_FEATURES=true` | BA 前端不顯示鎖頭 |
 
 ---
 
 ## 10. 已移除的 API
 
-以下 API 在本次重構中已移除：
-
-| 原路徑 | 原用途 | 移除原因 |
-|--------|--------|----------|
-| `POST /api/license/validate` | 驗證授權 | 與 activate 語義重疊，且會觸發狀態變更 |
-| `POST /api/license/get-license-key` | 以 SN 換 LK | BA 流程以 LK 為主，不再需要 |
-| `POST /api/license/offline-verify` | 驗簽 | 驗簽應由 BA 系統本地執行，不需要呼叫平台 |
+| 原路徑 | 移除原因 |
+|--------|----------|
+| `POST /api/license/validate` | 與 activate 語義重疊且觸發狀態變更 |
+| `POST /api/license/get-license-key` | BA 以 LK 為主，不再需要 SN 換 LK |
+| `POST /api/license/offline-verify` | 驗簽應由 BA 本地執行 |
 
 ---
 
 ## 11. 部署注意事項
 
-### 環境變數
+### 授權平台環境變數
 
 | 變數 | 說明 |
 |------|------|
-| `LICENSE_SIGN_SECRET` | HMAC-SHA256 簽名金鑰（離線授權必要） |
+| `LICENSE_SIGN_SECRET` | HMAC-SHA256 簽名金鑰（離線授權必要，需與 BA 端同步） |
 
 需在 `.env` 和 `docker-compose.yml` 中設定。
 

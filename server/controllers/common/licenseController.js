@@ -18,10 +18,6 @@ const formatDateTW = (date) => {
 	});
 };
 
-/**
- * 根據 licenseKey 或 serialNumber 查詢授權
- * 優先使用 licenseKey（安全性較高）
- */
 const findLicense = async ({ licenseKey, serialNumber }) => {
 	if (!licenseKey && !serialNumber) {
 		throw ApiError.badRequest("需要提供 licenseKey 或 serialNumber");
@@ -37,9 +33,6 @@ const findLicense = async ({ licenseKey, serialNumber }) => {
 	return license;
 };
 
-/**
- * 統一的授權資料回傳格式（攤平在 result 層級）
- */
 const formatLicenseResult = (license) => ({
 	serialNumber: license.serialNumber,
 	licenseKey: license.licenseKey,
@@ -51,20 +44,37 @@ const formatLicenseResult = (license) => ({
 });
 
 /**
+ * 統一離線回應檔 payload（activate 和 refresh 共用相同欄位集）
+ * BA 端只需一套 import / 驗簽邏輯
+ */
+const buildOfflinePayload = (license, { deviceFingerprint, nonce, refreshedAt }) => ({
+	serialNumber: license.serialNumber,
+	licenseKey: license.licenseKey,
+	customerName: license.customerName,
+	product: license.product,
+	features: license.features || [],
+	status: license.status,
+	deviceFingerprint: deviceFingerprint || null,
+	activatedAt: license.usedAt ? license.usedAt.toISOString() : null,
+	refreshedAt: refreshedAt || null,
+	nonce: nonce || null
+});
+
+/**
  * 公開授權 API Controller
  *
- * API 清單：
- *  - activate       線上啟用（一次性，用 LK）
- *  - checkStatus    心跳同步（用 LK，純讀取）
- *  - offlineActivate 離線首次啟用（用 SN + deviceFingerprint）
+ * 線上 API：
+ *  - activate        線上啟用（一次性）
+ *  - checkStatus     心跳同步（純讀取）
+ *
+ * 離線 API：
+ *  - offlineActivate 離線首次啟用（需 request file）
+ *  - offlineRefresh  離線刷新（只需 SN）
  */
 class LicenseController {
 	/**
-	 * 線上啟用授權
+	 * 線上啟用
 	 * POST /api/license/activate
-	 *
-	 * BA 系統後端呼叫：{ licenseKey } 或 { serialNumber }
-	 * 一次性操作，啟用後 usedAt 被設定，不可再次啟用
 	 */
 	static async activate(req, res, next) {
 		try {
@@ -73,11 +83,7 @@ class LicenseController {
 			if (license.status !== "available" && license.status !== "active") {
 				throw ApiError.forbidden(
 					`無法啟用授權：授權狀態為「${STATUS_MESSAGES[license.status] || license.status}」`,
-					{
-						code: "LICENSE_NOT_AVAILABLE",
-						status: license.status,
-						message: "只有狀態為「可啟用」的授權才能被啟用"
-					}
+					{ code: "LICENSE_NOT_AVAILABLE", status: license.status }
 				);
 			}
 
@@ -104,12 +110,8 @@ class LicenseController {
 	}
 
 	/**
-	 * 檢查授權狀態（心跳 / 定期同步）
+	 * 心跳同步
 	 * POST /api/license/check-status
-	 *
-	 * 純讀取，不修改 DB
-	 * BA 系統定期呼叫以同步最新 features / 偵測 inactive
-	 * 建議用 licenseKey 查詢（比 serialNumber 安全）
 	 */
 	static async checkStatus(req, res, next) {
 		try {
@@ -125,10 +127,8 @@ class LicenseController {
 	}
 
 	/**
-	 * 離線啟用 — 處理請求檔，回傳簽名回應資料
+	 * 離線啟用（首次）
 	 * POST /api/license/offline-activate
-	 *
-	 * 離線設備產生請求檔 → 操作人員上傳到 yenshow.com → 下載回應檔 → 帶回設備
 	 */
 	static async offlineActivate(req, res, next) {
 		try {
@@ -171,44 +171,27 @@ class LicenseController {
 				});
 			}
 
-			const activatedAt = new Date();
-			license.usedAt = activatedAt;
+			license.usedAt = new Date();
 			license.status = "active";
 			license.deviceFingerprint = deviceFingerprint;
 			license.activationMethod = "offline";
 			await license.save();
 
-			const responsePayload = {
-				serialNumber: license.serialNumber,
-				licenseKey: license.licenseKey,
-				customerName: license.customerName,
-				product: license.product,
-				features: license.features || [],
-				status: license.status,
-				deviceFingerprint,
-				activatedAt: activatedAt.toISOString(),
-				nonce: nonce || null
-			};
-
-			const signature = signLicensePayload(responsePayload);
+			const payload = buildOfflinePayload(license, { deviceFingerprint, nonce, refreshedAt: null });
+			const signature = signLicensePayload(payload);
 
 			return successResponse(res, StatusCodes.OK, "離線授權啟用成功", {
-				result: {
-					...responsePayload,
-					signature
-				}
+				result: { ...payload, signature }
 			});
 		} catch (error) {
 			console.error("離線授權啟用失敗:", error);
 			next(error);
 		}
 	}
+
 	/**
-	 * 離線刷新 — 產生帶最新 features 的簽名回應檔
+	 * 離線刷新（features 更新後重新簽名）
 	 * POST /api/license/offline-refresh
-	 *
-	 * 適用場景：admin 在後台修改 features 後，操作人員到此頁面產生新回應檔帶回設備
-	 * 不改變授權狀態或 usedAt
 	 */
 	static async offlineRefresh(req, res, next) {
 		try {
@@ -240,26 +223,16 @@ class LicenseController {
 				});
 			}
 
-			const responsePayload = {
-				serialNumber: license.serialNumber,
-				licenseKey: license.licenseKey,
-				customerName: license.customerName,
-				product: license.product,
-				features: license.features || [],
-				status: license.status,
-				deviceFingerprint: license.deviceFingerprint || deviceFingerprint || null,
-				activatedAt: license.usedAt ? license.usedAt.toISOString() : null,
-				refreshedAt: new Date().toISOString(),
-				nonce: nonce || null
-			};
-
-			const signature = signLicensePayload(responsePayload);
+			const fp = license.deviceFingerprint || deviceFingerprint || null;
+			const payload = buildOfflinePayload(license, {
+				deviceFingerprint: fp,
+				nonce,
+				refreshedAt: new Date().toISOString()
+			});
+			const signature = signLicensePayload(payload);
 
 			return successResponse(res, StatusCodes.OK, "離線授權刷新成功", {
-				result: {
-					...responsePayload,
-					signature
-				}
+				result: { ...payload, signature }
 			});
 		} catch (error) {
 			console.error("離線授權刷新失敗:", error);
