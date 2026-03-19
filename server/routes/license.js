@@ -10,5 +10,6 @@ const router = Router();
 router.post("/activate", licenseStrictRateLimit, LicenseController.activate);
 router.post("/check-status", licenseRateLimit, LicenseController.checkStatus);
 router.post("/offline-activate", licenseStrictRateLimit, LicenseController.offlineActivate);
+router.post("/offline-refresh", licenseStrictRateLimit, LicenseController.offlineRefresh);
 
 export default router;

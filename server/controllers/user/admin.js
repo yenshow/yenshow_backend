@@ -4,7 +4,6 @@ import { StatusCodes } from "http-status-codes";
 import { ApiError, successResponse } from "../../utils/responseHandler.js";
 import UserRole from "../../enums/UserRole.js";
 import crypto from "crypto";
-import { signLicensePayload } from "../../utils/licenseSign.js";
 
 /**
  * 獲取用戶列表 (支援過濾)
@@ -429,51 +428,4 @@ export const deleteLicense = async (req, res, next) => {
 	}
 };
 
-/**
- * 離線授權刷新 — 產生帶最新 features 的簽名回應檔（管理員專用）
- * POST /api/users/licenses/:id/offline-refresh
- *
- * 適用場景：客戶追加功能模組後，admin 產生新回應檔帶回離線設備
- * 不改變授權狀態或 usedAt
- */
-export const offlineRefreshLicense = async (req, res, next) => {
-	try {
-		const { id } = req.params;
-		const { nonce } = req.body;
-
-		const license = await License.findById(id);
-
-		if (!license) {
-			throw ApiError.notFound("授權不存在");
-		}
-
-		if (license.status !== "active") {
-			throw ApiError.badRequest("僅支援刷新已啟用的授權（狀態必須為 active）");
-		}
-
-		const responsePayload = {
-			serialNumber: license.serialNumber,
-			licenseKey: license.licenseKey,
-			customerName: license.customerName,
-			product: license.product,
-			features: license.features || [],
-			status: license.status,
-			deviceFingerprint: license.deviceFingerprint || null,
-			activatedAt: license.usedAt ? license.usedAt.toISOString() : null,
-			refreshedAt: new Date().toISOString(),
-			nonce: nonce || null
-		};
-
-		const signature = signLicensePayload(responsePayload);
-
-		return successResponse(res, StatusCodes.OK, "離線授權刷新成功", {
-			result: {
-				...responsePayload,
-				signature
-			}
-		});
-	} catch (error) {
-		next(error);
-	}
-};
 

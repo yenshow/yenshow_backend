@@ -596,23 +596,6 @@ export const useUserStore = defineStore(
       )
     }
 
-    const offlineRefreshLicense = async (licenseId) => {
-      return await safeApiCall(
-        async () => {
-          const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/offline-refresh`)
-
-          if (!data || !data.success) {
-            throw new Error(data?.message || '產生離線回應檔失敗')
-          }
-
-          return { success: true, result: data.result }
-        },
-        {
-          defaultMessage: '產生離線回應檔失敗',
-        },
-      )
-    }
-
     // ===== 客戶端功能 =====
 
     return {
@@ -652,7 +635,6 @@ export const useUserStore = defineStore(
       reviewLicense,
       updateLicense,
       deleteLicense,
-      offlineRefreshLicense,
 
       // 客戶端功能
     }

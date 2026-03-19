@@ -75,6 +75,7 @@ pending ──(審核)──→ available ──(啟用)──→ active ──(
 | POST | `/activate` | 線上啟用（一次性） | 嚴格（1h / 20次） |
 | POST | `/check-status` | 心跳同步（純讀取） | 一般（15min / 10次） |
 | POST | `/offline-activate` | 離線首次啟用 | 嚴格（1h / 20次） |
+| POST | `/offline-refresh` | 離線刷新（features 更新後重新產生回應檔） | 嚴格（1h / 20次） |
 
 ### 4.2 管理 API（`/api/users/licenses`）
 
@@ -88,7 +89,6 @@ pending ──(審核)──→ available ──(啟用)──→ active ──(
 | POST | `/:id/review` | 審核 → 產生 SN/LK | ADMIN |
 | PUT | `/:id` | 更新授權（features、status、notes） | ADMIN, STAFF |
 | DELETE | `/:id` | 刪除授權 | ADMIN, STAFF |
-| POST | `/:id/offline-refresh` | 離線刷新（產生新簽名回應檔） | ADMIN |
 
 ---
 
@@ -205,13 +205,23 @@ pending ──(審核)──→ available ──(啟用)──→ active ──(
 
 ---
 
-## 6. 管理 API — 離線刷新
+## 6. POST `/api/license/offline-refresh`
 
-### POST `/api/users/licenses/:id/offline-refresh`
+離線授權刷新。admin 在後台修改 features 後，操作人員到 `yenshow.com/license/activate`（更新模式）輸入 SN，產生新的簽名回應檔帶回離線設備。
 
-管理員專用。當客戶追加或變更功能模組後，admin 在後台先修改 features，再點「離線刷新」產生新的簽名回應檔。
+**不會改變** `status`、`usedAt`、`deviceFingerprint`。僅限 `active` 狀態的授權。
 
-**不會改變** `status`、`usedAt`、`deviceFingerprint`。
+**Request**
+
+```json
+{
+  "serialNumber": "SN-20260318-0001",
+  "deviceFingerprint": "abc123...",
+  "nonce": null
+}
+```
+
+> `deviceFingerprint` 和 `nonce` 為選填。若提供 `deviceFingerprint`，會與 DB 比對。
 
 **成功 Response（200）**
 
@@ -280,7 +290,7 @@ pending ──(審核)──→ available ──(啟用)──→ active ──(
 
 - `LICENSE_SIGN_SECRET` 必須安全存放，不可洩漏到前端
 - 離線場景下，BA 系統本地需儲存回應檔以供離線驗簽
-- `offline-refresh` 已移至 admin 路由，需登入才能操作
+- `offline-refresh` 為公開 API，但僅回傳 DB 現有資料並簽名，無法提升權限
 
 ---
 
@@ -337,7 +347,6 @@ BA 系統應在本地儲存：
 | `POST /api/license/validate` | 驗證授權 | 與 activate 語義重疊，且會觸發狀態變更 |
 | `POST /api/license/get-license-key` | 以 SN 換 LK | BA 流程以 LK 為主，不再需要 |
 | `POST /api/license/offline-verify` | 驗簽 | 驗簽應由 BA 系統本地執行，不需要呼叫平台 |
-| `POST /api/license/offline-refresh` | 離線刷新（公開） | 已移至 admin 路由（`/api/users/licenses/:id/offline-refresh`），需登入 |
 
 ---
 
@@ -356,4 +365,4 @@ BA 系統應在本地儲存：
 | 層級 | 視窗 | 上限 | 適用路由 |
 |------|------|------|----------|
 | 一般 | 15 分鐘 | 10 次 | check-status |
-| 嚴格 | 1 小時 | 20 次 | activate、offline-activate |
+| 嚴格 | 1 小時 | 20 次 | activate、offline-activate、offline-refresh |

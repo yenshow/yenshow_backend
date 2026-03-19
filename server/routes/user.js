@@ -10,8 +10,7 @@ import {
 	createLicense,
 	reviewLicense,
 	updateLicense,
-	deleteLicense,
-	offlineRefreshLicense
+	deleteLicense
 } from "../controllers/user/admin.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { checkRole, Permissions } from "../middlewares/permission.js";
@@ -44,6 +43,5 @@ router.post("/licenses", checkRole([Permissions.ADMIN, Permissions.STAFF]), crea
 router.post("/licenses/:id/review", checkRole([Permissions.ADMIN]), reviewLicense); // 審核功能僅限 ADMIN
 router.put("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), updateLicense);
 router.delete("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), deleteLicense);
-router.post("/licenses/:id/offline-refresh", checkRole([Permissions.ADMIN]), offlineRefreshLicense);
 
 export default router;

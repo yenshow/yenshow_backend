@@ -203,6 +203,69 @@ class LicenseController {
 			next(error);
 		}
 	}
+	/**
+	 * 離線刷新 — 產生帶最新 features 的簽名回應檔
+	 * POST /api/license/offline-refresh
+	 *
+	 * 適用場景：admin 在後台修改 features 後，操作人員到此頁面產生新回應檔帶回設備
+	 * 不改變授權狀態或 usedAt
+	 */
+	static async offlineRefresh(req, res, next) {
+		try {
+			const { serialNumber, deviceFingerprint, nonce } = req.body;
+
+			if (!serialNumber) {
+				throw ApiError.badRequest("需要提供 serialNumber");
+			}
+
+			const license = await License.findOne({ serialNumber });
+
+			if (!license) {
+				throw ApiError.notFound("找不到對應的授權", {
+					code: "LICENSE_NOT_FOUND",
+					message: `找不到 SerialNumber 為「${serialNumber}」的授權`
+				});
+			}
+
+			if (license.status !== "active") {
+				throw ApiError.forbidden(
+					`此授權狀態為「${STATUS_MESSAGES[license.status] || license.status}」，僅支援刷新已啟用的授權`,
+					{ code: "LICENSE_NOT_ACTIVE", status: license.status }
+				);
+			}
+
+			if (deviceFingerprint && license.deviceFingerprint && license.deviceFingerprint !== deviceFingerprint) {
+				throw ApiError.forbidden("設備指紋不符，無法為此設備刷新授權", {
+					code: "DEVICE_MISMATCH"
+				});
+			}
+
+			const responsePayload = {
+				serialNumber: license.serialNumber,
+				licenseKey: license.licenseKey,
+				customerName: license.customerName,
+				product: license.product,
+				features: license.features || [],
+				status: license.status,
+				deviceFingerprint: license.deviceFingerprint || deviceFingerprint || null,
+				activatedAt: license.usedAt ? license.usedAt.toISOString() : null,
+				refreshedAt: new Date().toISOString(),
+				nonce: nonce || null
+			};
+
+			const signature = signLicensePayload(responsePayload);
+
+			return successResponse(res, StatusCodes.OK, "離線授權刷新成功", {
+				result: {
+					...responsePayload,
+					signature
+				}
+			});
+		} catch (error) {
+			console.error("離線授權刷新失敗:", error);
+			next(error);
+		}
+	}
 }
 
 export default LicenseController;

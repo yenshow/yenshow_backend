@@ -116,18 +116,6 @@
                       編輯
                     </button>
                     <button
-                      v-if="license.status === 'active' && isAdmin"
-                      @click="handleOfflineRefresh(license)"
-                      :disabled="refreshingLicense === (license._id || license.id)"
-                      class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                    >
-                      <span
-                        v-if="refreshingLicense === (license._id || license.id)"
-                        class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                      ></span>
-                      離線刷新
-                    </button>
-                    <button
                       @click="handleDeleteLicense(license)"
                       :disabled="deletingLicense === (license._id || license.id)"
                       class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
@@ -568,7 +556,6 @@ const editingLicense = ref(null)
 const creatingLicense = ref(false)
 const updatingLicense = ref(false)
 const deletingLicense = ref(null)
-const refreshingLicense = ref(null)
 
 // 狀態下拉選單（統一樣式）
 const statusDropdownRef = ref(null)
@@ -811,27 +798,6 @@ const handleUpdateLicense = async () => {
     notify.notifyError(err.response?.data?.message || '更新授權失敗，請稍後再試')
   } finally {
     updatingLicense.value = false
-  }
-}
-
-const handleOfflineRefresh = async (license) => {
-  const licenseId = license._id || license.id
-  refreshingLicense.value = licenseId
-  try {
-    const res = await userStore.offlineRefreshLicense(licenseId)
-    if (res?.success && res.result) {
-      const blob = new Blob([JSON.stringify(res.result, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `license-update-${res.result.serialNumber}.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    }
-  } finally {
-    refreshingLicense.value = null
   }
 }
 
