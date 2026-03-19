@@ -4,20 +4,11 @@ import { licenseRateLimit, licenseStrictRateLimit } from "../middlewares/rateLim
 
 const router = Router();
 
-// 公開 API - 不需要身份驗證（客戶端使用）
-// 但需要速率限制以防止惡意請求
+// 公開 API — 不需要身份驗證，但有速率限制
+// BA 後端呼叫：建議用 licenseKey 查詢（比 serialNumber 安全）
 
-// 一般操作：15 分鐘內最多 10 次請求
-router.post("/get-license-key", licenseRateLimit, LicenseController.getLicenseKey);
-router.post("/check-status", licenseRateLimit, LicenseController.checkStatus);
-
-// 敏感操作：1 小時內最多 20 次請求（驗證、啟用）
-router.post("/validate", licenseStrictRateLimit, LicenseController.validate);
 router.post("/activate", licenseStrictRateLimit, LicenseController.activate);
-
-// 離線授權操作（敏感操作，使用嚴格速率限制）
+router.post("/check-status", licenseRateLimit, LicenseController.checkStatus);
 router.post("/offline-activate", licenseStrictRateLimit, LicenseController.offlineActivate);
-router.post("/offline-refresh", licenseStrictRateLimit, LicenseController.offlineRefresh);
-router.post("/offline-verify", licenseStrictRateLimit, LicenseController.offlineVerify);
 
 export default router;

@@ -44,8 +44,8 @@ export const licenseRateLimit = rateLimit({
 });
 
 /**
- * 更嚴格的 License 驗證速率限制
- * 用於 validate 和 activate 等敏感操作
+ * 更嚴格的 License 速率限制
+ * 用於 activate、offline-activate 等敏感操作
  * 限制每個 IP 在 1 小時內最多 20 次請求
  */
 export const licenseStrictRateLimit = rateLimit({

@@ -14,10 +14,10 @@ const licenseSchema = new Schema(
 		// 0. 產品/系統類別
 		product: {
 			type: String,
-			enum: ["line-bot", "BA-system"],
-			required: [true, "產品類別必填"],
+			enum: ["BA-system"],
+			default: "BA-system",
 			index: true,
-			comment: "產品/系統類別：line-bot=LINE Bot, BA-system=BA 系統"
+			comment: "產品類別"
 		},
 		// 0.1 授權功能模組（BA-system 專用，買斷制）
 		features: {
