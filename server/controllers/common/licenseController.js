@@ -18,16 +18,18 @@ const formatDateTW = (date) => {
 	});
 };
 
-const findLicense = async ({ licenseKey, serialNumber }) => {
-	if (!licenseKey && !serialNumber) {
-		throw ApiError.badRequest("需要提供 licenseKey 或 serialNumber");
+/**
+ * 用 licenseKey 查詢授權（所有 API 統一用 LK）
+ */
+const findLicenseByKey = async (licenseKey) => {
+	if (!licenseKey) {
+		throw ApiError.badRequest("需要提供 licenseKey");
 	}
-	const query = licenseKey ? { licenseKey } : { serialNumber };
-	const license = await License.findOne(query);
+	const license = await License.findOne({ licenseKey });
 	if (!license) {
 		throw ApiError.notFound("找不到對應的授權", {
 			code: "LICENSE_NOT_FOUND",
-			message: "請確認授權資訊是否正確"
+			message: "請確認 License Key 是否正確"
 		});
 	}
 	return license;
@@ -45,11 +47,10 @@ const formatLicenseResult = (license) => ({
 
 /**
  * 統一離線回應檔 payload（activate 和 refresh 共用相同欄位集）
- * BA 端只需一套 import / 驗簽邏輯
  */
 const buildOfflinePayload = (license, { deviceFingerprint, nonce, refreshedAt }) => ({
-	serialNumber: license.serialNumber,
 	licenseKey: license.licenseKey,
+	serialNumber: license.serialNumber,
 	customerName: license.customerName,
 	product: license.product,
 	features: license.features || [],
@@ -63,13 +64,8 @@ const buildOfflinePayload = (license, { deviceFingerprint, nonce, refreshedAt })
 /**
  * 公開授權 API Controller
  *
- * 線上 API：
- *  - activate        線上啟用（一次性）
- *  - checkStatus     心跳同步（純讀取）
- *
- * 離線 API：
- *  - offlineActivate 離線首次啟用（需 request file）
- *  - offlineRefresh  離線刷新（只需 SN）
+ * 所有 API 統一以 licenseKey 為查詢鍵。
+ * serialNumber 僅保留在 DB 供後台管理 / 稽核使用。
  */
 class LicenseController {
 	/**
@@ -78,7 +74,7 @@ class LicenseController {
 	 */
 	static async activate(req, res, next) {
 		try {
-			const license = await findLicense(req.body);
+			const license = await findLicenseByKey(req.body.licenseKey);
 
 			if (license.status !== "available" && license.status !== "active") {
 				throw ApiError.forbidden(
@@ -115,7 +111,7 @@ class LicenseController {
 	 */
 	static async checkStatus(req, res, next) {
 		try {
-			const license = await findLicense(req.body);
+			const license = await findLicenseByKey(req.body.licenseKey);
 
 			return successResponse(res, StatusCodes.OK, "獲取授權狀態成功", {
 				result: formatLicenseResult(license)
@@ -129,26 +125,21 @@ class LicenseController {
 	/**
 	 * 離線啟用（首次）
 	 * POST /api/license/offline-activate
+	 *
+	 * request file: { licenseKey, deviceFingerprint, nonce }
 	 */
 	static async offlineActivate(req, res, next) {
 		try {
-			const { serialNumber, deviceFingerprint, nonce } = req.body;
+			const { licenseKey, deviceFingerprint, nonce } = req.body;
 
-			if (!serialNumber) {
-				throw ApiError.badRequest("請求檔缺少 serialNumber");
+			if (!licenseKey) {
+				throw ApiError.badRequest("請求檔缺少 licenseKey");
 			}
 			if (!deviceFingerprint) {
 				throw ApiError.badRequest("請求檔缺少 deviceFingerprint（設備指紋）");
 			}
 
-			const license = await License.findOne({ serialNumber });
-
-			if (!license) {
-				throw ApiError.notFound("找不到對應的授權", {
-					code: "LICENSE_NOT_FOUND",
-					message: `找不到 SerialNumber 為「${serialNumber}」的授權`
-				});
-			}
+			const license = await findLicenseByKey(licenseKey);
 
 			if (license.status !== "available" && license.status !== "active") {
 				throw ApiError.forbidden(
@@ -195,20 +186,9 @@ class LicenseController {
 	 */
 	static async offlineRefresh(req, res, next) {
 		try {
-			const { serialNumber, deviceFingerprint, nonce } = req.body;
+			const { licenseKey, deviceFingerprint, nonce } = req.body;
 
-			if (!serialNumber) {
-				throw ApiError.badRequest("需要提供 serialNumber");
-			}
-
-			const license = await License.findOne({ serialNumber });
-
-			if (!license) {
-				throw ApiError.notFound("找不到對應的授權", {
-					code: "LICENSE_NOT_FOUND",
-					message: `找不到 SerialNumber 為「${serialNumber}」的授權`
-				});
-			}
+			const license = await findLicenseByKey(licenseKey);
 
 			if (license.status !== "active") {
 				throw ApiError.forbidden(
