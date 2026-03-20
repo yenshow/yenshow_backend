@@ -20,6 +20,8 @@ import contactRoutes from "./routes/contactRoutes.js";
 import lineRoutes from "./routes/line.js";
 import caseStudyRoutes from "./routes/caseStudy.js";
 import licenseRoutes from "./routes/license.js";
+import documentsRoutes from "./routes/documents.js";
+import { signedStorageDownloadMiddleware } from "./middlewares/signedStorageDownload.js";
 // 導入模型 - 僅用於初始化檢查，確保模型正確載入
 import "./models/products.js";
 import "./models/categories.js";
@@ -216,17 +218,22 @@ const configureRoutes = (app) => {
 	app.use("/api", hierarchyRoutes);
 	app.use("/api", contactRoutes);
 	app.use("/api", caseStudyRoutes);
+	app.use("/api/documents", documentsRoutes);
 
 	// 提供靜態資源
 	app.use(
 		"/storage",
+		signedStorageDownloadMiddleware,
 		express.static(path.join(process.env.FILES_ROOT || "/app/storage"), {
 			maxAge: "1d", // 靜態資源快取 1 天
 			setHeaders: (res, path) => {
 				// 根據文件類型設置不同的快取策略
 				if (path.endsWith(".pdf")) {
 					// PDF 文件快取時間較長
-					res.setHeader("Cache-Control", "public, max-age=604800"); // 7 天
+					// 若為受保護的 signed PDF，Cache 控制會由 signedStorageDownloadMiddleware 設定成 private/no-store
+					if (!res.locals.signedProtectedPdf) {
+						res.setHeader("Cache-Control", "public, max-age=604800"); // 7 天
+					}
 				} else if (path.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
 					// 圖片快取時間適中
 					res.setHeader("Cache-Control", "public, max-age=86400"); // 1 天

@@ -558,6 +558,49 @@ export const useUserStore = defineStore(
       )
     }
 
+    const extendLicense = async (licenseId, extensionData) => {
+      return await safeApiCall(
+        async () => {
+          const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/extend`, {
+            features: extensionData.features,
+            notes: extensionData.notes || null,
+          })
+
+          if (!data || !data.success) {
+            throw new Error(data?.message || '追加功能失敗')
+          }
+
+          notify.notifySuccess('副 LK 建立成功')
+          return { success: true, message: data.message || '副 LK 建立成功' }
+        },
+        {
+          defaultMessage: '追加功能失敗',
+        },
+      )
+    }
+
+    const unbindLicense = async (licenseId) => {
+      return await safeApiCall(
+        async () => {
+          const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/unbind`)
+
+          if (!data || !data.success) {
+            throw new Error(data?.message || '解除綁定失敗')
+          }
+
+          const extensionsReset = data.result?.extensionsReset || data.extensionsReset || 0
+          const msg = extensionsReset > 0
+            ? `解除綁定成功，已重置 ${extensionsReset} 組副 LK`
+            : '解除綁定成功'
+          notify.notifySuccess(msg)
+          return { success: true, message: msg }
+        },
+        {
+          defaultMessage: '解除綁定失敗',
+        },
+      )
+    }
+
     const deleteLicense = async (licenseId) => {
       return await safeApiCall(
         async () => {
@@ -633,6 +676,8 @@ export const useUserStore = defineStore(
       getAllLicenses,
       createLicense,
       reviewLicense,
+      extendLicense,
+      unbindLicense,
       updateLicense,
       deleteLicense,
 

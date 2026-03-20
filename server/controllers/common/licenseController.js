@@ -6,16 +6,7 @@ import License from "../../models/License.js";
 const STATUS_MESSAGES = {
 	pending: "審核中",
 	available: "可啟用",
-	active: "使用中",
-	inactive: "已停用"
-};
-
-const formatDateTW = (date) => {
-	return new Date(date).toLocaleDateString("zh-TW", {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit"
-	});
+	active: "使用中"
 };
 
 /**
@@ -35,64 +26,102 @@ const findLicenseByKey = async (licenseKey) => {
 	return license;
 };
 
+/**
+ * 線上 API 回應格式（不含 customerName、usedAt，加入 deviceFingerprint）
+ */
 const formatLicenseResult = (license) => ({
 	serialNumber: license.serialNumber,
 	licenseKey: license.licenseKey,
 	product: license.product,
 	features: license.features || [],
 	status: license.status,
-	customerName: license.customerName,
-	usedAt: license.usedAt
+	deviceFingerprint: license.deviceFingerprint || null
 });
 
 /**
- * 統一離線回應檔 payload（activate 和 refresh 共用相同欄位集）
+ * 離線回應檔 payload（不含 customerName、nonce、refreshedAt）
  */
-const buildOfflinePayload = (license, { deviceFingerprint, nonce, refreshedAt }) => ({
+const buildOfflinePayload = (license, { isExtension, parentLicenseKey }) => ({
 	licenseKey: license.licenseKey,
 	serialNumber: license.serialNumber,
-	customerName: license.customerName,
 	product: license.product,
 	features: license.features || [],
 	status: license.status,
-	deviceFingerprint: deviceFingerprint || null,
-	activatedAt: license.usedAt ? license.usedAt.toISOString() : null,
-	refreshedAt: refreshedAt || null,
-	nonce: nonce || null
+	deviceFingerprint: license.deviceFingerprint || null,
+	activatedAt: new Date().toISOString(),
+	isExtension,
+	parentLicenseKey: parentLicenseKey || null
 });
+
+/**
+ * 驗證副 LK 的主 LK 狀態與設備指紋一致性
+ * Server 端比對 DB 中主 LK 記錄的 fingerprint（不信任 client 傳來的值）
+ */
+const validateSubLicense = async (license, deviceFingerprint) => {
+	const parentLicense = await License.findOne({ licenseKey: license.parentLicenseKey });
+
+	if (!parentLicense) {
+		throw ApiError.notFound("找不到此副 LK 的主授權", {
+			code: "PARENT_NOT_FOUND"
+		});
+	}
+
+	if (parentLicense.status !== "active") {
+		throw ApiError.forbidden("主授權尚未啟用，無法啟用副授權", {
+			code: "PARENT_NOT_ACTIVE",
+			parentStatus: parentLicense.status
+		});
+	}
+
+	if (!parentLicense.deviceFingerprint || parentLicense.deviceFingerprint !== deviceFingerprint) {
+		throw ApiError.forbidden("設備指紋與主授權綁定的設備不一致", {
+			code: "DEVICE_MISMATCH"
+		});
+	}
+
+	return parentLicense;
+};
 
 /**
  * 公開授權 API Controller
  *
  * 所有 API 統一以 licenseKey 為查詢鍵。
- * serialNumber 僅保留在 DB 供後台管理 / 稽核使用。
+ * 支援主 LK 首次啟用、副 LK 功能追加、主 LK 換機啟用。
  */
 class LicenseController {
 	/**
 	 * 線上啟用
 	 * POST /api/license/activate
+	 *
+	 * 行為邏輯：
+	 * - 主 LK（無 parentLicenseKey）：綁定 deviceFingerprint → active
+	 * - 副 LK（有 parentLicenseKey）：驗證主 LK 已 active 且 DB 中指紋一致 → active
 	 */
 	static async activate(req, res, next) {
 		try {
-			const license = await findLicenseByKey(req.body.licenseKey);
+			const { licenseKey, deviceFingerprint } = req.body;
 
-			if (license.status !== "available" && license.status !== "active") {
+			if (!deviceFingerprint) {
+				throw ApiError.badRequest("需要提供 deviceFingerprint（設備指紋）");
+			}
+
+			const license = await findLicenseByKey(licenseKey);
+
+			if (license.status !== "available") {
 				throw ApiError.forbidden(
 					`無法啟用授權：授權狀態為「${STATUS_MESSAGES[license.status] || license.status}」`,
 					{ code: "LICENSE_NOT_AVAILABLE", status: license.status }
 				);
 			}
 
-			if (license.usedAt) {
-				throw ApiError.forbidden("此授權已經被使用過，無法再次啟用", {
-					code: "LICENSE_ALREADY_USED",
-					usedAt: license.usedAt,
-					message: `此授權已於 ${formatDateTW(license.usedAt)} 啟用過`
-				});
+			const isExtension = !!license.parentLicenseKey;
+
+			if (isExtension) {
+				await validateSubLicense(license, deviceFingerprint);
 			}
 
-			license.usedAt = new Date();
 			license.status = "active";
+			license.deviceFingerprint = deviceFingerprint;
 			license.activationMethod = "online";
 			await license.save();
 
@@ -106,69 +135,47 @@ class LicenseController {
 	}
 
 	/**
-	 * 心跳同步
-	 * POST /api/license/check-status
-	 */
-	static async checkStatus(req, res, next) {
-		try {
-			const license = await findLicenseByKey(req.body.licenseKey);
-
-			return successResponse(res, StatusCodes.OK, "獲取授權狀態成功", {
-				result: formatLicenseResult(license)
-			});
-		} catch (error) {
-			console.error("檢查授權狀態失敗:", error);
-			next(error);
-		}
-	}
-
-	/**
-	 * 離線啟用（首次）
+	 * 離線啟用
 	 * POST /api/license/offline-activate
 	 *
-	 * request file: { licenseKey, deviceFingerprint, nonce }
+	 * 統一處理主 LK 首次啟用與副 LK 功能追加。
+	 * Request body: { licenseKey, deviceFingerprint }
 	 */
 	static async offlineActivate(req, res, next) {
 		try {
-			const { licenseKey, deviceFingerprint, nonce } = req.body;
+			const { licenseKey, deviceFingerprint } = req.body;
 
 			if (!licenseKey) {
-				throw ApiError.badRequest("請求檔缺少 licenseKey");
+				throw ApiError.badRequest("請求缺少 licenseKey");
 			}
 			if (!deviceFingerprint) {
-				throw ApiError.badRequest("請求檔缺少 deviceFingerprint（設備指紋）");
+				throw ApiError.badRequest("請求缺少 deviceFingerprint（設備指紋）");
 			}
 
 			const license = await findLicenseByKey(licenseKey);
 
-			if (license.status !== "available" && license.status !== "active") {
+			if (license.status !== "available") {
 				throw ApiError.forbidden(
 					`無法啟用授權：授權狀態為「${STATUS_MESSAGES[license.status] || license.status}」`,
 					{ code: "LICENSE_NOT_AVAILABLE", status: license.status }
 				);
 			}
 
-			if (license.usedAt) {
-				throw ApiError.forbidden("此授權已經被使用過，無法再次啟用", {
-					code: "LICENSE_ALREADY_USED",
-					usedAt: license.usedAt,
-					message: `此授權已於 ${formatDateTW(license.usedAt)} 啟用過`
-				});
+			const isExtension = !!license.parentLicenseKey;
+
+			if (isExtension) {
+				await validateSubLicense(license, deviceFingerprint);
 			}
 
-			if (license.deviceFingerprint && license.deviceFingerprint !== deviceFingerprint) {
-				throw ApiError.forbidden("此授權已綁定其他設備，無法在此設備上啟用", {
-					code: "DEVICE_MISMATCH"
-				});
-			}
-
-			license.usedAt = new Date();
 			license.status = "active";
 			license.deviceFingerprint = deviceFingerprint;
 			license.activationMethod = "offline";
 			await license.save();
 
-			const payload = buildOfflinePayload(license, { deviceFingerprint, nonce, refreshedAt: null });
+			const payload = buildOfflinePayload(license, {
+				isExtension,
+				parentLicenseKey: license.parentLicenseKey
+			});
 			const signature = signLicensePayload(payload);
 
 			return successResponse(res, StatusCodes.OK, "離線授權啟用成功", {
@@ -176,46 +183,6 @@ class LicenseController {
 			});
 		} catch (error) {
 			console.error("離線授權啟用失敗:", error);
-			next(error);
-		}
-	}
-
-	/**
-	 * 離線刷新（features 更新後重新簽名）
-	 * POST /api/license/offline-refresh
-	 */
-	static async offlineRefresh(req, res, next) {
-		try {
-			const { licenseKey, deviceFingerprint, nonce } = req.body;
-
-			const license = await findLicenseByKey(licenseKey);
-
-			if (license.status !== "active") {
-				throw ApiError.forbidden(
-					`此授權狀態為「${STATUS_MESSAGES[license.status] || license.status}」，僅支援刷新已啟用的授權`,
-					{ code: "LICENSE_NOT_ACTIVE", status: license.status }
-				);
-			}
-
-			if (deviceFingerprint && license.deviceFingerprint && license.deviceFingerprint !== deviceFingerprint) {
-				throw ApiError.forbidden("設備指紋不符，無法為此設備刷新授權", {
-					code: "DEVICE_MISMATCH"
-				});
-			}
-
-			const fp = license.deviceFingerprint || deviceFingerprint || null;
-			const payload = buildOfflinePayload(license, {
-				deviceFingerprint: fp,
-				nonce,
-				refreshedAt: new Date().toISOString()
-			});
-			const signature = signLicensePayload(payload);
-
-			return successResponse(res, StatusCodes.OK, "離線授權刷新成功", {
-				result: { ...payload, signature }
-			});
-		} catch (error) {
-			console.error("離線授權刷新失敗:", error);
 			next(error);
 		}
 	}

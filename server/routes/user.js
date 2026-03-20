@@ -9,6 +9,8 @@ import {
 	getLicense,
 	createLicense,
 	reviewLicense,
+	extendLicense,
+	unbindLicense,
 	updateLicense,
 	deleteLicense
 } from "../controllers/user/admin.js";
@@ -40,7 +42,9 @@ router.delete("/users/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), d
 router.get("/licenses", checkRole([Permissions.ADMIN, Permissions.STAFF]), getLicenses);
 router.get("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), getLicense);
 router.post("/licenses", checkRole([Permissions.ADMIN, Permissions.STAFF]), createLicense);
-router.post("/licenses/:id/review", checkRole([Permissions.ADMIN]), reviewLicense); // 審核功能僅限 ADMIN
+router.post("/licenses/:id/review", checkRole([Permissions.ADMIN]), reviewLicense);
+router.post("/licenses/:id/extend", checkRole([Permissions.ADMIN]), extendLicense);
+router.post("/licenses/:id/unbind", checkRole([Permissions.ADMIN]), unbindLicense);
 router.put("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), updateLicense);
 router.delete("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), deleteLicense);
 

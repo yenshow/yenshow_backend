@@ -157,17 +157,35 @@ export const deleteUser = async (req, res, next) => {
 // ==================== 授權管理功能 ====================
 
 /**
- * 獲取授權列表
+ * 獲取授權列表（預設僅回傳主 LK，附帶副 LK 資訊）
  */
 export const getLicenses = async (req, res, next) => {
 	try {
-		const { status, product, sort = "-createdAt" } = req.query;
+		const { status, product, sort = "-createdAt", includeExtensions } = req.query;
 		const filter = {};
 
 		if (status) filter.status = status;
 		if (product) filter.product = product;
+		if (!includeExtensions) filter.parentLicenseKey = null;
 
-		const licenses = await License.find(filter).sort(sort);
+		const licenses = await License.find(filter).sort(sort).lean();
+
+		if (!includeExtensions) {
+			const licenseKeys = licenses.filter(l => l.licenseKey).map(l => l.licenseKey);
+			if (licenseKeys.length > 0) {
+				const extensions = await License.find({ parentLicenseKey: { $in: licenseKeys } }).sort("-createdAt").lean();
+				const extensionMap = {};
+				for (const ext of extensions) {
+					if (!extensionMap[ext.parentLicenseKey]) {
+						extensionMap[ext.parentLicenseKey] = [];
+					}
+					extensionMap[ext.parentLicenseKey].push(ext);
+				}
+				for (const license of licenses) {
+					license.extensions = license.licenseKey ? (extensionMap[license.licenseKey] || []) : [];
+				}
+			}
+		}
 
 		return successResponse(res, StatusCodes.OK, "獲取授權列表成功", { licenses });
 	} catch (error) {
@@ -176,7 +194,7 @@ export const getLicenses = async (req, res, next) => {
 };
 
 /**
- * 獲取單一授權
+ * 獲取單一授權（含其下所有副 LK）
  */
 export const getLicense = async (req, res, next) => {
 	try {
@@ -188,7 +206,12 @@ export const getLicense = async (req, res, next) => {
 			throw ApiError.notFound("授權不存在");
 		}
 
-		return successResponse(res, StatusCodes.OK, "獲取授權成功", { license });
+		let extensions = [];
+		if (license.licenseKey && !license.parentLicenseKey) {
+			extensions = await License.find({ parentLicenseKey: license.licenseKey }).sort("-createdAt");
+		}
+
+		return successResponse(res, StatusCodes.OK, "獲取授權成功", { license, extensions });
 	} catch (error) {
 		next(error);
 	}
@@ -373,9 +396,8 @@ export const updateLicense = async (req, res, next) => {
 			license.features = features;
 		}
 
-		// 更新狀態
-		if (status !== undefined) {
-			if (!["pending", "available", "active", "inactive"].includes(status)) {
+			if (status !== undefined) {
+			if (!["pending", "available", "active"].includes(status)) {
 				throw ApiError.badRequest("無效的狀態值");
 			}
 			
@@ -390,10 +412,6 @@ export const updateLicense = async (req, res, next) => {
 				}
 			}
 			
-			if (status === "active" && !license.usedAt) {
-				license.usedAt = new Date();
-			}
-			
 			license.status = status;
 		}
 
@@ -404,6 +422,106 @@ export const updateLicense = async (req, res, next) => {
 		await license.save();
 
 		return successResponse(res, StatusCodes.OK, "授權更新成功", { license });
+	} catch (error) {
+		next(error);
+	}
+};
+
+/**
+ * 追加功能 → 產生副 LK
+ * POST /api/users/licenses/:id/extend
+ * 只能對已審核的主 LK 追加功能
+ */
+export const extendLicense = async (req, res, next) => {
+	try {
+		const { id } = req.params;
+		const { features, notes } = req.body;
+		const reviewer = getReviewer(req.user);
+
+		const parentLicense = await License.findById(id);
+		if (!parentLicense) {
+			throw ApiError.notFound("授權不存在");
+		}
+
+		if (parentLicense.parentLicenseKey) {
+			throw ApiError.badRequest("無法對副 LK 追加功能，請選擇主授權");
+		}
+
+		if (!parentLicense.licenseKey) {
+			throw ApiError.badRequest("主授權尚未審核，請先完成審核");
+		}
+
+		if (!Array.isArray(features) || features.length === 0) {
+			throw ApiError.badRequest("必須指定至少一個追加功能模組");
+		}
+		const invalidFeatures = features.filter((f) => !VALID_BA_FEATURES.includes(f));
+		if (invalidFeatures.length > 0) {
+			throw ApiError.badRequest(`無效的功能模組：${invalidFeatures.join(", ")}`);
+		}
+
+		const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
+
+		const extension = await License.create({
+			product: parentLicense.product,
+			features,
+			customerName: parentLicense.customerName,
+			serialNumber,
+			licenseKey,
+			parentLicenseKey: parentLicense.licenseKey,
+			status: "available",
+			applicant: reviewer,
+			appliedAt: new Date(),
+			reviewer,
+			reviewedAt: new Date(),
+			notes: notes || null
+		});
+
+		return successResponse(res, StatusCodes.CREATED, "副 LK 建立成功", { license: extension });
+	} catch (error) {
+		next(error);
+	}
+};
+
+/**
+ * 解除設備綁定 → available
+ * POST /api/users/licenses/:id/unbind
+ * 主 LK 解除綁定時，其下所有副 LK 也一併重置為 available
+ */
+export const unbindLicense = async (req, res, next) => {
+	try {
+		const { id } = req.params;
+
+		const license = await License.findById(id);
+		if (!license) {
+			throw ApiError.notFound("授權不存在");
+		}
+
+		if (license.status !== "active") {
+			throw ApiError.badRequest("只能解除「使用中」狀態的授權綁定");
+		}
+
+		if (license.parentLicenseKey) {
+			throw ApiError.badRequest("無法單獨解除副 LK 綁定，請解除主授權綁定");
+		}
+
+		let extensionsReset = 0;
+		if (license.licenseKey) {
+			const result = await License.updateMany(
+				{ parentLicenseKey: license.licenseKey, status: "active" },
+				{ $set: { status: "available", deviceFingerprint: null, activationMethod: null } }
+			);
+			extensionsReset = result.modifiedCount;
+		}
+
+		license.status = "available";
+		license.deviceFingerprint = null;
+		license.activationMethod = null;
+		await license.save();
+
+		return successResponse(res, StatusCodes.OK, "解除綁定成功", {
+			license,
+			extensionsReset
+		});
 	} catch (error) {
 		next(error);
 	}
