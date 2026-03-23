@@ -568,14 +568,16 @@ export const useUserStore = defineStore(
           })
 
           if (!data || !data.success) {
-            throw new Error(data?.message || '追加功能失敗')
+            throw new Error(data?.message || '追加授權失敗')
           }
 
-          notify.notifySuccess('副 LK 建立成功')
-          return { success: true, message: data.message || '副 LK 建立成功' }
+          return {
+            success: true,
+            message: data.message || '副授權申請已建立，待審核通過後將產生 License Key',
+          }
         },
         {
-          defaultMessage: '追加功能失敗',
+          defaultMessage: '追加授權失敗',
         },
       )
     }
@@ -590,9 +592,8 @@ export const useUserStore = defineStore(
           }
 
           const extensionsReset = data.result?.extensionsReset || data.extensionsReset || 0
-          const msg = extensionsReset > 0
-            ? `解除綁定成功，已重置 ${extensionsReset} 組副 LK`
-            : '解除綁定成功'
+          const msg =
+            extensionsReset > 0 ? `解除綁定成功，已重置 ${extensionsReset} 組副 LK` : '解除綁定成功'
           notify.notifySuccess(msg)
           return { success: true, message: msg }
         },

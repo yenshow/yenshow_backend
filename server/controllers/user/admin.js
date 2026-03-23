@@ -279,9 +279,9 @@ const getReviewer = (user) => {
 
 /**
  * 審核授權（管理員專用）
- * 自動生成 serialNumber 和 licenseKey
- * status 變更為 available（可啟用）
- * 記錄審核人和審核時間
+ * 主 LK：自動生成 serialNumber + licenseKey
+ * 副 LK：僅生成 licenseKey（無 SerialNumber）
+ * status 變更為 available（可啟用），記錄審核人與時間
  */
 export const reviewLicense = async (req, res, next) => {
 	try {
@@ -299,12 +299,15 @@ export const reviewLicense = async (req, res, next) => {
 			throw ApiError.badRequest("此授權已經審核過，無法再次審核");
 		}
 
-		// 使用輔助函數生成 SerialNumber 和 License Key
-		const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
+		// 主 LK：產生 SN + LK；副 LK：僅產生 LK（無 SerialNumber）
+		if (license.parentLicenseKey) {
+			license.licenseKey = await generateLicenseKey();
+		} else {
+			const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
+			license.serialNumber = serialNumber;
+			license.licenseKey = licenseKey;
+		}
 
-		// 更新授權：生成 serialNumber 和 licenseKey，變更狀態為 available，記錄審核資訊
-		license.serialNumber = serialNumber;
-		license.licenseKey = licenseKey;
 		license.status = "available";
 		license.reviewer = reviewer;
 		license.reviewedAt = new Date();
@@ -436,10 +439,16 @@ export const updateLicense = async (req, res, next) => {
 				throw ApiError.badRequest("無效的狀態值");
 			}
 
-			if (status === "available" && (!license.serialNumber || !license.licenseKey)) {
-				const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
-				license.serialNumber = serialNumber;
-				license.licenseKey = licenseKey;
+			if (status === "available") {
+				if (license.parentLicenseKey) {
+					if (!license.licenseKey) {
+						license.licenseKey = await generateLicenseKey();
+					}
+				} else if (!license.serialNumber || !license.licenseKey) {
+					const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
+					license.serialNumber = serialNumber;
+					license.licenseKey = licenseKey;
+				}
 
 				if (!license.reviewer) {
 					license.reviewer = reviewer;
@@ -463,15 +472,14 @@ export const updateLicense = async (req, res, next) => {
 };
 
 /**
- * 追加功能 → 產生副 LK
+ * 追加授權 → 建立副授權申請（pending，尚無 licenseKey）
  * POST /api/users/licenses/:id/extend
- * 只能對已審核的主 LK 追加功能
+ * 只能對已審核的主 LK 追加授權；須再呼叫 review 才產生副 LK
  */
 export const extendLicense = async (req, res, next) => {
 	try {
 		const { id } = req.params;
 		const { features, notes, applicant } = req.body;
-		const reviewer = getReviewer(req.user);
 
 		const parentLicense = await License.findById(id);
 		if (!parentLicense) {
@@ -479,7 +487,7 @@ export const extendLicense = async (req, res, next) => {
 		}
 
 		if (parentLicense.parentLicenseKey) {
-			throw ApiError.badRequest("無法對副 LK 追加功能，請選擇主授權");
+			throw ApiError.badRequest("無法對副 LK 追加授權，請選擇主授權");
 		}
 
 		if (!parentLicense.licenseKey) {
@@ -491,30 +499,27 @@ export const extendLicense = async (req, res, next) => {
 		}
 
 		if (!Array.isArray(features) || features.length === 0) {
-			throw ApiError.badRequest("必須指定至少一個追加功能模組");
+			throw ApiError.badRequest("必須指定至少一個追加授權模組");
 		}
 		const invalidFeatures = features.filter((f) => !VALID_BA_FEATURES.includes(f));
 		if (invalidFeatures.length > 0) {
 			throw ApiError.badRequest(`無效的功能模組：${invalidFeatures.join(", ")}`);
 		}
 
-		const licenseKey = await generateLicenseKey();
-
 		const extension = await License.create({
 			product: parentLicense.product,
 			features,
 			customerName: parentLicense.customerName,
-			licenseKey,
 			parentLicenseKey: parentLicense.licenseKey,
-			status: "available",
+			status: "pending",
 			applicant,
 			appliedAt: new Date(),
-			reviewer,
-			reviewedAt: new Date(),
 			notes: notes || null
 		});
 
-		return successResponse(res, StatusCodes.CREATED, "副 LK 建立成功", { license: extension });
+		return successResponse(res, StatusCodes.CREATED, "副授權申請已建立，待審核通過後將產生 License Key", {
+			license: extension
+		});
 	} catch (error) {
 		next(error);
 	}

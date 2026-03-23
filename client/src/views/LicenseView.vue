@@ -67,7 +67,8 @@
                       <span
                         v-if="(license.features?.length || 0) === 0"
                         class="text-xs opacity-50 theme-text"
-                      >-</span>
+                        >-</span
+                      >
                       <span
                         v-if="(license.features?.length || 0) > 3"
                         class="text-xs px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-200"
@@ -132,7 +133,7 @@
                         @click="handleOpenExtendModal(license)"
                         class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
                       >
-                        追加功能
+                        追加授權
                       </button>
                       <button
                         @click="handleEditLicense(license)"
@@ -159,11 +160,14 @@
                 <tr
                   v-for="(ext, extIdx) in license.extensions || []"
                   :key="ext._id || ext.id"
-                  :class="conditionalClass('border-b border-white/5 bg-white/[0.02]', 'border-b border-slate-100 bg-slate-50/50')"
+                  :class="
+                    conditionalClass(
+                      'border-b border-white/5 bg-white/[0.02]',
+                      'border-b border-slate-100 bg-slate-50/50',
+                    )
+                  "
                 >
-                  <td
-                    class="py-2 px-4 pl-8 theme-text text-sm"
-                  >
+                  <td class="py-2 px-4 pl-8 theme-text text-sm">
                     <span class="text-sm text-purple-200 mr-2 font-medium">
                       {{
                         extIdx === (license.extensions?.length || 0) - 1
@@ -184,7 +188,8 @@
                       <span
                         v-if="(ext.features?.length || 0) === 0"
                         class="text-xs opacity-50 theme-text"
-                      >-</span>
+                        >-</span
+                      >
                       <span
                         v-if="(ext.features?.length || 0) > 3"
                         class="text-xs px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-200"
@@ -193,8 +198,12 @@
                       </span>
                     </div>
                   </td>
-                  <td class="py-2 px-4 theme-text font-mono text-sm opacity-70">{{ ext.serialNumber || '-' }}</td>
-                  <td class="py-2 px-4 theme-text font-mono text-xs opacity-70">{{ ext.licenseKey || '-' }}</td>
+                  <td class="py-2 px-4 theme-text font-mono text-sm opacity-70">
+                    {{ ext.serialNumber || '-' }}
+                  </td>
+                  <td class="py-2 px-4 theme-text font-mono text-xs opacity-70">
+                    {{ ext.licenseKey || '-' }}
+                  </td>
                   <td class="py-2 px-4">
                     <span
                       :class="getStatusClass(ext.status)"
@@ -217,13 +226,27 @@
                   </td>
                   <td class="py-2 px-4 theme-text text-xs opacity-70">{{ ext.notes || '-' }}</td>
                   <td class="py-2 px-4">
-                    <button
-                      @click="handleDeleteLicense(ext)"
-                      :disabled="deletingLicense === (ext._id || ext.id)"
-                      class="bg-red-700 hover:bg-red-800 text-white px-2 py-1 rounded text-xs transition cursor-pointer"
-                    >
-                      刪除
-                    </button>
+                    <div class="flex gap-2 flex-wrap">
+                      <button
+                        v-if="ext.status === 'pending' && isAdmin"
+                        @click="handleReviewLicense(ext)"
+                        :disabled="reviewingLicense === (ext._id || ext.id)"
+                        class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition cursor-pointer flex items-center gap-1"
+                      >
+                        <span
+                          v-if="reviewingLicense === (ext._id || ext.id)"
+                          class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
+                        ></span>
+                        審核
+                      </button>
+                      <button
+                        @click="handleDeleteLicense(ext)"
+                        :disabled="deletingLicense === (ext._id || ext.id)"
+                        class="bg-red-700 hover:bg-red-800 text-white px-2 py-1 rounded text-xs transition cursor-pointer"
+                      >
+                        刪除
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </template>
@@ -387,14 +410,14 @@
       </div>
     </div>
 
-    <!-- 追加功能 Modal -->
+    <!-- 追加授權 Modal -->
     <div
       v-if="showExtendModal"
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       @click.self="showExtendModal = false"
     >
       <div :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm w-full max-w-md']" @click.stop>
-        <h3 class="text-xl font-semibold theme-text mb-4">追加功能（產生副 LK）</h3>
+        <h3 class="text-xl font-semibold theme-text mb-4">追加授權（申請副授權）</h3>
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-medium theme-text mb-2">主授權</label>
@@ -430,21 +453,18 @@
               "
             />
           </div>
-          <div>
-            <label class="block text-sm font-medium theme-text mb-2">審核人</label>
-            <input
-              :value="userStore.account"
-              type="text"
-              disabled
-              class="w-full px-4 py-2 rounded-lg border opacity-70"
-              :class="
-                conditionalClass(
-                  'bg-[#2A3441] border-gray-600 theme-text',
-                  'bg-white border-slate-300',
-                )
-              "
-            />
-          </div>
+          <p
+            class="text-xs rounded-lg px-3 py-2 border"
+            :class="
+              conditionalClass(
+                'border-purple-500/40 bg-purple-500/10 text-purple-200',
+                'border-purple-200 bg-purple-50 text-purple-900',
+              )
+            "
+          >
+            送出後狀態為「審核中」，須由管理員在列表中審核通過後，系統才會產生副 License
+            Key（副授權無 Serial Number）。
+          </p>
           <div>
             <label class="block text-sm font-medium theme-text mb-2">追加的功能模組 *</label>
             <div class="grid grid-cols-2 gap-2">
@@ -501,7 +521,7 @@
               v-if="extendingLicense"
               class="animate-spin h-4 w-4 border-b-2 border-white rounded-full inline-block mr-2"
             ></span>
-            建立副 LK
+            送出申請
           </button>
           <button
             @click="showExtendModal = false"
@@ -797,7 +817,7 @@ watch(
   { immediate: true },
 )
 
-// 追加功能 Modal 相關
+// 追加授權 Modal 相關
 const existingFeatures = computed(() => {
   if (!extendTarget.value) return []
   const main = extendTarget.value.features || []
@@ -917,11 +937,12 @@ const handleCreateLicense = async () => {
 }
 
 const handleReviewLicense = async (license) => {
-  if (
-    !confirm(
-      `確定要審核授權 "${license.customerName}" 嗎？審核後將自動生成 Serial Number 和 License Key。`,
-    )
-  ) {
+  const isSubLicense = Boolean(license.parentLicenseKey)
+  const confirmMessage = isSubLicense
+    ? `確定要審核副授權「${license.customerName}」的追加授權嗎？審核後將自動產生 License Key（副授權無 Serial Number）。`
+    : `確定要審核授權「${license.customerName}」嗎？審核後將自動產生 Serial Number 與 License Key。`
+
+  if (!confirm(confirmMessage)) {
     return
   }
 
@@ -940,11 +961,14 @@ const handleReviewLicense = async (license) => {
 
 const handleUnbindLicense = async (license) => {
   const extensionCount = (license.extensions || []).length
-  const extMsg = extensionCount > 0
-    ? `\n\n該授權有 ${extensionCount} 組副 LK 也將被重置為「可啟用」`
-    : ''
+  const extMsg =
+    extensionCount > 0 ? `\n\n該授權有 ${extensionCount} 組副 LK 也將被重置為「可啟用」` : ''
 
-  if (!confirm(`確定要解除授權 "${license.customerName}" 的設備綁定嗎？解除後此授權可在新設備上重新啟用。${extMsg}`)) {
+  if (
+    !confirm(
+      `確定要解除授權 "${license.customerName}" 的設備綁定嗎？解除後此授權可在新設備上重新啟用。${extMsg}`,
+    )
+  ) {
     return
   }
 
@@ -973,11 +997,13 @@ const handleExtendLicense = async () => {
 
   try {
     extendingLicense.value = true
-    await userStore.extendLicense(extendTarget.value._id || extendTarget.value.id, {
+    const res = await userStore.extendLicense(extendTarget.value._id || extendTarget.value.id, {
       features: extendFeatures.value,
       applicant: extendApplicant.value,
       notes: extendNotes.value || null,
     })
+    const msg = res?.message || '副授權申請已送出，待審核通過後將產生 License Key'
+    notify.notifySuccess(msg)
     showExtendModal.value = false
     extendTarget.value = null
     extendFeatures.value = []
@@ -985,8 +1011,8 @@ const handleExtendLicense = async () => {
     extendApplicant.value = ''
     await fetchLicenses()
   } catch (err) {
-    console.error('追加功能失敗:', err)
-    notify.notifyError(err.response?.data?.message || '追加功能失敗，請稍後再試')
+    console.error('追加授權失敗:', err)
+    notify.notifyError(err.response?.data?.message || '追加授權失敗，請稍後再試')
   } finally {
     extendingLicense.value = false
   }
@@ -1125,9 +1151,7 @@ const statusDropdownOptions = computed(() => {
   const originalStatus = editingLicense.value._originalStatus || editingLicense.value.status
 
   if (originalStatus === 'active') {
-    return [
-      { value: 'active', label: '使用中', disabled: true },
-    ]
+    return [{ value: 'active', label: '使用中', disabled: true }]
   }
 
   return [
