@@ -1,7 +1,9 @@
 import { verifyDownloadToken } from "../utils/storageDownloadSign.js";
 import DocumentDownloadToken from "../models/DocumentDownloadToken.js";
 
-const protectedPdfRegex = /^\/products\/[^/]+\/documents\/.+\.pdf$/i;
+// req.path 在 mount("/storage") 後通常會長得像 "/products/<id>/documents/<file>.pdf"
+// 但為了降低比對差異，這裡同時支援帶/不帶前導 "/"。
+const protectedPdfRegex = /^\/?products\/[^/]+\/documents\/.+\.pdf$/i;
 
 /**
  * 為了避免使用者直接輸入 raw `/storage/...pdf` 繞過登入，
@@ -120,4 +122,3 @@ export const signedStorageDownloadMiddleware = async (req, res, next) => {
 		});
 	}
 };
-

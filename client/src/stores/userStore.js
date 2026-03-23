@@ -563,6 +563,7 @@ export const useUserStore = defineStore(
         async () => {
           const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/extend`, {
             features: extensionData.features,
+            applicant: extensionData.applicant,
             notes: extensionData.notes || null,
           })
 

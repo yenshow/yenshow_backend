@@ -54,7 +54,9 @@ async function fixLicenseIndexes() {
 			{
 				unique: true,
 				name: "licenseKey_1",
-				partialFilterExpression: { licenseKey: { $exists: true, $ne: null } }
+				// partial index 不支援 $ne: null（依 MongoDB 版本）
+				// 以欄位型別區分：只有 string 才納入 unique 約束
+				partialFilterExpression: { licenseKey: { $type: "string" } }
 			}
 		);
 		console.log("✅ 已創建新的 licenseKey_1 索引（使用 partialFilterExpression）");
@@ -64,7 +66,9 @@ async function fixLicenseIndexes() {
 			{
 				unique: true,
 				name: "serialNumber_1",
-				partialFilterExpression: { serialNumber: { $exists: true, $ne: null } }
+				// partial index 不支援 $ne: null（依 MongoDB 版本）
+				// 以欄位型別區分：只有 string 才納入 unique 約束
+				partialFilterExpression: { serialNumber: { $type: "string" } }
 			}
 		);
 		console.log("✅ 已創建新的 serialNumber_1 索引（使用 partialFilterExpression）");

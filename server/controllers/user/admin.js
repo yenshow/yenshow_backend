@@ -171,18 +171,24 @@ export const getLicenses = async (req, res, next) => {
 		const licenses = await License.find(filter).sort(sort).lean();
 
 		if (!includeExtensions) {
-			const licenseKeys = licenses.filter(l => l.licenseKey).map(l => l.licenseKey);
+			// 注意：app.js 開了 mongoose.set("sanitizeFilter", true)
+			// 在該設定下 $in 會導致 Mongoose 對 operator 失去辨識能力，改以等值查詢逐一抓副 LK。
+			const licenseKeys = licenses.map((l) => l.licenseKey).filter((k) => typeof k === "string" && k.length > 0);
 			if (licenseKeys.length > 0) {
-				const extensions = await License.find({ parentLicenseKey: { $in: licenseKeys } }).sort("-createdAt").lean();
 				const extensionMap = {};
-				for (const ext of extensions) {
-					if (!extensionMap[ext.parentLicenseKey]) {
-						extensionMap[ext.parentLicenseKey] = [];
-					}
-					extensionMap[ext.parentLicenseKey].push(ext);
+				const extensionResults = await Promise.all(
+					licenseKeys.map(async (parentKey) => {
+						const extensions = await License.find({ parentLicenseKey: parentKey }).sort("-createdAt").lean();
+						return [parentKey, extensions];
+					})
+				);
+
+				for (const [parentKey, extensions] of extensionResults) {
+					extensionMap[parentKey] = extensions;
 				}
+
 				for (const license of licenses) {
-					license.extensions = license.licenseKey ? (extensionMap[license.licenseKey] || []) : [];
+					license.extensions = license.licenseKey ? extensionMap[license.licenseKey] || [] : [];
 				}
 			}
 		}
@@ -318,7 +324,9 @@ export const reviewLicense = async (req, res, next) => {
 const generateSerialNumberAndLicenseKey = async () => {
 	// 生成 SerialNumber（格式：SN-YYYYMMDD-XXXX）
 	const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-	const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+	const randomNum = Math.floor(Math.random() * 10000)
+		.toString()
+		.padStart(4, "0");
 	let serialNumber = `SN-${dateStr}-${randomNum}`;
 	let attempts = 0;
 
@@ -328,45 +336,72 @@ const generateSerialNumberAndLicenseKey = async () => {
 		if (!existing) {
 			break;
 		}
-		const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+		const randomNum = Math.floor(Math.random() * 10000)
+			.toString()
+			.padStart(4, "0");
 		serialNumber = `SN-${dateStr}-${randomNum}`;
 		attempts++;
 	}
 
 	if (attempts >= 10) {
 		throw ApiError.internal("無法生成唯一的 SerialNumber");
-		}
+	}
 
-		// 生成 License Key（基於 SerialNumber + 時間戳 + 隨機數）
-		let finalLicenseKey;
+	// 生成 License Key（基於 SerialNumber + 時間戳 + 隨機數）
+	let finalLicenseKey;
 	attempts = 0;
 
-		while (attempts < 10) {
-			const timestamp = Date.now();
-			const random = crypto.randomBytes(8).toString("hex");
-			const data = `${serialNumber}:${timestamp}:${random}`;
-			const hash = crypto.createHash("sha256").update(data).digest("hex");
-			const licenseKey = hash
-				.substring(0, 16)
-				.match(/.{1,4}/g)
-				.join("-")
-				.toUpperCase();
+	while (attempts < 10) {
+		const timestamp = Date.now();
+		const random = crypto.randomBytes(8).toString("hex");
+		const data = `${serialNumber}:${timestamp}:${random}`;
+		const hash = crypto.createHash("sha256").update(data).digest("hex");
+		const licenseKey = hash
+			.substring(0, 16)
+			.match(/.{1,4}/g)
+			.join("-")
+			.toUpperCase();
 
-			// 檢查是否已存在
-			const existingKey = await License.findOne({ licenseKey });
-			if (!existingKey) {
-				finalLicenseKey = licenseKey;
-				break;
-			}
-
-			attempts++;
+		// 檢查是否已存在
+		const existingKey = await License.findOne({ licenseKey });
+		if (!existingKey) {
+			finalLicenseKey = licenseKey;
+			break;
 		}
 
-		if (attempts >= 10) {
-			throw ApiError.internal("無法生成唯一的 License Key");
-		}
+		attempts++;
+	}
+
+	if (attempts >= 10) {
+		throw ApiError.internal("無法生成唯一的 License Key");
+	}
 
 	return { serialNumber, licenseKey: finalLicenseKey };
+};
+
+/**
+ * 產生 License Key（不依賴 SerialNumber）
+ * 用於副 LK，避免副 LK 產生新 SerialNumber。
+ */
+const generateLicenseKey = async () => {
+	let attempts = 0;
+	while (attempts < 10) {
+		const timestamp = Date.now();
+		const random = crypto.randomBytes(8).toString("hex");
+		const data = `EXT:${timestamp}:${random}`;
+		const hash = crypto.createHash("sha256").update(data).digest("hex");
+		const licenseKey = hash
+			.substring(0, 16)
+			.match(/.{1,4}/g)
+			.join("-")
+			.toUpperCase();
+
+		const existingKey = await License.findOne({ licenseKey });
+		if (!existingKey) return licenseKey;
+		attempts++;
+	}
+
+	throw ApiError.internal("無法生成唯一的 License Key");
 };
 
 /**
@@ -396,22 +431,22 @@ export const updateLicense = async (req, res, next) => {
 			license.features = features;
 		}
 
-			if (status !== undefined) {
+		if (status !== undefined) {
 			if (!["pending", "available", "active"].includes(status)) {
 				throw ApiError.badRequest("無效的狀態值");
 			}
-			
+
 			if (status === "available" && (!license.serialNumber || !license.licenseKey)) {
 				const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
 				license.serialNumber = serialNumber;
 				license.licenseKey = licenseKey;
-				
+
 				if (!license.reviewer) {
 					license.reviewer = reviewer;
 					license.reviewedAt = new Date();
 				}
 			}
-			
+
 			license.status = status;
 		}
 
@@ -435,7 +470,7 @@ export const updateLicense = async (req, res, next) => {
 export const extendLicense = async (req, res, next) => {
 	try {
 		const { id } = req.params;
-		const { features, notes } = req.body;
+		const { features, notes, applicant } = req.body;
 		const reviewer = getReviewer(req.user);
 
 		const parentLicense = await License.findById(id);
@@ -451,6 +486,10 @@ export const extendLicense = async (req, res, next) => {
 			throw ApiError.badRequest("主授權尚未審核，請先完成審核");
 		}
 
+		if (!applicant) {
+			throw ApiError.badRequest("需要提供申請人（副 LK）");
+		}
+
 		if (!Array.isArray(features) || features.length === 0) {
 			throw ApiError.badRequest("必須指定至少一個追加功能模組");
 		}
@@ -459,17 +498,16 @@ export const extendLicense = async (req, res, next) => {
 			throw ApiError.badRequest(`無效的功能模組：${invalidFeatures.join(", ")}`);
 		}
 
-		const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
+		const licenseKey = await generateLicenseKey();
 
 		const extension = await License.create({
 			product: parentLicense.product,
 			features,
 			customerName: parentLicense.customerName,
-			serialNumber,
 			licenseKey,
 			parentLicenseKey: parentLicense.licenseKey,
 			status: "available",
-			applicant: reviewer,
+			applicant,
 			appliedAt: new Date(),
 			reviewer,
 			reviewedAt: new Date(),
@@ -507,7 +545,7 @@ export const unbindLicense = async (req, res, next) => {
 		let extensionsReset = 0;
 		if (license.licenseKey) {
 			const result = await License.updateMany(
-				{ parentLicenseKey: license.licenseKey, status: "active" },
+				{ parentLicenseKey: license.licenseKey },
 				{ $set: { status: "available", deviceFingerprint: null, activationMethod: null } }
 			);
 			extensionsReset = result.modifiedCount;
@@ -545,5 +583,3 @@ export const deleteLicense = async (req, res, next) => {
 		next(error);
 	}
 };
-
-

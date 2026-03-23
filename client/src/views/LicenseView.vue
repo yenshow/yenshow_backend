@@ -42,7 +42,6 @@
                 <th class="text-left py-3 px-4 theme-text">Serial Number</th>
                 <th class="text-left py-3 px-4 theme-text">License Key</th>
                 <th class="text-left py-3 px-4 theme-text">狀態</th>
-                <th class="text-left py-3 px-4 theme-text">設備指紋</th>
                 <th class="text-left py-3 px-4 theme-text">申請人 / 時間</th>
                 <th class="text-left py-3 px-4 theme-text">審核人 / 時間</th>
                 <th class="text-left py-3 px-4 theme-text">備註</th>
@@ -59,15 +58,22 @@
                   <td class="py-3 px-4">
                     <div class="flex flex-wrap gap-1">
                       <span
-                        v-for="feat in license.features || []"
+                        v-for="feat in (license.features || []).slice(0, 3)"
                         :key="feat"
                         class="px-1.5 py-0.5 rounded text-xs bg-indigo-500/20 text-indigo-300"
                       >
                         {{ getFeatureLabel(feat) }}
                       </span>
-                      <span v-if="!license.features?.length" class="text-xs opacity-50 theme-text"
-                        >-</span
+                      <span
+                        v-if="(license.features?.length || 0) === 0"
+                        class="text-xs opacity-50 theme-text"
+                      >-</span>
+                      <span
+                        v-if="(license.features?.length || 0) > 3"
+                        class="text-xs px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-200"
                       >
+                        +{{ (license.features?.length || 0) - 3 }} 更多
+                      </span>
                     </div>
                   </td>
                   <td class="py-3 px-4 theme-text font-mono">{{ license.serialNumber || '-' }}</td>
@@ -81,9 +87,6 @@
                     >
                       {{ getStatusText(license.status) }}
                     </span>
-                  </td>
-                  <td class="py-3 px-4 theme-text text-xs font-mono max-w-32 truncate" :title="license.deviceFingerprint">
-                    {{ license.deviceFingerprint || '-' }}
                   </td>
                   <td class="py-3 px-4 theme-text text-sm">
                     <div>{{ license.applicant || '-' }}</div>
@@ -154,21 +157,39 @@
                 </tr>
                 <!-- 副 LK 列（展開在主 LK 下方） -->
                 <tr
-                  v-for="ext in license.extensions || []"
+                  v-for="(ext, extIdx) in license.extensions || []"
                   :key="ext._id || ext.id"
                   :class="conditionalClass('border-b border-white/5 bg-white/[0.02]', 'border-b border-slate-100 bg-slate-50/50')"
                 >
-                  <td class="py-2 px-4 pl-8 theme-text text-sm opacity-70">
-                    <span class="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 mr-1">副 LK</span>
+                  <td
+                    class="py-2 px-4 pl-8 theme-text text-sm"
+                  >
+                    <span class="text-sm text-purple-200 mr-2 font-medium">
+                      {{
+                        extIdx === (license.extensions?.length || 0) - 1
+                          ? `└ 副 LK ${extIdx + 1}`
+                          : `├ 副 LK ${extIdx + 1}`
+                      }}
+                    </span>
                   </td>
                   <td class="py-2 px-4">
                     <div class="flex flex-wrap gap-1">
                       <span
-                        v-for="feat in ext.features || []"
+                        v-for="feat in (ext.features || []).slice(0, 3)"
                         :key="feat"
                         class="px-1.5 py-0.5 rounded text-xs bg-purple-500/20 text-purple-300"
                       >
                         {{ getFeatureLabel(feat) }}
+                      </span>
+                      <span
+                        v-if="(ext.features?.length || 0) === 0"
+                        class="text-xs opacity-50 theme-text"
+                      >-</span>
+                      <span
+                        v-if="(ext.features?.length || 0) > 3"
+                        class="text-xs px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-200"
+                      >
+                        +{{ (ext.features?.length || 0) - 3 }} 更多
                       </span>
                     </div>
                   </td>
@@ -182,12 +203,17 @@
                       {{ getStatusText(ext.status) }}
                     </span>
                   </td>
-                  <td class="py-2 px-4 theme-text text-xs opacity-50">-</td>
-                  <td class="py-2 px-4 theme-text text-xs opacity-70">
-                    {{ ext.appliedAt ? formatDate(ext.appliedAt) : '-' }}
+                  <td class="py-2 px-4 theme-text text-sm">
+                    <div>{{ ext.applicant || '-' }}</div>
+                    <div class="text-xs opacity-70">
+                      {{ ext.appliedAt ? formatDate(ext.appliedAt) : '-' }}
+                    </div>
                   </td>
-                  <td class="py-2 px-4 theme-text text-xs opacity-70">
-                    {{ ext.reviewedAt ? formatDate(ext.reviewedAt) : '-' }}
+                  <td class="py-2 px-4 theme-text text-sm">
+                    <div>{{ ext.reviewer || '-' }}</div>
+                    <div class="text-xs opacity-70">
+                      {{ ext.reviewedAt ? formatDate(ext.reviewedAt) : '-' }}
+                    </div>
                   </td>
                   <td class="py-2 px-4 theme-text text-xs opacity-70">{{ ext.notes || '-' }}</td>
                   <td class="py-2 px-4">
@@ -203,7 +229,7 @@
               </template>
               <tr v-if="licenses.length === 0">
                 <td
-                  colspan="10"
+                  colspan="9"
                   class="text-center py-6"
                   :class="conditionalClass('text-gray-400', 'text-slate-500')"
                 >
@@ -390,6 +416,36 @@
             </div>
           </div>
           <div>
+            <label class="block text-sm font-medium theme-text mb-2">申請人 *</label>
+            <input
+              v-model="extendApplicant"
+              type="text"
+              placeholder="請輸入申請人"
+              class="w-full px-4 py-2 rounded-lg border"
+              :class="
+                conditionalClass(
+                  'bg-[#2A3441] border-gray-600 theme-text',
+                  'bg-white border-slate-300',
+                )
+              "
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium theme-text mb-2">審核人</label>
+            <input
+              :value="userStore.account"
+              type="text"
+              disabled
+              class="w-full px-4 py-2 rounded-lg border opacity-70"
+              :class="
+                conditionalClass(
+                  'bg-[#2A3441] border-gray-600 theme-text',
+                  'bg-white border-slate-300',
+                )
+              "
+            />
+          </div>
+          <div>
             <label class="block text-sm font-medium theme-text mb-2">追加的功能模組 *</label>
             <div class="grid grid-cols-2 gap-2">
               <label
@@ -438,7 +494,7 @@
         <div class="flex gap-2 mt-6">
           <button
             @click="handleExtendLicense"
-            :disabled="extendingLicense || extendFeatures.length === 0"
+            :disabled="extendingLicense || extendFeatures.length === 0 || !extendApplicant?.trim()"
             class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
           >
             <span
@@ -473,43 +529,26 @@
         <h3 class="text-xl font-semibold theme-text mb-4">編輯授權</h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium theme-text mb-2">
-              授權功能模組
-              <span v-if="isAdmin" class="text-indigo-400 text-xs ml-1">(可編輯)</span>
-            </label>
-            <!-- Admin 可編輯 features -->
-            <div v-if="isAdmin" class="grid grid-cols-2 gap-2">
-              <label
-                v-for="feat in BA_FEATURES"
-                :key="feat.value"
-                class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer border transition"
-                :class="[
-                  editingLicense?.features?.includes(feat.value)
-                    ? 'border-indigo-500 bg-indigo-500/10'
-                    : conditionalClass('border-gray-600 bg-[#2A3441]', 'border-slate-300 bg-white'),
-                ]"
-              >
-                <input
-                  type="checkbox"
-                  :value="feat.value"
-                  v-model="editingLicense.features"
-                  class="accent-indigo-500"
-                />
-                <span class="text-sm theme-text">{{ feat.label }}</span>
-              </label>
-            </div>
-            <!-- 非 Admin 只能查看 -->
-            <div v-else class="flex flex-wrap gap-1">
+            <label class="block text-sm font-medium theme-text mb-2">授權功能模組</label>
+            <div class="flex flex-wrap gap-1">
               <span
-                v-for="feat in editingLicense?.features || []"
+                v-for="feat in (editingLicense?.features || []).slice(0, 3)"
                 :key="feat"
-                class="px-2 py-1 rounded text-xs bg-indigo-500/20 text-indigo-300"
+                class="px-1.5 py-0.5 rounded text-xs bg-indigo-500/20 text-indigo-300"
               >
                 {{ getFeatureLabel(feat) }}
               </span>
-              <span v-if="!editingLicense?.features?.length" class="text-sm opacity-50 theme-text"
-                >無</span
+              <span
+                v-if="(editingLicense?.features?.length || 0) === 0"
+                class="text-xs opacity-50 theme-text"
+                >-</span
               >
+              <span
+                v-if="(editingLicense?.features?.length || 0) > 3"
+                class="text-xs px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-200"
+              >
+                +{{ (editingLicense?.features?.length || 0) - 3 }} 更多
+              </span>
             </div>
           </div>
           <div>
@@ -722,6 +761,7 @@ const unbindingLicense = ref(null)
 const extendingLicense = ref(false)
 const extendTarget = ref(null)
 const extendFeatures = ref([])
+const extendApplicant = ref('')
 const extendNotes = ref('')
 
 const statusDropdownRef = ref(null)
@@ -924,6 +964,7 @@ const handleOpenExtendModal = (license) => {
   extendTarget.value = license
   extendFeatures.value = []
   extendNotes.value = ''
+  extendApplicant.value = userStore.account || ''
   showExtendModal.value = true
 }
 
@@ -934,12 +975,14 @@ const handleExtendLicense = async () => {
     extendingLicense.value = true
     await userStore.extendLicense(extendTarget.value._id || extendTarget.value.id, {
       features: extendFeatures.value,
+      applicant: extendApplicant.value,
       notes: extendNotes.value || null,
     })
     showExtendModal.value = false
     extendTarget.value = null
     extendFeatures.value = []
     extendNotes.value = ''
+    extendApplicant.value = ''
     await fetchLicenses()
   } catch (err) {
     console.error('追加功能失敗:', err)

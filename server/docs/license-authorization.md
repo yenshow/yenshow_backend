@@ -106,7 +106,7 @@ pending ──(審核)──→ available ──(啟用)──→ active
 | -------------------- | -------- | --------------------------------------------- |
 | `parentLicenseKey`   | String   | 所屬主 LK（關聯鍵）                              |
 | `features`           | [String] | **追加**的功能模組陣列                              |
-| `serialNumber`       | String   | 自動產生（`SN-YYYYMMDD-XXXX`）                    |
+| `serialNumber`       | String?  | 副 LK **不產生 SerialNumber**（為 `null`/`undefined`） |
 | `licenseKey`         | String   | 自動產生（`XXXX-XXXX-XXXX-XXXX`，**副 LK**）       |
 | `status`             | String   | `pending` / `available` / `active`            |
 | `createdBy`          | String   | 建立人                                          |
@@ -180,6 +180,7 @@ pending ──(審核)──→ available ──(啟用)──→ active
 > **與舊版差異**：新增 `deviceFingerprint`；移除 `customerName`（僅後台使用）、`usedAt`（已廢棄）。
 
 > **副 LK 啟用回應**：`features` 回傳的是該副 LK 追加的功能模組。BA 端自行合併至本地已有的 features。
+> **serialNumber**：主 LK 會有值；副 LK 為 `null`/`undefined`。
 
 ### 5.2 離線回應檔格式（`/offline-activate`）
 
@@ -201,6 +202,8 @@ pending ──(審核)──→ available ──(啟用)──→ active
   }
 }
 ```
+
+> **serialNumber**：主 LK 會有值；副 LK 為 `null`/`undefined`。
 
 
 | 欄位                 | 主 LK 啟用          | 副 LK 啟用                |

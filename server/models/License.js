@@ -112,14 +112,16 @@ licenseSchema.index(
 	{ licenseKey: 1 },
 	{ 
 		unique: true,
-		partialFilterExpression: { licenseKey: { $exists: true, $ne: null } }
+		// partial index 不支援 $ne: null（依 MongoDB 版本）
+		// 以欄位型別區分：只有 string 才納入 unique 約束
+		partialFilterExpression: { licenseKey: { $type: "string" } }
 	}
 );
 licenseSchema.index(
 	{ serialNumber: 1 },
 	{ 
 		unique: true,
-		partialFilterExpression: { serialNumber: { $exists: true, $ne: null } }
+		partialFilterExpression: { serialNumber: { $type: "string" } }
 	}
 );
 licenseSchema.index({ status: 1 });
