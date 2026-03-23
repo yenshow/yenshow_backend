@@ -49,7 +49,7 @@
               </tr>
             </thead>
             <tbody>
-              <template v-for="license in pagedLicenses" :key="license._id || license.id">
+              <template v-for="license in pagedLicenses" :key="licenseRowId(license)">
                 <!-- 主 LK 列 -->
                 <tr
                   :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
@@ -107,11 +107,11 @@
                       <button
                         v-if="license.status === 'pending' && isAdmin"
                         @click="handleReviewLicense(license)"
-                        :disabled="reviewingLicense === (license._id || license.id)"
+                        :disabled="reviewingLicense === licenseRowId(license)"
                         class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                       >
                         <span
-                          v-if="reviewingLicense === (license._id || license.id)"
+                          v-if="reviewingLicense === licenseRowId(license)"
                           class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
                         ></span>
                         審核
@@ -119,11 +119,11 @@
                       <button
                         v-if="license.status === 'active' && isAdmin && !license.parentLicenseKey"
                         @click="handleUnbindLicense(license)"
-                        :disabled="unbindingLicense === (license._id || license.id)"
+                        :disabled="unbindingLicense === licenseRowId(license)"
                         class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                       >
                         <span
-                          v-if="unbindingLicense === (license._id || license.id)"
+                          v-if="unbindingLicense === licenseRowId(license)"
                           class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
                         ></span>
                         解除綁定
@@ -144,11 +144,11 @@
                       </button>
                       <button
                         @click="handleDeleteLicense(license)"
-                        :disabled="deletingLicense === (license._id || license.id)"
+                        :disabled="deletingLicense === licenseRowId(license)"
                         class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                       >
                         <span
-                          v-if="deletingLicense === (license._id || license.id)"
+                          v-if="deletingLicense === licenseRowId(license)"
                           class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
                         ></span>
                         刪除
@@ -159,7 +159,7 @@
                 <!-- 副 LK 列（展開在主 LK 下方） -->
                 <tr
                   v-for="(ext, extIdx) in license.extensions || []"
-                  :key="ext._id || ext.id"
+                  :key="licenseRowId(ext)"
                   :class="
                     conditionalClass(
                       'border-b border-white/5 bg-white/[0.02]',
@@ -167,8 +167,8 @@
                     )
                   "
                 >
-                  <td class="py-2 px-4 pl-8 theme-text text-sm">
-                    <span class="text-sm text-purple-200 mr-2 font-medium">
+                  <td class="py-3 px-4 pl-8 theme-text">
+                    <span class="text-purple-200 mr-2 font-medium">
                       {{
                         extIdx === (license.extensions?.length || 0) - 1
                           ? `└ 副 LK ${extIdx + 1}`
@@ -176,7 +176,7 @@
                       }}
                     </span>
                   </td>
-                  <td class="py-2 px-4">
+                  <td class="py-3 px-4">
                     <div class="flex flex-wrap gap-1">
                       <span
                         v-for="feat in (ext.features || []).slice(0, 3)"
@@ -198,51 +198,51 @@
                       </span>
                     </div>
                   </td>
-                  <td class="py-2 px-4 theme-text font-mono text-sm opacity-70">
+                  <td class="py-3 px-4 theme-text font-mono">
                     {{ ext.serialNumber || '-' }}
                   </td>
-                  <td class="py-2 px-4 theme-text font-mono text-xs opacity-70">
+                  <td class="py-3 px-4 theme-text font-mono text-sm">
                     {{ ext.licenseKey || '-' }}
                   </td>
-                  <td class="py-2 px-4">
+                  <td class="py-3 px-4">
                     <span
                       :class="getStatusClass(ext.status)"
-                      class="px-2 py-1 rounded-full text-xs"
+                      class="px-2 py-1 rounded-full text-sm"
                     >
                       {{ getStatusText(ext.status) }}
                     </span>
                   </td>
-                  <td class="py-2 px-4 theme-text text-sm">
+                  <td class="py-3 px-4 theme-text text-sm">
                     <div>{{ ext.applicant || '-' }}</div>
                     <div class="text-xs opacity-70">
                       {{ ext.appliedAt ? formatDate(ext.appliedAt) : '-' }}
                     </div>
                   </td>
-                  <td class="py-2 px-4 theme-text text-sm">
+                  <td class="py-3 px-4 theme-text text-sm">
                     <div>{{ ext.reviewer || '-' }}</div>
                     <div class="text-xs opacity-70">
                       {{ ext.reviewedAt ? formatDate(ext.reviewedAt) : '-' }}
                     </div>
                   </td>
-                  <td class="py-2 px-4 theme-text text-xs opacity-70">{{ ext.notes || '-' }}</td>
-                  <td class="py-2 px-4">
+                  <td class="py-3 px-4 theme-text text-sm">{{ ext.notes || '-' }}</td>
+                  <td class="py-3 px-4">
                     <div class="flex gap-2 flex-wrap">
                       <button
                         v-if="ext.status === 'pending' && isAdmin"
                         @click="handleReviewLicense(ext)"
-                        :disabled="reviewingLicense === (ext._id || ext.id)"
-                        class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition cursor-pointer flex items-center gap-1"
+                        :disabled="reviewingLicense === licenseRowId(ext)"
+                        class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                       >
                         <span
-                          v-if="reviewingLicense === (ext._id || ext.id)"
+                          v-if="reviewingLicense === licenseRowId(ext)"
                           class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
                         ></span>
                         審核
                       </button>
                       <button
                         @click="handleDeleteLicense(ext)"
-                        :disabled="deletingLicense === (ext._id || ext.id)"
-                        class="bg-red-700 hover:bg-red-800 text-white px-2 py-1 rounded text-xs transition cursor-pointer"
+                        :disabled="deletingLicense === licenseRowId(ext)"
+                        class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
                       >
                         刪除
                       </button>
@@ -453,18 +453,6 @@
               "
             />
           </div>
-          <p
-            class="text-xs rounded-lg px-3 py-2 border"
-            :class="
-              conditionalClass(
-                'border-purple-500/40 bg-purple-500/10 text-purple-200',
-                'border-purple-200 bg-purple-50 text-purple-900',
-              )
-            "
-          >
-            送出後狀態為「審核中」，須由管理員在列表中審核通過後，系統才會產生副 License
-            Key（副授權無 Serial Number）。
-          </p>
           <div>
             <label class="block text-sm font-medium theme-text mb-2">追加的功能模組 *</label>
             <div class="grid grid-cols-2 gap-2">
@@ -763,6 +751,8 @@ const getFeatureLabel = (featureValue) => {
   return feat ? feat.label : featureValue
 }
 
+const licenseRowId = (row) => row?._id || row?.id
+
 const licenses = computed(() => {
   const storeLicenses = userStore.licenses
   return Array.isArray(storeLicenses) ? storeLicenses : []
@@ -772,7 +762,7 @@ const showCreateLicenseModal = ref(false)
 const showEditLicenseModal = ref(false)
 const showExtendModal = ref(false)
 const newLicense = ref({ customerName: '', applicant: '', features: [], notes: '' })
-const reviewingLicense = ref(false)
+const reviewingLicense = ref(null)
 const editingLicense = ref(null)
 const creatingLicense = ref(false)
 const updatingLicense = ref(false)
@@ -947,15 +937,15 @@ const handleReviewLicense = async (license) => {
   }
 
   try {
-    reviewingLicense.value = license._id || license.id
-    await userStore.reviewLicense(license._id || license.id)
-    notify.notifySuccess('授權審核成功')
+    const id = licenseRowId(license)
+    reviewingLicense.value = id
+    await userStore.reviewLicense(id)
     await fetchLicenses()
   } catch (err) {
     console.error('審核授權失敗:', err)
     notify.notifyError(err.response?.data?.message || '審核授權失敗，請稍後再試')
   } finally {
-    reviewingLicense.value = false
+    reviewingLicense.value = null
   }
 }
 
@@ -973,8 +963,9 @@ const handleUnbindLicense = async (license) => {
   }
 
   try {
-    unbindingLicense.value = license._id || license.id
-    await userStore.unbindLicense(license._id || license.id)
+    const id = licenseRowId(license)
+    unbindingLicense.value = id
+    await userStore.unbindLicense(id)
     await fetchLicenses()
   } catch (err) {
     console.error('解除綁定失敗:', err)
@@ -997,13 +988,11 @@ const handleExtendLicense = async () => {
 
   try {
     extendingLicense.value = true
-    const res = await userStore.extendLicense(extendTarget.value._id || extendTarget.value.id, {
+    await userStore.extendLicense(licenseRowId(extendTarget.value), {
       features: extendFeatures.value,
       applicant: extendApplicant.value,
       notes: extendNotes.value || null,
     })
-    const msg = res?.message || '副授權申請已送出，待審核通過後將產生 License Key'
-    notify.notifySuccess(msg)
     showExtendModal.value = false
     extendTarget.value = null
     extendFeatures.value = []
@@ -1059,7 +1048,7 @@ const handleUpdateLicense = async () => {
 
   try {
     updatingLicense.value = true
-    const licenseId = editingLicense.value._id || editingLicense.value.id
+    const licenseId = licenseRowId(editingLicense.value)
     const updateData = { notes: editingLicense.value.notes || null }
 
     if (isAdmin.value) {
@@ -1091,16 +1080,19 @@ const handleUpdateLicense = async () => {
 const handleDeleteLicense = async (license) => {
   const isExtension = !!license.parentLicenseKey
   const label = isExtension ? '副 LK' : '授權'
+  const extCount = (license.extensions || []).length
+  const cascadeNote =
+    !isExtension && extCount > 0 ? `\n\n將一併永久刪除其下 ${extCount} 組副授權。` : ''
   if (
     !confirm(
-      `確定要刪除${label} "${license.serialNumber || license.customerName}" 嗎？此操作不可恢復！`,
+      `確定要刪除${label}「${license.serialNumber || license.customerName}」嗎？此操作不可恢復！${cascadeNote}`,
     )
   ) {
     return
   }
 
   try {
-    const licenseId = license._id || license.id
+    const licenseId = licenseRowId(license)
     deletingLicense.value = licenseId
     await userStore.deleteLicense(licenseId)
     await fetchLicenses()

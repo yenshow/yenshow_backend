@@ -141,7 +141,7 @@ pending ──(審核)──→ available ──(啟用)──→ active
 | POST   | `/:id/extend` | 追加授權 → 建立副授權申請（`pending`，尚無 LK） | ADMIN        |
 | POST   | `/:id/unbind` | 解除設備綁定 → `available`                      | ADMIN        |
 | PUT    | `/:id`        | 更新（features、notes）                         | ADMIN, STAFF |
-| DELETE | `/:id`        | 刪除                                            | ADMIN, STAFF |
+| DELETE | `/:id`        | 刪除；若為**主 LK**，會一併刪除其下所有副 LK     | ADMIN, STAFF |
 
 ---
 

@@ -299,14 +299,7 @@ export const reviewLicense = async (req, res, next) => {
 			throw ApiError.badRequest("此授權已經審核過，無法再次審核");
 		}
 
-		// 主 LK：產生 SN + LK；副 LK：僅產生 LK（無 SerialNumber）
-		if (license.parentLicenseKey) {
-			license.licenseKey = await generateLicenseKey();
-		} else {
-			const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
-			license.serialNumber = serialNumber;
-			license.licenseKey = licenseKey;
-		}
+		await applyLicenseKeysForAvailable(license, "review");
 
 		license.status = "available";
 		license.reviewer = reviewer;
@@ -408,6 +401,27 @@ const generateLicenseKey = async () => {
 };
 
 /**
+ * 寫入 SN / LK：review=審核時必產生；fill=改為 available 時僅補缺漏
+ */
+const applyLicenseKeysForAvailable = async (license, mode) => {
+	const isReview = mode === "review";
+	const isChild = Boolean(license.parentLicenseKey);
+
+	if (isChild) {
+		if (isReview || !license.licenseKey) {
+			license.licenseKey = await generateLicenseKey();
+		}
+		return;
+	}
+
+	if (isReview || !license.serialNumber || !license.licenseKey) {
+		const gen = await generateSerialNumberAndLicenseKey();
+		license.serialNumber = gen.serialNumber;
+		license.licenseKey = gen.licenseKey;
+	}
+};
+
+/**
  * 更新授權
  */
 export const updateLicense = async (req, res, next) => {
@@ -440,16 +454,7 @@ export const updateLicense = async (req, res, next) => {
 			}
 
 			if (status === "available") {
-				if (license.parentLicenseKey) {
-					if (!license.licenseKey) {
-						license.licenseKey = await generateLicenseKey();
-					}
-				} else if (!license.serialNumber || !license.licenseKey) {
-					const { serialNumber, licenseKey } = await generateSerialNumberAndLicenseKey();
-					license.serialNumber = serialNumber;
-					license.licenseKey = licenseKey;
-				}
-
+				await applyLicenseKeysForAvailable(license, "fill");
 				if (!license.reviewer) {
 					license.reviewer = reviewer;
 					license.reviewedAt = new Date();
@@ -572,18 +577,32 @@ export const unbindLicense = async (req, res, next) => {
 
 /**
  * 刪除授權
+ * 刪除主 LK 時，一併刪除所有 parentLicenseKey 指向該主 LK 的副授權。
+ * 刪除副 LK 時僅刪除該筆。
  */
 export const deleteLicense = async (req, res, next) => {
 	try {
 		const { id } = req.params;
 
-		const license = await License.findByIdAndDelete(id);
+		const license = await License.findById(id);
 
 		if (!license) {
 			throw ApiError.notFound("授權不存在");
 		}
 
-		return successResponse(res, StatusCodes.OK, "授權刪除成功");
+		const deletedExtensions =
+			!license.parentLicenseKey && license.licenseKey
+				? ((await License.deleteMany({ parentLicenseKey: license.licenseKey }))?.deletedCount ?? 0)
+				: 0;
+
+		await License.findByIdAndDelete(id);
+
+		const message =
+			deletedExtensions > 0
+				? `授權刪除成功，已一併刪除 ${deletedExtensions} 組副授權`
+				: "授權刪除成功";
+
+		return successResponse(res, StatusCodes.OK, message, { deletedExtensions });
 	} catch (error) {
 		next(error);
 	}

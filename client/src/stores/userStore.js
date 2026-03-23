@@ -416,11 +416,29 @@ export const useUserStore = defineStore(
       }
     }
 
+    const mergeLicenseFromApiResponse = (licenseId, data, fallbackOk, fallbackPartial) => {
+      const updatedLicense = data.result?.license || data.license || data.result
+      if (!updatedLicense) {
+        console.error('回應中找不到授權數據:', data)
+        getAllLicenses().catch((err) => console.error('重新載入授權列表失敗:', err))
+        return data?.message || fallbackPartial
+      }
+      const targetId = licenseId.toString()
+      const index = licenses.value.findIndex((license) => {
+        const id = license._id || license.id
+        return id && (id.toString() === targetId || id === targetId)
+      })
+      if (index !== -1) {
+        licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
+      } else {
+        getAllLicenses().catch((err) => console.error('重新載入授權列表失敗:', err))
+      }
+      return data.message || fallbackOk
+    }
+
     const createLicense = async (licenseData) => {
       return await safeApiCall(
         async () => {
-          console.log('創建授權開始:', licenseData)
-
           const requestBody = {
             product: licenseData.product,
             customerName: licenseData.customerName,
@@ -431,7 +449,6 @@ export const useUserStore = defineStore(
             requestBody.features = licenseData.features
           }
           const { data } = await apiAuth.post('/api/users/licenses', requestBody)
-          console.log('創建授權回應:', data)
 
           if (!data || !data.success) {
             throw new Error(data?.message || '創建授權失敗')
@@ -440,10 +457,10 @@ export const useUserStore = defineStore(
           // 允許兩種可能的格式
           const newLicense = data.result?.license || data.license || data.result
           if (newLicense) {
-            console.log('新授權數據:', newLicense)
             licenses.value.push(newLicense)
-            notify.notifySuccess('授權建立成功')
-            return { success: true, message: data.message || '授權建立成功' }
+            const msg = data.message || '授權建立成功'
+            notify.notifySuccess(msg)
+            return { success: true, message: msg }
           } else {
             console.error('回應中找不到授權數據:', data)
             // 如果找不到新授權，重新載入列表（但不設置 loading，避免卡住）
@@ -462,48 +479,24 @@ export const useUserStore = defineStore(
     const updateLicense = async (licenseId, licenseData) => {
       return await safeApiCall(
         async () => {
-          console.log('更新授權開始:', { licenseId, licenseData })
-
           const requestBody = {
             notes: licenseData.notes || null,
           }
           if (licenseData.status !== undefined) requestBody.status = licenseData.status
           if (Array.isArray(licenseData.features)) requestBody.features = licenseData.features
           const { data } = await apiAuth.put(`/api/users/licenses/${licenseId}`, requestBody)
-          console.log('更新授權回應:', data)
 
           if (!data || !data.success) {
             throw new Error(data?.message || '更新授權失敗')
           }
 
-          // 允許兩種可能的格式
-          const updatedLicense = data.result?.license || data.license || data.result
-          if (updatedLicense) {
-            const index = licenses.value.findIndex((license) => {
-              const id = license._id || license.id
-              const targetId = licenseId.toString()
-              return id && (id.toString() === targetId || id === targetId)
-            })
-
-            if (index !== -1) {
-              console.log('找到授權索引:', index, '更新狀態')
-              licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
-            } else {
-              console.warn('找不到要更新的授權，ID:', licenseId)
-              // 如果找不到，重新載入列表
-              getAllLicenses().catch((err) => {
-                console.error('重新載入授權列表失敗:', err)
-              })
-            }
-            return { success: true, message: data.message || '更新授權成功' }
-          } else {
-            console.error('回應中找不到授權數據:', data)
-            // 嘗試重新載入授權列表
-            getAllLicenses().catch((err) => {
-              console.error('重新載入授權列表失敗:', err)
-            })
-            return { success: true, message: data.message || '更新授權成功，但無法獲取更新詳情' }
-          }
+          const message = mergeLicenseFromApiResponse(
+            licenseId,
+            data,
+            '更新授權成功',
+            '更新授權成功，但無法獲取更新詳情',
+          )
+          return { success: true, message }
         },
         {
           defaultMessage: '更新授權失敗',
@@ -514,43 +507,20 @@ export const useUserStore = defineStore(
     const reviewLicense = async (licenseId) => {
       return await safeApiCall(
         async () => {
-          console.log('審核授權開始:', licenseId)
-
           const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/review`)
-          console.log('審核授權回應:', data)
 
           if (!data || !data.success) {
             throw new Error(data?.message || '審核授權失敗')
           }
 
-          // 允許兩種可能的格式
-          const updatedLicense = data.result?.license || data.license || data.result
-          if (updatedLicense) {
-            const index = licenses.value.findIndex((license) => {
-              const id = license._id || license.id
-              const targetId = licenseId.toString()
-              return id && (id.toString() === targetId || id === targetId)
-            })
-
-            if (index !== -1) {
-              console.log('找到授權索引:', index, '更新狀態')
-              licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
-            } else {
-              console.warn('找不到要更新的授權，ID:', licenseId)
-              // 如果找不到，重新載入列表
-              getAllLicenses().catch((err) => {
-                console.error('重新載入授權列表失敗:', err)
-              })
-            }
-            return { success: true, message: data.message || '審核授權成功' }
-          } else {
-            console.error('回應中找不到授權數據:', data)
-            // 嘗試重新載入授權列表
-            getAllLicenses().catch((err) => {
-              console.error('重新載入授權列表失敗:', err)
-            })
-            return { success: true, message: data.message || '審核授權成功，但無法獲取更新詳情' }
-          }
+          const message = mergeLicenseFromApiResponse(
+            licenseId,
+            data,
+            '審核授權成功',
+            '審核授權成功，但無法獲取更新詳情',
+          )
+          notify.notifySuccess(message)
+          return { success: true, message }
         },
         {
           defaultMessage: '審核授權失敗',
@@ -571,10 +541,10 @@ export const useUserStore = defineStore(
             throw new Error(data?.message || '追加授權失敗')
           }
 
-          return {
-            success: true,
-            message: data.message || '副授權申請已建立，待審核通過後將產生 License Key',
-          }
+          const message =
+            data.message || '副授權申請已建立，待審核通過後將產生 License Key'
+          notify.notifySuccess(message)
+          return { success: true, message }
         },
         {
           defaultMessage: '追加授權失敗',
@@ -606,15 +576,12 @@ export const useUserStore = defineStore(
     const deleteLicense = async (licenseId) => {
       return await safeApiCall(
         async () => {
-          console.log('刪除授權開始:', licenseId)
           const { data } = await apiAuth.delete(`/api/users/licenses/${licenseId}`)
-          console.log('刪除授權回應:', data)
 
           if (!data || !data.success) {
             throw new Error(data?.message || '刪除授權失敗')
           }
 
-          // 從授權列表中移除該授權
           const index = licenses.value.findIndex((license) => {
             const id = license._id || license.id
             const targetId = licenseId.toString()
@@ -622,17 +589,14 @@ export const useUserStore = defineStore(
           })
 
           if (index !== -1) {
-            console.log('找到授權索引:', index, '移除授權')
             licenses.value.splice(index, 1)
           } else {
-            console.warn('找不到要刪除的授權，ID:', licenseId)
-            // 如果找不到，重新載入列表
             getAllLicenses().catch((err) => {
               console.error('重新載入授權列表失敗:', err)
             })
           }
 
-          notify.notifySuccess('授權刪除成功')
+          notify.notifySuccess(data.message || '授權刪除成功')
           return { success: true, message: data.message || '授權刪除成功' }
         },
         {
