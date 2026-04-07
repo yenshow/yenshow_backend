@@ -1,8 +1,17 @@
 <template>
-  <div class="p-4 rich-text-block-editor rounded-md">
+  <div
+    class="p-4 rich-text-block-editor rounded-md"
+    :data-testid="dataTestId"
+    :data-lang="currentEditingLanguage"
+    :data-field="activeFieldName"
+  >
     <div class="flex justify-between items-center mb-2">
       <p class="theme-text">內容區塊</p>
-      <language-switcher v-model="currentEditingLanguage" />
+      <language-switcher
+        v-model="currentEditingLanguage"
+        :data-test-id="languageSwitcherTestId"
+        aria-label="主要內容語言切換"
+      />
     </div>
 
     <div
@@ -183,6 +192,14 @@ const props = defineProps({
     type: String,
     default: 'TW',
   },
+  dataTestId: {
+    type: String,
+    default: '',
+  },
+  fieldBase: {
+    type: String,
+    default: 'article',
+  },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -192,6 +209,13 @@ const isDark = useDark()
 const currentEditingLanguage = ref(props.initialLanguage || 'TW')
 
 const defaultEmptyContent = () => ({ type: 'doc', content: [{ type: 'paragraph' }] })
+
+const languageSwitcherTestId = computed(() => {
+  if (!props.dataTestId) return ''
+  return `${props.dataTestId}-lang`
+})
+
+const activeFieldName = computed(() => `${props.fieldBase}.${currentEditingLanguage.value}`)
 
 // --- 幫助函數，用於確保傳入的內容是有效的 Tiptap 文檔物件 ---
 const getValidTiptapContent = (contentInput) => {

@@ -17,21 +17,22 @@
       {{ errorMessage || hierarchyStore.error }}
     </div>
 
-    <!-- 載入與內容切換過渡 -->
-    <Transition name="fade" mode="out-in">
-      <LoadingSpinner
-        v-if="isChildLoading"
-        key="loading"
-        container-class="py-8"
-      />
-      <router-view
-        v-else
-        key="content"
-        :key="currentSeries"
-        :categories-data="categoriesDataForChild"
-        @refresh-hierarchy="loadDataForCurrentSeries"
-      />
-    </Transition>
+    <!-- 載入與內容：router-view 不可再直接包在 Transition 內（Vue Router 4） -->
+    <LoadingSpinner v-if="isChildLoading" key="loading" container-class="py-8" />
+    <router-view
+      v-else
+      v-slot="{ Component }"
+      :key="currentSeries"
+    >
+      <Transition name="fade" mode="out-in">
+        <component
+          :is="Component"
+          :key="currentSeries"
+          :categories-data="categoriesDataForChild"
+          @refresh-hierarchy="loadDataForCurrentSeries"
+        />
+      </Transition>
+    </router-view>
   </div>
 </template>
 

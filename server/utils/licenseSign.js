@@ -9,18 +9,25 @@ const getSignSecret = () => {
 };
 
 /**
- * 將 payload 的 key 排序後序列化為 JSON
- * 確保簽名時資料順序一致
+ * 深度排序 object key 後序列化為 JSON
+ * 確保簽名時資料順序一致（包含 quotas 這類巢狀物件）
  */
-const canonicalize = (payload) => {
-	const sorted = Object.keys(payload)
-		.sort()
-		.reduce((acc, key) => {
-			acc[key] = payload[key];
-			return acc;
-		}, {});
-	return JSON.stringify(sorted);
+const deepSort = (value) => {
+	if (Array.isArray(value)) {
+		return value.map((v) => deepSort(v));
+	}
+	if (value && typeof value === "object") {
+		return Object.keys(value)
+			.sort()
+			.reduce((acc, key) => {
+				acc[key] = deepSort(value[key]);
+				return acc;
+			}, {});
+	}
+	return value;
 };
+
+const canonicalize = (payload) => JSON.stringify(deepSort(payload));
 
 /**
  * 對授權回應資料進行 HMAC-SHA256 簽名

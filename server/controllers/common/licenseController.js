@@ -33,7 +33,9 @@ const formatLicenseResult = (license) => ({
 	serialNumber: license.serialNumber,
 	licenseKey: license.licenseKey,
 	product: license.product,
+	deploymentProfile: license.deploymentProfile || "central",
 	features: license.features || [],
+	quotas: license.quotas || null,
 	status: license.status,
 	deviceFingerprint: license.deviceFingerprint || null
 });
@@ -45,7 +47,9 @@ const buildOfflinePayload = (license, { isExtension, parentLicenseKey }) => ({
 	licenseKey: license.licenseKey,
 	serialNumber: license.serialNumber,
 	product: license.product,
+	deploymentProfile: license.deploymentProfile || "central",
 	features: license.features || [],
+	quotas: license.quotas || null,
 	status: license.status,
 	deviceFingerprint: license.deviceFingerprint || null,
 	activatedAt: new Date().toISOString(),

@@ -21,11 +21,23 @@ const licenseSchema = new Schema(
 			index: true,
 			comment: "產品類別"
 		},
+		deploymentProfile: {
+			type: String,
+			enum: ["central", "construction"],
+			default: "central",
+			index: true,
+			comment: "部署樣貌：central=智慧管理平台、construction=工地管理平台"
+		},
 		features: {
 			type: [String],
-			enum: ["people_counting", "lighting", "environment", "surveillance", "vehicle_access"],
+			enum: ["people_counting", "lighting", "drainage", "fire", "emergency_rescue", "environment", "surveillance", "vehicle_access"],
 			default: [],
 			comment: "授權功能模組（僅 BA-system 使用）"
+		},
+		quotas: {
+			type: Schema.Types.Mixed,
+			default: null,
+			comment: "模組配額（選配）。格式：{ [featureKey]: { maxDevices?: number|null } }"
 		},
 		customerName: {
 			type: String,
@@ -55,10 +67,10 @@ const licenseSchema = new Schema(
 		},
 		status: {
 			type: String,
-			enum: ["pending", "available", "active"],
+			enum: ["pending", "available", "active", "inactive"],
 			default: "pending",
 			index: true,
-			comment: "授權狀態：pending=審核中, available=可啟用, active=使用中"
+			comment: "授權狀態：pending=審核中, available=可啟用, active=使用中, inactive=已停用"
 		},
 		applicant: {
 			type: String,
@@ -110,7 +122,7 @@ const licenseSchema = new Schema(
 
 licenseSchema.index(
 	{ licenseKey: 1 },
-	{ 
+	{
 		unique: true,
 		// partial index 不支援 $ne: null（依 MongoDB 版本）
 		// 以欄位型別區分：只有 string 才納入 unique 約束
@@ -119,13 +131,14 @@ licenseSchema.index(
 );
 licenseSchema.index(
 	{ serialNumber: 1 },
-	{ 
+	{
 		unique: true,
 		partialFilterExpression: { serialNumber: { $type: "string" } }
 	}
 );
 licenseSchema.index({ status: 1 });
 licenseSchema.index({ parentLicenseKey: 1 });
+licenseSchema.index({ deploymentProfile: 1 });
 
 const transformOptions = {
 	virtuals: true,

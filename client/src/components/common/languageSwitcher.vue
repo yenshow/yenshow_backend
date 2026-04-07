@@ -1,11 +1,21 @@
 <template>
-  <div class="flex items-center space-x-2">
-    <span class="text-sm">語言:</span>
+  <div
+    class="flex items-center gap-2"
+    role="tablist"
+    :aria-label="ariaLabel"
+    :data-active-lang="modelValue"
+    :data-testid="dataTestId"
+  >
+    <span v-if="showLabel" class="text-sm theme-text opacity-80">{{ labelText }}</span>
     <button
       v-for="lang in availableLanguages"
       :key="lang.code"
       type="button"
+      role="tab"
+      :aria-selected="modelValue === lang.code"
       :title="`切換至${lang.name}`"
+      :data-lang="lang.code"
+      :data-testid="optionTestId(lang.code)"
       @click="selectLanguage(lang.code)"
       :class="getButtonClass(lang.code)"
     >
@@ -29,6 +39,22 @@ const props = defineProps({
       { code: 'EN', name: 'English', label: 'EN' },
     ],
   },
+  dataTestId: {
+    type: String,
+    default: '',
+  },
+  ariaLabel: {
+    type: String,
+    default: '語言切換',
+  },
+  showLabel: {
+    type: Boolean,
+    default: true,
+  },
+  labelText: {
+    type: String,
+    default: '語言:',
+  },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -36,6 +62,11 @@ const { conditionalClass } = useThemeClass()
 
 const selectLanguage = (langCode) => {
   emit('update:modelValue', langCode)
+}
+
+const optionTestId = (langCode) => {
+  if (!props.dataTestId) return ''
+  return `${props.dataTestId}-${String(langCode).toLowerCase()}`
 }
 
 const getButtonClass = (langCode) => {

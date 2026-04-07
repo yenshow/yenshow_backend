@@ -5,11 +5,13 @@
         cardClass,
         'w-full max-w-3xl rounded-lg shadow-xl p-6 max-h-[90vh] overflow-y-auto relative',
       ]"
+      data-testid="news-modal"
     >
       <button
         @click="closeModal"
         class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
         title="關閉"
+        data-testid="news-modal-close"
       >
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -29,14 +31,23 @@
 
       <LoadingSpinner v-if="loading" container-class="text-center py-8" />
 
-      <form v-else @submit.prevent="submitForm" class="space-y-[12px] lg:space-y-[24px]">
+      <form
+        v-else
+        @submit.prevent="submitForm"
+        class="space-y-[12px] lg:space-y-[24px]"
+        data-testid="news-form"
+      >
         <div class="border-b" :class="conditionalClass('border-gray-700', 'border-gray-200')">
-          <nav class="flex space-x-8" aria-label="Tabs">
+          <nav class="flex space-x-8" aria-label="表單步驟" role="tablist" data-testid="news-step-tabs">
             <button
               v-for="tab in tabs"
               :key="tab.name"
               type="button"
               @click="currentTab = tab.name"
+              role="tab"
+              :aria-selected="currentTab === tab.name"
+              :data-step="tab.name"
+              :data-testid="`news-step-tab-${tab.name}`"
               :class="[
                 currentTab === tab.name
                   ? conditionalClass(
@@ -55,21 +66,50 @@
           </nav>
         </div>
 
+        <div v-if="stepErrorGroups.length" class="space-y-2" data-testid="news-validation-summary">
+          <div class="bg-red-500/20 border border-red-500 text-red-100 px-4 py-3 rounded-md">
+            <p class="font-medium">請修正下列欄位後再送出</p>
+            <div class="mt-2 space-y-2">
+              <div v-for="group in stepErrorGroups" :key="group.step">
+                <button
+                  type="button"
+                  class="text-sm underline underline-offset-2"
+                  :data-testid="`news-validation-jump-${group.step}`"
+                  @click="currentTab = group.step"
+                >
+                  {{ group.stepLabel }}
+                </button>
+                <ul class="mt-1 list-disc ps-5 text-sm space-y-0.5">
+                  <li v-for="err in group.errors" :key="err.field">
+                    <span class="opacity-90">{{ err.fieldLabel }}</span>
+                    <span class="opacity-80"> — </span>
+                    <span>{{ err.message }}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 非欄位驗證錯誤（例如後端回傳、網路錯誤） -->
         <div
-          v-if="formError"
-          class="bg-red-500/20 border border-red-500 text-red-100 px-4 py-3 rounded-md mb-4"
+          v-else-if="formError"
+          class="bg-red-500/20 border border-red-500 text-red-100 px-4 py-3 rounded-md"
+          data-testid="news-form-error"
         >
           {{ formError }}
         </div>
 
         <div class="space-y-[12px] lg:space-y-[24px] overflow-y-auto flex-grow min-h-[400px]">
           <!-- 基本資訊 -->
-          <div v-show="currentTab === 'general'">
+          <div v-show="currentTab === 'general'" data-testid="news-step-general" data-step="general">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label for="newsAuthor" class="block mb-3 theme-text">作者 *</label>
                 <input
                   id="newsAuthor"
+                  name="author"
+                  data-testid="news-author"
                   v-model="form.author"
                   type="text"
                   :class="[inputClass, validationErrors.author ? 'border-red-500' : '']"
@@ -82,7 +122,13 @@
               <div>
                 <label for="newsIsActive" class="block mb-3 theme-text">發布狀態</label>
                 <div v-if="isAdmin">
-                  <select id="newsIsActive" v-model="form.isActive" :class="[inputClass]">
+                  <select
+                    id="newsIsActive"
+                    name="publishStatus"
+                    data-testid="news-publish-status"
+                    v-model="form.isActive"
+                    :class="[inputClass]"
+                  >
                     <option :value="false" class="text-black/70">待審查</option>
                     <option :value="true" class="text-black/70">已發布</option>
                   </select>
@@ -103,6 +149,8 @@
                 <label for="newsCatMain" class="block mb-3 theme-text">主分類 *</label>
                 <select
                   id="newsCatMain"
+                  name="mainCategory"
+                  data-testid="news-main-category"
                   v-model="form.category.main.TW"
                   :class="[
                     inputClass,
@@ -119,10 +167,7 @@
                     {{ cat }}
                   </option>
                 </select>
-                <p
-                  v-if="validationErrors['category.main.TW']"
-                  class="text-red-500 text-xs mt-1"
-                >
+                <p v-if="validationErrors['category.main.TW']" class="text-red-500 text-xs mt-1">
                   {{ validationErrors['category.main.TW'] }}
                 </p>
               </div>
@@ -131,9 +176,15 @@
                 <label for="publishDate" class="block mb-3 theme-text">發布日期 *</label>
                 <input
                   id="publishDate"
+                  name="publishDate"
+                  data-testid="news-publish-date"
                   v-model="form.publishDate"
                   type="date"
-                  :class="[inputClass, 'pe-3', validationErrors.publishDate ? 'border-red-500' : '']"
+                  :class="[
+                    inputClass,
+                    'pe-3',
+                    validationErrors.publishDate ? 'border-red-500' : '',
+                  ]"
                 />
                 <p v-if="validationErrors.publishDate" class="text-red-500 text-xs mt-1">
                   {{ validationErrors.publishDate }}
@@ -144,17 +195,18 @@
             <div class="space-y-3 mt-4">
               <div class="flex justify-between items-center mb-2">
                 <label class="block theme-text">標題 *</label>
-                <div class="flex items-center space-x-1">
-                  <button type="button" @click="titleLanguage = 'TW'" :class="subLangBtnClass(titleLanguage === 'TW')">
-                    TW
-                  </button>
-                  <button type="button" @click="titleLanguage = 'EN'" :class="subLangBtnClass(titleLanguage === 'EN')">
-                    EN
-                  </button>
-                </div>
+                <LanguageSwitcher
+                  v-model="titleLanguage"
+                  :show-label="false"
+                  data-test-id="news-title-lang"
+                  aria-label="標題語言切換"
+                />
               </div>
               <div v-show="titleLanguage === 'TW'">
                 <input
+                  id="newsTitleTW"
+                  name="title.tw"
+                  data-testid="news-title-tw"
                   v-model="form.title.TW"
                   type="text"
                   :class="[inputClass, validationErrors['title.TW'] ? 'border-red-500' : '']"
@@ -166,6 +218,9 @@
               </div>
               <div v-show="titleLanguage === 'EN'">
                 <input
+                  id="newsTitleEN"
+                  name="title.en"
+                  data-testid="news-title-en"
                   v-model="form.title.EN"
                   type="text"
                   :class="[inputClass, validationErrors['title.EN'] ? 'border-red-500' : '']"
@@ -180,17 +235,18 @@
             <div class="space-y-3 mt-4">
               <div class="flex justify-between items-center mb-2">
                 <label class="block theme-text">摘要 *</label>
-                <div class="flex items-center space-x-1">
-                  <button type="button" @click="summaryLanguage = 'TW'" :class="subLangBtnClass(summaryLanguage === 'TW')">
-                    TW
-                  </button>
-                  <button type="button" @click="summaryLanguage = 'EN'" :class="subLangBtnClass(summaryLanguage === 'EN')">
-                    EN
-                  </button>
-                </div>
+                <LanguageSwitcher
+                  v-model="summaryLanguage"
+                  :show-label="false"
+                  data-test-id="news-summary-lang"
+                  aria-label="摘要語言切換"
+                />
               </div>
               <div v-show="summaryLanguage === 'TW'">
                 <textarea
+                  id="newsSummaryTW"
+                  name="summary.tw"
+                  data-testid="news-summary-tw"
                   v-model="form.summary.TW"
                   rows="6"
                   :class="[inputClass, validationErrors['summary.TW'] ? 'border-red-500' : '']"
@@ -202,11 +258,17 @@
               </div>
               <div v-show="summaryLanguage === 'EN'">
                 <textarea
+                  id="newsSummaryEN"
+                  name="summary.en"
+                  data-testid="news-summary-en"
                   v-model="form.summary.EN"
                   rows="6"
-                  :class="[inputClass]"
+                  :class="[inputClass, validationErrors['summary.EN'] ? 'border-red-500' : '']"
                   placeholder="Summary (English)"
                 />
+                <p v-if="validationErrors['summary.EN']" class="text-red-500 text-xs mt-1">
+                  {{ validationErrors['summary.EN'] }}
+                </p>
               </div>
             </div>
 
@@ -214,7 +276,11 @@
               <div class="flex justify-between items-center mb-2">
                 <label class="block theme-text">相關新聞</label>
                 <div class="flex flex-wrap items-center gap-2">
-                  <button type="button" @click="relatedNewsFilterCategory = null" :class="chipClass(!relatedNewsFilterCategory)">
+                  <button
+                    type="button"
+                    @click="relatedNewsFilterCategory = null"
+                    :class="chipClass(!relatedNewsFilterCategory)"
+                  >
                     全部分類
                   </button>
                   <button
@@ -231,6 +297,7 @@
               <div
                 class="max-h-48 overflow-y-auto rounded-md border p-3"
                 :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                data-testid="news-related-news"
               >
                 <div v-if="filteredAllNews.length === 0" class="text-sm text-gray-500">
                   沒有其他新聞可供關聯
@@ -242,6 +309,8 @@
                 >
                   <input
                     :id="`rn-${news._id}`"
+                    name="relatedNews"
+                    data-testid="news-related-news-item"
                     v-model="form.relatedNews"
                     type="checkbox"
                     :value="news._id"
@@ -269,6 +338,7 @@
                 @dragenter.prevent
                 @dragover.prevent
                 @drop.prevent="onCoverDrop"
+                data-testid="news-cover-dropzone"
               >
                 <div class="space-y-2 text-center min-h-[110px]">
                   <img
@@ -293,7 +363,10 @@
                         d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
                       />
                     </svg>
-                    <div class="flex text-sm justify-center" :class="conditionalClass('text-gray-500', 'text-gray-400')">
+                    <div
+                      class="flex text-sm justify-center"
+                      :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                    >
                       <p class="pl-1">點擊或拖曳以上傳封面</p>
                     </div>
                     <p class="text-xs" :class="conditionalClass('text-gray-600', 'text-gray-500')">
@@ -311,6 +384,9 @@
                 </div>
                 <input
                   ref="coverInputRef"
+                  id="newsCoverImage"
+                  name="coverImage"
+                  data-testid="news-cover-image"
                   type="file"
                   accept="image/*"
                   class="hidden"
@@ -324,11 +400,13 @@
           </div>
 
           <!-- 主要內容 -->
-          <div v-show="currentTab === 'mainContent'">
+          <div v-show="currentTab === 'mainContent'" data-testid="news-step-mainContent" data-step="mainContent">
             <label class="block theme-text mb-2">主要內容 *</label>
             <RichTextBlockEditor
               v-model="form.article"
               :initial-language="articleLanguage"
+              data-test-id="news-article-editor"
+              field-base="article"
             />
             <p v-if="validationErrors.article" class="text-red-500 text-xs mt-1">
               {{ validationErrors.article }}
@@ -336,7 +414,7 @@
           </div>
 
           <!-- 附加檔案（版面對齊 FAQ：圖片 → 文件 → 影片） -->
-          <div v-show="currentTab === 'attachments'">
+          <div v-show="currentTab === 'attachments'" data-testid="news-step-attachments" data-step="attachments">
             <!-- 圖片（固定高度；預覽顯示在框內） -->
             <div class="mb-6">
               <label class="block mb-3 theme-text">圖片 (可上傳多張)</label>
@@ -352,8 +430,12 @@
                 @dragenter.prevent
                 @dragover.prevent
                 @drop.prevent="onAttachImagesDrop"
+                data-testid="news-attachment-images-dropzone"
               >
-                <div v-if="form.attachmentImages.length === 0" class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full">
+                <div
+                  v-if="form.attachmentImages.length === 0"
+                  class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full"
+                >
                   <svg
                     class="mx-auto h-12 w-12"
                     :class="conditionalClass('text-gray-500', 'text-gray-400')"
@@ -411,6 +493,9 @@
                 </div>
                 <input
                   ref="attachImageInputRef"
+                  id="newsAttachmentImages"
+                  name="attachmentImages"
+                  data-testid="news-attachment-images"
                   type="file"
                   accept="image/*"
                   multiple
@@ -435,8 +520,12 @@
                 @dragenter.prevent
                 @dragover.prevent
                 @drop.prevent="onAttachDocsDrop"
+                data-testid="news-attachment-documents-dropzone"
               >
-                <div v-if="form.attachmentDocuments.length === 0" class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full">
+                <div
+                  v-if="form.attachmentDocuments.length === 0"
+                  class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full"
+                >
                   <svg
                     class="mx-auto h-12 w-12"
                     :class="conditionalClass('text-gray-500', 'text-gray-400')"
@@ -498,6 +587,9 @@
                 </div>
                 <input
                   ref="attachDocInputRef"
+                  id="newsAttachmentDocuments"
+                  name="attachmentDocuments"
+                  data-testid="news-attachment-documents"
                   type="file"
                   :accept="documentAccept"
                   multiple
@@ -522,8 +614,12 @@
                 @dragenter.prevent
                 @dragover.prevent
                 @drop.prevent="onAttachVideosDrop"
+                data-testid="news-attachment-videos-dropzone"
               >
-                <div v-if="form.attachmentVideos.length === 0" class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full">
+                <div
+                  v-if="form.attachmentVideos.length === 0"
+                  class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full"
+                >
                   <svg
                     class="mx-auto h-12 w-12"
                     :class="conditionalClass('text-gray-500', 'text-gray-400')"
@@ -538,7 +634,11 @@
                       stroke-width="1.5"
                       d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
                     />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6v12m-3-10.5v9" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M15.75 6v12m-3-10.5v9"
+                    />
                   </svg>
                   <div
                     class="flex text-sm justify-center"
@@ -558,7 +658,9 @@
                     :class="conditionalClass('border-gray-600', 'border-gray-300')"
                   >
                     <div class="flex items-center justify-between gap-2 mb-2">
-                      <p class="text-xs theme-text opacity-80">{{ row.source === 'embed' ? '嵌入' : '上傳' }}</p>
+                      <p class="text-xs theme-text opacity-80">
+                        {{ row.source === 'embed' ? '嵌入' : '上傳' }}
+                      </p>
                       <div class="flex items-center gap-1">
                         <button
                           type="button"
@@ -572,11 +674,27 @@
                     </div>
 
                     <template v-if="row.source === 'embed'">
-                      <input v-model="row.embedUrl" :class="[inputClass]" placeholder="影片嵌入 URL" @click.stop />
+                      <input
+                        v-model="row.embedUrl"
+                        :class="[inputClass]"
+                        placeholder="影片嵌入 URL"
+                        @click.stop
+                        :data-testid="`news-attachment-video-embed-${idx}`"
+                      />
                     </template>
                     <template v-else>
-                      <video v-if="row._preview || row.url" :src="row._preview || row.url" class="w-full max-h-32 rounded bg-black" controls @click.stop />
-                      <button type="button" class="text-xs text-blue-500 mt-2" @click.stop="pickVideoForRow(idx)">
+                      <video
+                        v-if="row._preview || row.url"
+                        :src="row._preview || row.url"
+                        class="w-full max-h-32 rounded bg-black"
+                        controls
+                        @click.stop
+                      />
+                      <button
+                        type="button"
+                        class="text-xs text-blue-500 mt-2"
+                        @click.stop="pickVideoForRow(idx)"
+                      >
                         選擇或更換檔案
                       </button>
                     </template>
@@ -584,6 +702,9 @@
                 </div>
                 <input
                   ref="attachVideoInputRef"
+                  id="newsAttachmentVideos"
+                  name="attachmentVideos"
+                  data-testid="news-attachment-videos"
                   type="file"
                   accept="video/*"
                   multiple
@@ -607,11 +728,59 @@
           class="flex justify-end space-x-3 pt-4 border-t"
           :class="conditionalClass('border-gray-700', 'border-gray-200')"
         >
+          <div class="flex-1 flex items-center gap-2">
+            <button
+              type="button"
+              class="px-3 py-2 text-sm rounded-md transition-colors"
+              :class="
+                conditionalClass(
+                  'bg-gray-700 hover:bg-gray-600 text-gray-200 disabled:opacity-50',
+                  'bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-50',
+                )
+              "
+              :disabled="isProcessing || loading || currentTab === 'general'"
+              data-testid="news-step-prev"
+              @click="goToPrevStep"
+            >
+              上一步
+            </button>
+            <button
+              type="button"
+              class="px-3 py-2 text-sm rounded-md transition-colors"
+              :class="
+                conditionalClass(
+                  'bg-gray-700 hover:bg-gray-600 text-gray-200 disabled:opacity-50',
+                  'bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-50',
+                )
+              "
+              :disabled="isProcessing || loading || currentTab === 'attachments'"
+              data-testid="news-step-next"
+              @click="goToNextStep"
+            >
+              下一步
+            </button>
+            <button
+              type="button"
+              class="px-3 py-2 text-sm rounded-md transition-colors"
+              :class="
+                conditionalClass(
+                  'bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50',
+                  'bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50',
+                )
+              "
+              :disabled="isProcessing || loading"
+              data-testid="news-save-draft"
+              @click="handleSaveDraft"
+            >
+              儲存草稿
+            </button>
+          </div>
           <button
             type="button"
             @click="closeModal"
             :disabled="isProcessing"
             class="px-4 py-2 text-sm font-medium rounded-md transition-colors"
+            data-testid="news-cancel"
             :class="
               conditionalClass(
                 'bg-gray-600 hover:bg-gray-500 text-gray-200',
@@ -625,6 +794,7 @@
             type="submit"
             :disabled="isProcessing || loading"
             class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+            data-testid="news-final-submit"
           >
             {{ isProcessing ? '處理中…' : isEditing ? '更新新聞' : '新增新聞' }}
           </button>
@@ -642,9 +812,10 @@ import { useFormValidation } from '@/composables/useFormValidation'
 import { useUserStore } from '@/stores/userStore'
 import { useApi } from '@/composables/axios'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import LanguageSwitcher from '@/components/common/languageSwitcher.vue'
 
 const RichTextBlockEditor = defineAsyncComponent(
-  () => import('@/components/news/RichTextBlockEditor.vue'),
+  () => import('@/components/common/RichTextBlockEditor.vue'),
 )
 
 const NEWS_NEW_FILE_MARKER = '__NEWS_NEW_FILE__'
@@ -723,17 +894,51 @@ const initialFormState = () => ({
 
 const form = ref(initialFormState())
 
-const subLangBtnClass = (on) =>
-  [
-    on ? 'bg-blue-500 text-white' : conditionalClass('bg-gray-700 text-gray-300', 'bg-gray-200 text-gray-700'),
-    'px-2 py-1 text-xs rounded-md',
-  ]
+const chipClass = (on) => [
+  on
+    ? 'bg-blue-500 text-white'
+    : conditionalClass('bg-gray-700 text-gray-300', 'bg-gray-200 text-gray-700'),
+  'px-3 py-1.5 text-xs rounded-md',
+]
 
-const chipClass = (on) =>
-  [
-    on ? 'bg-blue-500 text-white' : conditionalClass('bg-gray-700 text-gray-300', 'bg-gray-200 text-gray-700'),
-    'px-3 py-1.5 text-xs rounded-md',
-  ]
+const stepLabelMap = {
+  general: '基本資訊',
+  mainContent: '主要內容',
+  attachments: '附加檔案',
+}
+
+const fieldLabelMap = {
+  author: '作者',
+  'category.main.TW': '主分類',
+  publishDate: '發布日期',
+  'title.TW': '標題 (TW)',
+  'title.EN': '標題 (EN)',
+  'summary.TW': '摘要 (TW)',
+  'summary.EN': '摘要 (EN)',
+  article: '主要內容',
+  coverImageUrl: '封面圖片',
+}
+
+const stepErrors = ref([])
+
+const stepErrorGroups = computed(() => {
+  if (!Array.isArray(stepErrors.value) || stepErrors.value.length === 0) return []
+  const groups = []
+  for (const step of ['general', 'mainContent', 'attachments']) {
+    const errors = stepErrors.value.filter((e) => e.step === step)
+    if (!errors.length) continue
+    groups.push({
+      step,
+      stepLabel: stepLabelMap[step] || step,
+      errors: errors.map((e) => ({
+        field: e.field,
+        fieldLabel: fieldLabelMap[e.field] || e.field,
+        message: e.message,
+      })),
+    })
+  }
+  return groups
+})
 
 const filteredAllNews = computed(() => {
   if (!props.allNews?.length) return []
@@ -762,11 +967,7 @@ watch(
 
 const isTiptapEmpty = (doc) => {
   if (!doc?.content?.length) return true
-  return (
-    doc.content.length === 1 &&
-    doc.content[0].type === 'paragraph' &&
-    !doc.content[0].content
-  )
+  return doc.content.length === 1 && doc.content[0].type === 'paragraph' && !doc.content[0].content
 }
 
 const triggerCoverInput = () => coverInputRef.value?.click()
@@ -955,77 +1156,151 @@ const removeAttachmentDoc = (idx) => {
 
 const validateForm = () => {
   clearErrors()
-  let ok = true
+  const errors = []
+  const pushError = (step, field, message) => {
+    errors.push({ step, field, message })
+    setError(field, message)
+  }
+
+  const twIsEmpty = (v) => !v || !String(v).trim()
+
   if (!form.value.author?.trim()) {
-    setError('author', '作者為必填')
-    ok = false
+    pushError('general', 'author', '作者為必填')
   }
   if (!form.value.category.main?.TW) {
-    setError('category.main.TW', '主分類為必填')
-    ok = false
+    pushError('general', 'category.main.TW', '主分類為必填')
   }
-  if (!form.value.title.TW?.trim()) {
-    setError('title.TW', '繁體標題為必填')
-    ok = false
+  if (twIsEmpty(form.value.title.TW)) {
+    pushError('general', 'title.TW', '繁體標題為必填')
   }
-  if (!form.value.title.EN?.trim()) {
-    setError('title.EN', '英文標題為必填')
-    ok = false
+  if (twIsEmpty(form.value.title.EN)) {
+    pushError('general', 'title.EN', '英文標題為必填')
   }
-  if (!form.value.summary.TW?.trim()) {
-    setError('summary.TW', '摘要 (TW) 為必填')
-    ok = false
+  if (twIsEmpty(form.value.summary.TW)) {
+    pushError('general', 'summary.TW', '摘要 (TW) 為必填')
+  }
+  if (twIsEmpty(form.value.summary.EN)) {
+    pushError('general', 'summary.EN', '摘要 (EN) 為必填')
   }
   if (!form.value.publishDate) {
-    setError('publishDate', '發布日期為必填')
-    ok = false
+    pushError('general', 'publishDate', '發布日期為必填')
   } else if (isNaN(new Date(form.value.publishDate).getTime())) {
-    setError('publishDate', '日期無效')
-    ok = false
+    pushError('general', 'publishDate', '日期無效')
   }
-  if (isTiptapEmpty(form.value.article.TW) && isTiptapEmpty(form.value.article.EN)) {
-    setError('article', '主要內容至少填寫一種語言')
-    ok = false
+
+  const twEmpty = isTiptapEmpty(form.value.article.TW)
+  const enEmpty = isTiptapEmpty(form.value.article.EN)
+  if (twEmpty && enEmpty) {
+    pushError('mainContent', 'article', '主要內容至少填寫一種語言')
   }
   if (!form.value.coverImageUrl) {
-    setError('coverImageUrl', '請上傳封面')
-    ok = false
+    pushError('general', 'coverImageUrl', '請上傳封面')
   }
 
   form.value.attachmentImages.forEach((row, i) => {
     if (row.url === NEWS_NEW_FILE_MARKER && !row._newFile) {
-      setError(`attach_img_${i}`, '圖片檔案缺失')
-      ok = false
+      pushError('attachments', `attach_img_${i}`, '圖片檔案缺失')
     }
   })
   form.value.attachmentVideos.forEach((row, i) => {
     if (row.source === 'embed' && !row.embedUrl?.trim()) {
-      setError(`attach_vid_${i}`, '請填嵌入網址')
-      ok = false
+      pushError('attachments', `attach_vid_${i}`, '請填嵌入網址')
     }
-    if (row.source === 'upload' && (!row.url || row.url === NEWS_NEW_FILE_MARKER) && !row._newFile) {
-      setError(`attach_vid_${i}`, '請選擇影片檔')
-      ok = false
+    if (
+      row.source === 'upload' &&
+      (!row.url || row.url === NEWS_NEW_FILE_MARKER) &&
+      !row._newFile
+    ) {
+      pushError('attachments', `attach_vid_${i}`, '請選擇影片檔')
     }
   })
   form.value.attachmentDocuments.forEach((row, i) => {
     if (row.url === NEWS_NEW_FILE_MARKER && !row._newFile) {
-      setError(`attach_doc_${i}`, '請選擇文件')
-      ok = false
+      pushError('attachments', `attach_doc_${i}`, '請選擇文件')
     }
   })
 
-  if (!ok) {
-    const keys = Object.keys(validationErrors)
-    const first = keys[0]
-    if (first?.startsWith('attach_')) currentTab.value = 'attachments'
-    else if (first === 'article') currentTab.value = 'mainContent'
-    else currentTab.value = 'general'
-    formError.value = (first && validationErrors[first]) || '請修正表單'
-  } else {
-    formError.value = ''
+  stepErrors.value = errors
+  if (!errors.length) return true
+
+  const firstStep = errors[0].step || 'general'
+  currentTab.value = firstStep
+  return false
+}
+
+const goToPrevStep = () => {
+  const order = ['general', 'mainContent', 'attachments']
+  const idx = order.indexOf(currentTab.value)
+  if (idx <= 0) return
+  currentTab.value = order[idx - 1]
+}
+
+const goToNextStep = () => {
+  const order = ['general', 'mainContent', 'attachments']
+  const idx = order.indexOf(currentTab.value)
+  if (idx < 0 || idx >= order.length - 1) return
+  currentTab.value = order[idx + 1]
+}
+
+const handleSaveDraft = async () => {
+  // 草稿：允許不通過完整驗證，但仍會走同一份 payload；強制 isActive=false
+  isProcessing.value = true
+  stepErrors.value = []
+  formError.value = ''
+
+  const newsDataPayload = buildPayload()
+  newsDataPayload.isActive = false
+  if (isEditing.value && form.value._id) {
+    newsDataPayload._id = form.value._id
   }
-  return ok
+
+  const hasFiles =
+    !!imageFile.value ||
+    form.value.attachmentImages.some((r) => r._newFile) ||
+    form.value.attachmentVideos.some((r) => r._newFile) ||
+    form.value.attachmentDocuments.some((r) => r._newFile)
+
+  let submissionPayload
+  if (hasFiles) {
+    const fd = new FormData()
+    fd.append('newsDataPayload', JSON.stringify(newsDataPayload))
+    if (imageFile.value) fd.append('coverImage', imageFile.value)
+    form.value.attachmentImages.forEach((r) => {
+      if (r._newFile) fd.append('newsImages', r._newFile)
+    })
+    form.value.attachmentVideos.forEach((r) => {
+      if (r.source === 'upload' && r._newFile) fd.append('newsVideos', r._newFile)
+    })
+    form.value.attachmentDocuments.forEach((r) => {
+      if (r._newFile) fd.append('newsDocuments', r._newFile)
+    })
+    submissionPayload = fd
+  } else {
+    submissionPayload = newsDataPayload
+  }
+
+  try {
+    let result
+    if (isEditing.value) {
+      result = await newsStore.update(form.value._id, submissionPayload)
+    } else {
+      result = await newsStore.create(submissionPayload)
+    }
+    if (newsStore.error) {
+      throw new Error(
+        newsStore.error.response?.data?.message || newsStore.error.message || '操作失敗',
+      )
+    }
+    emit('saved', {
+      news: result || { _id: form.value._id, ...newsDataPayload },
+      isNew: !isEditing.value,
+    })
+    closeModal()
+  } catch (e) {
+    formError.value = e.message || '操作失敗'
+  } finally {
+    isProcessing.value = false
+  }
 }
 
 const buildPayload = () => {
@@ -1119,7 +1394,10 @@ const submitForm = async () => {
         newsStore.error.response?.data?.message || newsStore.error.message || '操作失敗',
       )
     }
-    emit('saved', { news: result || { _id: form.value._id, ...newsDataPayload }, isNew: !isEditing.value })
+    emit('saved', {
+      news: result || { _id: form.value._id, ...newsDataPayload },
+      isNew: !isEditing.value,
+    })
     closeModal()
   } catch (e) {
     formError.value = e.message || '操作失敗'
@@ -1234,7 +1512,6 @@ watch(
 )
 
 onBeforeUnmount(() => releaseBlobs())
-
 ;(async () => {
   try {
     const { entityApi } = useApi()

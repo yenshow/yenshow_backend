@@ -416,37 +416,21 @@ export const useUserStore = defineStore(
       }
     }
 
-    const mergeLicenseFromApiResponse = (licenseId, data, fallbackOk, fallbackPartial) => {
-      const updatedLicense = data.result?.license || data.license || data.result
-      if (!updatedLicense) {
-        console.error('回應中找不到授權數據:', data)
-        getAllLicenses().catch((err) => console.error('重新載入授權列表失敗:', err))
-        return data?.message || fallbackPartial
-      }
-      const targetId = licenseId.toString()
-      const index = licenses.value.findIndex((license) => {
-        const id = license._id || license.id
-        return id && (id.toString() === targetId || id === targetId)
-      })
-      if (index !== -1) {
-        licenses.value[index] = { ...licenses.value[index], ...updatedLicense }
-      } else {
-        getAllLicenses().catch((err) => console.error('重新載入授權列表失敗:', err))
-      }
-      return data.message || fallbackOk
-    }
-
     const createLicense = async (licenseData) => {
       return await safeApiCall(
         async () => {
           const requestBody = {
             product: licenseData.product,
+            deploymentProfile: licenseData.deploymentProfile,
             customerName: licenseData.customerName,
             applicant: licenseData.applicant,
             notes: licenseData.notes || null,
           }
           if (licenseData.product === 'BA-system' && Array.isArray(licenseData.features)) {
             requestBody.features = licenseData.features
+          }
+          if (licenseData.product === 'BA-system') {
+            requestBody.quotas = licenseData.quotas || null
           }
           const { data } = await apiAuth.post('/api/users/licenses', requestBody)
 
@@ -484,19 +468,15 @@ export const useUserStore = defineStore(
           }
           if (licenseData.status !== undefined) requestBody.status = licenseData.status
           if (Array.isArray(licenseData.features)) requestBody.features = licenseData.features
+          if (licenseData.deploymentProfile !== undefined)
+            requestBody.deploymentProfile = licenseData.deploymentProfile
+          if (licenseData.quotas !== undefined) requestBody.quotas = licenseData.quotas
           const { data } = await apiAuth.put(`/api/users/licenses/${licenseId}`, requestBody)
 
           if (!data || !data.success) {
             throw new Error(data?.message || '更新授權失敗')
           }
-
-          const message = mergeLicenseFromApiResponse(
-            licenseId,
-            data,
-            '更新授權成功',
-            '更新授權成功，但無法獲取更新詳情',
-          )
-          return { success: true, message }
+          return { success: true, message: data.message || '更新授權成功' }
         },
         {
           defaultMessage: '更新授權失敗',
@@ -512,13 +492,7 @@ export const useUserStore = defineStore(
           if (!data || !data.success) {
             throw new Error(data?.message || '審核授權失敗')
           }
-
-          const message = mergeLicenseFromApiResponse(
-            licenseId,
-            data,
-            '審核授權成功',
-            '審核授權成功，但無法獲取更新詳情',
-          )
+          const message = data.message || '審核授權成功'
           notify.notifySuccess(message)
           return { success: true, message }
         },
@@ -535,6 +509,7 @@ export const useUserStore = defineStore(
             features: extensionData.features,
             applicant: extensionData.applicant,
             notes: extensionData.notes || null,
+            quotas: extensionData.quotas || null,
           })
 
           if (!data || !data.success) {
@@ -573,6 +548,48 @@ export const useUserStore = defineStore(
       )
     }
 
+    const revokeLicense = async (licenseId) => {
+      return await safeApiCall(
+        async () => {
+          const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/revoke`)
+          if (!data || !data.success) {
+            throw new Error(data?.message || '收回授權失敗')
+          }
+          const extensionsUpdated =
+            data.result?.extensionsUpdated ?? data.extensionsUpdated ?? 0
+          const msg =
+            extensionsUpdated > 0
+              ? `授權已收回（停用），已連動收回 ${extensionsUpdated} 組副 LK`
+              : '授權已收回（停用）'
+          notify.notifySuccess(msg)
+          return { success: true, message: msg }
+        },
+        { defaultMessage: '收回授權失敗' },
+      )
+    }
+
+    const restoreLicenseToAvailable = async (licenseId) => {
+      return await safeApiCall(
+        async () => {
+          const { data } = await apiAuth.post(
+            `/api/users/licenses/${licenseId}/restore-available`,
+          )
+          if (!data || !data.success) {
+            throw new Error(data?.message || '恢復可啟用失敗')
+          }
+          const extensionsUpdated =
+            data.result?.extensionsUpdated ?? data.extensionsUpdated ?? 0
+          const msg =
+            extensionsUpdated > 0
+              ? `已恢復為可啟用，已連動 ${extensionsUpdated} 組副 LK`
+              : '已恢復為可啟用'
+          notify.notifySuccess(msg)
+          return { success: true, message: msg }
+        },
+        { defaultMessage: '恢復可啟用失敗' },
+      )
+    }
+
     const deleteLicense = async (licenseId) => {
       return await safeApiCall(
         async () => {
@@ -582,19 +599,13 @@ export const useUserStore = defineStore(
             throw new Error(data?.message || '刪除授權失敗')
           }
 
-          const index = licenses.value.findIndex((license) => {
-            const id = license._id || license.id
-            const targetId = licenseId.toString()
-            return id && (id.toString() === targetId || id === targetId)
+          const targetId = licenseId?.toString?.() ?? String(licenseId)
+          licenses.value = (Array.isArray(licenses.value) ? licenses.value : []).filter((license) => {
+            const id = license?._id || license?.id
+            if (!id) return true
+            const normalized = id?.toString?.() ?? String(id)
+            return normalized !== targetId
           })
-
-          if (index !== -1) {
-            licenses.value.splice(index, 1)
-          } else {
-            getAllLicenses().catch((err) => {
-              console.error('重新載入授權列表失敗:', err)
-            })
-          }
 
           notify.notifySuccess(data.message || '授權刪除成功')
           return { success: true, message: data.message || '授權刪除成功' }
@@ -644,6 +655,8 @@ export const useUserStore = defineStore(
       reviewLicense,
       extendLicense,
       unbindLicense,
+      revokeLicense,
+      restoreLicenseToAvailable,
       updateLicense,
       deleteLicense,
 

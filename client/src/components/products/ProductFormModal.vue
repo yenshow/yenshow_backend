@@ -5,6 +5,7 @@
         cardClass,
         'w-full max-w-2xl rounded-[10px] shadow-lg p-[24px] max-h-[90vh] overflow-y-auto relative',
       ]"
+      data-testid="product-form-modal"
     >
       <button
         @click="closeModal"
@@ -16,6 +17,7 @@
           )
         "
         title="關閉"
+        data-testid="product-form-modal-close"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -54,7 +56,25 @@
       </div>
 
       <!-- 表單內容 -->
-      <form v-else @submit.prevent="submitForm" class="space-y-[12px] lg:space-y-[24px]">
+      <form
+        v-else
+        @submit.prevent="submitForm"
+        class="space-y-[12px] lg:space-y-[24px]"
+        data-testid="product-form"
+      >
+        <div v-if="validationSummary.length" class="space-y-2" data-testid="product-validation-summary">
+          <div class="bg-red-500/20 border border-red-500 text-red-100 px-4 py-3 rounded-md">
+            <p class="font-medium">請修正下列欄位後再送出</p>
+            <ul class="mt-2 list-disc ps-5 text-sm space-y-0.5">
+              <li v-for="row in validationSummary" :key="row.field">
+                <span class="opacity-90">{{ row.label }}</span>
+                <span class="opacity-80"> — </span>
+                <span>{{ row.message }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
         <!-- 基本資訊 -->
         <div class="grid grid-cols-1 gap-4 mb-6">
           <!-- 產品名稱多語言輸入 -->
@@ -63,6 +83,9 @@
             <div class="relative">
               <label class="block mb-3">產品名稱 *</label>
               <input
+                id="productNameTW"
+                name="name.tw"
+                data-testid="product-name-tw"
                 v-model="form.name_TW"
                 type="text"
                 :class="[
@@ -82,6 +105,9 @@
             <div class="relative">
               <label class="block mb-3">產品型號 *</label>
               <input
+                id="productNameEN"
+                name="name.en"
+                data-testid="product-name-en"
                 v-model="form.name_EN"
                 type="text"
                 :class="[
@@ -102,6 +128,9 @@
           <div>
             <label class="block mb-3">子分類 *</label>
             <select
+              id="productSubCategory"
+              name="subCategoriesId"
+              data-testid="product-subcategory"
               v-model="form.subCategoriesId"
               :class="[
                 inputClass,
@@ -137,6 +166,9 @@
           <div>
             <label class="block mb-3">產品規格 *</label>
             <select
+              id="productSpecification"
+              name="specifications"
+              data-testid="product-specification"
               v-model="form.specifications"
               :class="[
                 inputClass,
@@ -170,15 +202,22 @@
         </div>
 
         <!-- 產品特點 -->
-        <div class="mb-6">
+        <div class="mb-6" data-testid="product-features" :data-lang="featureLanguage">
           <div class="flex justify-between items-center mb-3">
             <label class="block">產品特點</label>
-            <language-switcher v-model="featureLanguage" />
+            <language-switcher
+              v-model="featureLanguage"
+              data-test-id="product-features-lang"
+              aria-label="產品特點語言切換"
+            />
           </div>
 
           <!-- 新增的批次輸入區塊 -->
           <div class="mb-3 text-right">
             <textarea
+              id="productFeaturesBatch"
+              name="features.batch"
+              data-testid="product-features-batch"
               v-model="batchFeaturesText"
               :class="[
                 inputClass,
@@ -190,6 +229,7 @@
             <button
               type="button"
               @click="processBatchFeatures"
+              data-testid="product-features-batch-add"
               class="mt-2 px-3 py-1.5 text-sm bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors duration-150"
             >
               批次新增
@@ -203,6 +243,9 @@
             class="flex items-center mb-3"
           >
             <input
+              :id="`productFeature-${feature.featureId}-${featureLanguage}`"
+              :name="`features.${feature.featureId}.${featureLanguage.toLowerCase()}`"
+              :data-testid="`product-feature-${feature.featureId}-${featureLanguage.toLowerCase()}`"
               v-model="form.features[index][featureLanguage]"
               type="text"
               :class="[
@@ -215,6 +258,7 @@
               <button
                 type="button"
                 @click="removeFeature(index)"
+                :data-testid="`product-feature-remove-${feature.featureId}`"
                 class="p-2 text-red-500 hover:text-red-400 cursor-pointer"
                 title="移除特點"
               >
@@ -232,6 +276,7 @@
           <button
             type="button"
             @click="addFeature"
+            data-testid="product-feature-add"
             class="mt-3 flex items-center text-[#3490dc] hover:text-[#2779bd] cursor-pointer"
           >
             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -247,13 +292,20 @@
         </div>
 
         <!-- 產品描述 -->
-        <div class="mb-6">
+        <div class="mb-6" data-testid="product-description" :data-lang="descriptionLanguage">
           <div class="flex justify-between items-center mb-3">
             <label class="block">產品描述</label>
-            <language-switcher v-model="descriptionLanguage" />
+            <language-switcher
+              v-model="descriptionLanguage"
+              data-test-id="product-description-lang"
+              aria-label="產品描述語言切換"
+            />
           </div>
           <div class="mb-3">
             <textarea
+              :id="`productDescription-${descriptionLanguage}`"
+              :name="`description.${descriptionLanguage.toLowerCase()}`"
+              :data-testid="`product-description-${descriptionLanguage.toLowerCase()}`"
               v-model="form[`description_${descriptionLanguage}`]"
               :class="[
                 inputClass,
@@ -272,6 +324,12 @@
             class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
             :class="conditionalClass('border-gray-600', 'border-gray-300')"
             @click="triggerImageInput"
+            role="button"
+            tabindex="0"
+            aria-label="上傳產品圖片"
+            @keydown.enter.prevent="triggerImageInput"
+            @keydown.space.prevent="triggerImageInput"
+            data-testid="product-images-dropzone"
           >
             <div class="space-y-1 text-center">
               <svg
@@ -293,6 +351,9 @@
             </div>
             <input
               ref="imageInputRef"
+              id="productImages"
+              name="images"
+              data-testid="product-images"
               type="file"
               accept="image/*"
               multiple
@@ -342,7 +403,11 @@
         <div class="mb-6">
           <div class="flex justify-between items-center mb-2">
             <label class="block font-medium">相關文件 (PDF)</label>
-            <language-switcher v-model="documentsLanguage" />
+            <language-switcher
+              v-model="documentsLanguage"
+              data-test-id="product-documents-lang"
+              aria-label="相關文件語言切換"
+            />
           </div>
           <div
             class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
@@ -350,6 +415,17 @@
             @click="
               documentsLanguage === 'TW' ? triggerDocumentInputTW() : triggerDocumentInputEN()
             "
+            role="button"
+            tabindex="0"
+            aria-label="上傳相關 PDF 文件"
+            @keydown.enter.prevent="
+              documentsLanguage === 'TW' ? triggerDocumentInputTW() : triggerDocumentInputEN()
+            "
+            @keydown.space.prevent="
+              documentsLanguage === 'TW' ? triggerDocumentInputTW() : triggerDocumentInputEN()
+            "
+            data-testid="product-documents-dropzone"
+            :data-lang="documentsLanguage"
           >
             <div class="space-y-1 text-center">
               <svg
@@ -371,6 +447,9 @@
             </div>
             <input
               ref="documentInputRefTW"
+              id="productDocumentsTW"
+              name="documents.tw"
+              data-testid="product-documents-tw"
               type="file"
               accept="application/pdf"
               multiple
@@ -379,6 +458,9 @@
             />
             <input
               ref="documentInputRefEN"
+              id="productDocumentsEN"
+              name="documents.en"
+              data-testid="product-documents-en"
               type="file"
               accept="application/pdf"
               multiple
@@ -463,6 +545,12 @@
             class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
             :class="conditionalClass('border-gray-600', 'border-gray-300')"
             @click="triggerVideoInput"
+            role="button"
+            tabindex="0"
+            aria-label="上傳產品影片"
+            @keydown.enter.prevent="triggerVideoInput"
+            @keydown.space.prevent="triggerVideoInput"
+            data-testid="product-videos-dropzone"
           >
             <div class="space-y-1 text-center">
               <svg
@@ -485,6 +573,9 @@
             </div>
             <input
               ref="videoInputRef"
+              id="productVideos"
+              name="videos"
+              data-testid="product-videos"
               type="file"
               accept="video/*"
               multiple
@@ -554,6 +645,8 @@
             id="productIsActive"
             type="checkbox"
             v-model="form.isActive"
+            name="isActive"
+            data-testid="product-is-active"
             class="h-4 w-4 rounded mr-2"
             :class="
               conditionalClass(
@@ -577,6 +670,7 @@
               )
             "
             @click="closeModal"
+            data-testid="product-cancel"
           >
             取消
           </button>
@@ -584,6 +678,7 @@
             type="submit"
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-[10px] cursor-pointer text-white"
             :disabled="isProcessing"
+            data-testid="product-submit"
           >
             <span v-if="isProcessing">處理中...</span>
             <span v-else>{{ isEditing ? '更新產品' : '新增產品' }}</span>
@@ -654,6 +749,27 @@ const uploadStatus = ref('')
 const uploadProgress = ref(0)
 const isProcessing = ref(false)
 const isEditing = computed(() => !!props.productId)
+
+const fieldLabelMap = {
+  name_TW: '產品名稱 (TW)',
+  name_EN: '產品型號 (EN)',
+  code: '產品代碼',
+  subCategoriesId: '子分類',
+  specifications: '產品規格',
+  images: '產品示圖',
+  videos: '相關影片',
+}
+
+const validationSummary = computed(() => {
+  const source = validationErrors || {}
+  const keys = Object.keys(source)
+  if (!keys.length) return []
+  return keys.map((field) => ({
+    field,
+    label: fieldLabelMap[field] || field,
+    message: source[field],
+  }))
+})
 
 // 表單數據 - Initialized ONCE here using the function above
 const form = ref(getInitialFormState())
@@ -887,7 +1003,6 @@ const validateForm = () => {
   }
 
   if (!isValid) {
-    formError.value = formError.value || Object.values(validationErrors)[0] || '表單驗證失敗'
     return false
   }
 

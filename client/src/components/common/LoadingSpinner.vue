@@ -4,10 +4,10 @@
 
 <script setup>
 defineProps({
-  // 是否顯示
+  // 是否顯示（多數頁面用外層 v-if 控制掛載；未傳時預設顯示，避免必填 prop 警告）
   show: {
     type: Boolean,
-    required: true,
+    default: true,
   },
   // 自訂容器樣式（可選）
   containerClass: {

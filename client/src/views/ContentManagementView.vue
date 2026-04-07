@@ -634,7 +634,7 @@ import { useThemeClass } from '@/composables/useThemeClass'
 import { useNotifications } from '@/composables/notificationCenter'
 import { useLanguageStore } from '@/stores/core/languageStore'
 import { useApi } from '@/composables/axios'
-import NewsModal from '@/components/news/NewsModal.vue'
+import NewsModal from '@/components/NewsModal.vue'
 import FaqModal from '@/components/FaqModal.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { usePageInitialization } from '@/composables/usePageInitialization'
@@ -1101,7 +1101,9 @@ const hasNewsAttachmentImages = (item) => {
 const hasNewsAttachmentVideos = (item) => {
   const list = item?.attachmentVideos
   if (!Array.isArray(list) || list.length === 0) return false
-  return list.some((row) => (row.source === 'embed' && row.embedUrl) || (row.source === 'upload' && row.url))
+  return list.some(
+    (row) => (row.source === 'embed' && row.embedUrl) || (row.source === 'upload' && row.url),
+  )
 }
 
 const hasNewsAttachmentDocuments = (item) => {

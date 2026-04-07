@@ -485,6 +485,13 @@ class NewsController extends EntityController {
 			delete processedData._pendingCoverFile;
 			delete processedData.newsTitleTw;
 
+			// 封面規則：建立新聞時封面必填（與前端一致）
+			const hasCoverUrl = typeof processedData.coverImageUrl === "string" && processedData.coverImageUrl.trim() !== "";
+			const hasPendingCover = !!pendingCover;
+			if (!hasCoverUrl && !hasPendingCover) {
+				throw new ApiError(StatusCodes.BAD_REQUEST, "封面圖片為必填");
+			}
+
 			const uploadPlans = detachUploadPlans(processedData);
 
 			let newsItem = await this.entityService.create(processedData, {
