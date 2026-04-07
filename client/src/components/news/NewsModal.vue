@@ -3,45 +3,33 @@
     <div
       :class="[
         cardClass,
-        'w-full max-w-3xl rounded-[10px] shadow-lg p-[24px] max-h-[90vh] overflow-y-auto relative',
+        'w-full max-w-3xl rounded-lg shadow-xl p-6 max-h-[90vh] overflow-y-auto relative',
       ]"
     >
-      <div class="flex justify-between items-center mb-[12px] lg:mb-[24px]">
-        <h2 class="text-[16px] lg:text-[24px] font-bold theme-text">
-          {{ isEditing ? '編輯新聞' : '新增新聞' }}
-        </h2>
-        <button
-          @click="closeModal"
-          class="p-1 rounded-full hover:bg-opacity-20"
-          :class="conditionalClass('hover:bg-gray-500', 'hover:bg-gray-300')"
-          title="關閉"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-            class="w-6 h-6 theme-text"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      <!-- 載入過渡（防止閃爍） -->
-      <LoadingSpinner
-        v-if="loading"
-        container-class="py-8 flex-grow flex flex-col justify-center items-center"
-      />
-
-      <!-- 表單內容 -->
-      <form
-        v-else
-        @submit.prevent="submitForm"
-        class="flex flex-col flex-grow space-y-[12px] lg:space-y-[24px] overflow-hidden"
+      <button
+        @click="closeModal"
+        class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        title="關閉"
       >
-        <!-- 頁籤導航 -->
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+
+      <h2
+        class="text-[16px] lg:text-[24px] font-bold text-center mb-[12px] lg:mb-[24px] theme-text"
+      >
+        {{ isEditing ? '編輯新聞' : '新增新聞' }}
+      </h2>
+
+      <LoadingSpinner v-if="loading" container-class="text-center py-8" />
+
+      <form v-else @submit.prevent="submitForm" class="space-y-[12px] lg:space-y-[24px]">
         <div class="border-b" :class="conditionalClass('border-gray-700', 'border-gray-200')">
           <nav class="flex space-x-8" aria-label="Tabs">
             <button
@@ -67,176 +55,166 @@
           </nav>
         </div>
 
-        <!-- 錯誤提示 (置於頁籤內容之上) -->
         <div
           v-if="formError"
-          :class="[
-            conditionalClass(
-              'bg-red-500/20 border border-red-500 text-red-200',
-              'bg-red-100 border border-red-400 text-red-700',
-            ),
-            'px-4 py-3 rounded-md relative mb-4',
-          ]"
-          role="alert"
+          class="bg-red-500/20 border border-red-500 text-red-100 px-4 py-3 rounded-md mb-4"
         >
           {{ formError }}
         </div>
 
-        <!-- 頁籤內容 (可滾動區域) -->
-        <div class="space-y-[12px] lg:space-y-[24px] overflow-y-auto flex-grow">
-          <!-- 基本資料 Tab -->
+        <div class="space-y-[12px] lg:space-y-[24px] overflow-y-auto flex-grow min-h-[400px]">
+          <!-- 基本資訊 -->
           <div v-show="currentTab === 'general'">
-            <h3 class="text-lg mb-3 theme-text">基本資料</h3>
-            <!-- 標題 -->
-            <div class="mb-6">
-              <div class="flex justify-between items-center mb-3">
-                <label class="block theme-text">標題 *</label>
-                <language-switcher v-model="titleLang" />
-              </div>
-              <input
-                v-show="titleLang === 'TW'"
-                v-model="form.title.TW"
-                type="text"
-                placeholder="請輸入TW標題"
-                :class="[inputClass, validationErrors.title_TW ? 'border-red-500' : '']"
-              />
-              <input
-                v-show="titleLang === 'EN'"
-                v-model="form.title.EN"
-                type="text"
-                placeholder="Enter EN Title (Required for URL)"
-                :class="[inputClass, validationErrors.title_EN ? 'border-red-500' : '']"
-              />
-              <div class="h-5 mt-1">
-                <p v-if="validationErrors.title_TW" class="text-red-500 text-sm">
-                  {{ validationErrors.title_TW }}
-                </p>
-                <p v-else-if="validationErrors.title_EN" class="text-red-500 text-sm">
-                  {{ validationErrors.title_EN }}
-                </p>
-              </div>
-            </div>
-
-            <!-- 作者 -->
-            <div class="grid grid-cols-2 gap-3">
-              <div class="mb-6">
-                <label class="block theme-text mb-3">作者 *</label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label for="newsAuthor" class="block mb-3 theme-text">作者 *</label>
                 <input
+                  id="newsAuthor"
                   v-model="form.author"
                   type="text"
-                  placeholder="請輸入作者姓名"
                   :class="[inputClass, validationErrors.author ? 'border-red-500' : '']"
+                  placeholder="請輸入作者名稱"
                 />
-                <p v-if="validationErrors.author" class="text-red-500 text-sm mt-1">
+                <p v-if="validationErrors.author" class="text-red-500 text-xs mt-1">
                   {{ validationErrors.author }}
                 </p>
               </div>
+              <div>
+                <label for="newsIsActive" class="block mb-3 theme-text">發布狀態</label>
+                <div v-if="isAdmin">
+                  <select id="newsIsActive" v-model="form.isActive" :class="[inputClass]">
+                    <option :value="false" class="text-black/70">待審查</option>
+                    <option :value="true" class="text-black/70">已發布</option>
+                  </select>
+                </div>
+                <div v-else-if="isEditing">
+                  <p :class="[inputClass, 'bg-opacity-50 cursor-not-allowed']">
+                    {{ form.isActive ? '已發布' : '待審查' }}
+                  </p>
+                </div>
+                <div v-else>
+                  <p :class="[inputClass, 'bg-opacity-50 cursor-not-allowed']">
+                    待審查 (提交後將由管理員審核)
+                  </p>
+                </div>
+              </div>
 
-              <!-- isActive (取代 Status) - 根據角色顯示 -->
-              <div v-if="isAdmin" class="mb-6">
-                <label for="newsIsActiveSelect" class="block theme-text mb-3">發布狀態</label>
-                <select id="newsIsActiveSelect" v-model="form.isActive" :class="[inputClass]">
-                  <option :value="false" class="text-black/70">待審查</option>
-                  <option :value="true" class="text-black/70">已發布</option>
+              <div>
+                <label for="newsCatMain" class="block mb-3 theme-text">主分類 *</label>
+                <select
+                  id="newsCatMain"
+                  v-model="form.category.main.TW"
+                  :class="[
+                    inputClass,
+                    validationErrors['category.main.TW'] ? 'border-red-500' : '',
+                  ]"
+                >
+                  <option value="" disabled class="text-black/70">請選擇主分類 (TW)</option>
+                  <option
+                    v-for="cat in newsCategoriesTW"
+                    :key="cat"
+                    :value="cat"
+                    class="text-black/70"
+                  >
+                    {{ cat }}
+                  </option>
                 </select>
-              </div>
-              <div v-else-if="isEditing" class="mb-6">
-                <label class="block theme-text mb-1">目前狀態</label>
-                <p :class="[inputClass, 'bg-opacity-50 cursor-not-allowed']">
-                  {{ form.isActive ? '已發布' : '待審查' }}
-                </p>
                 <p
-                  v-if="!form.isActive"
-                  class="text-sm mt-1"
-                  :class="conditionalClass('text-yellow-400', 'text-yellow-600')"
+                  v-if="validationErrors['category.main.TW']"
+                  class="text-red-500 text-xs mt-1"
                 >
-                  您的提交將由管理員審核。
+                  {{ validationErrors['category.main.TW'] }}
                 </p>
               </div>
-              <div v-else-if="!isEditing && !isAdmin" class="mb-6">
-                <label class="block theme-text mb-1">狀態</label>
-                <p :class="[inputClass, 'bg-opacity-50 cursor-not-allowed']">待審查</p>
-                <p
-                  class="text-sm mt-1"
-                  :class="conditionalClass('text-yellow-400', 'text-yellow-600')"
-                >
-                  提交後，內容將進入審核流程。
+
+              <div>
+                <label for="publishDate" class="block mb-3 theme-text">發布日期 *</label>
+                <input
+                  id="publishDate"
+                  v-model="form.publishDate"
+                  type="date"
+                  :class="[inputClass, 'pe-3', validationErrors.publishDate ? 'border-red-500' : '']"
+                />
+                <p v-if="validationErrors.publishDate" class="text-red-500 text-xs mt-1">
+                  {{ validationErrors.publishDate }}
                 </p>
               </div>
             </div>
 
-            <!-- 分類 -->
-            <div class="grid grid-cols-2 gap-4 mb-6">
-              <div>
-                <label for="category" class="block theme-text mb-3">分類 *</label>
-                <select
-                  id="category"
-                  v-model="form.category"
-                  :class="[inputClass, validationErrors.category ? 'border-red-500' : '']"
-                >
-                  <option disabled value="" class="text-black/70">請選擇分類</option>
-                  <option value="智慧方案" class="text-black/70">智慧方案</option>
-                  <option value="產品介紹" class="text-black/70">產品介紹</option>
-                  <option value="品牌新聞" class="text-black/70">品牌新聞</option>
-                </select>
-                <p v-if="validationErrors.category" class="text-red-500 text-sm mt-1">
-                  {{ validationErrors.category }}
+            <div class="space-y-3 mt-4">
+              <div class="flex justify-between items-center mb-2">
+                <label class="block theme-text">標題 *</label>
+                <div class="flex items-center space-x-1">
+                  <button type="button" @click="titleLanguage = 'TW'" :class="subLangBtnClass(titleLanguage === 'TW')">
+                    TW
+                  </button>
+                  <button type="button" @click="titleLanguage = 'EN'" :class="subLangBtnClass(titleLanguage === 'EN')">
+                    EN
+                  </button>
+                </div>
+              </div>
+              <div v-show="titleLanguage === 'TW'">
+                <input
+                  v-model="form.title.TW"
+                  type="text"
+                  :class="[inputClass, validationErrors['title.TW'] ? 'border-red-500' : '']"
+                  placeholder="繁體中文標題"
+                />
+                <p v-if="validationErrors['title.TW']" class="text-red-500 text-xs mt-1">
+                  {{ validationErrors['title.TW'] }}
                 </p>
               </div>
-
-              <!-- 發布日期 -->
-              <div>
-                <label for="publishDate" class="block theme-text mb-3">發布日期 *</label>
+              <div v-show="titleLanguage === 'EN'">
                 <input
-                  type="date"
-                  id="publishDate"
-                  v-model="form.publishDate"
-                  class="pe-3"
-                  :class="inputClass"
+                  v-model="form.title.EN"
+                  type="text"
+                  :class="[inputClass, validationErrors['title.EN'] ? 'border-red-500' : '']"
+                  placeholder="English title (for slug)"
+                />
+                <p v-if="validationErrors['title.EN']" class="text-red-500 text-xs mt-1">
+                  {{ validationErrors['title.EN'] }}
+                </p>
+              </div>
+            </div>
+
+            <div class="space-y-3 mt-4">
+              <div class="flex justify-between items-center mb-2">
+                <label class="block theme-text">摘要 *</label>
+                <div class="flex items-center space-x-1">
+                  <button type="button" @click="summaryLanguage = 'TW'" :class="subLangBtnClass(summaryLanguage === 'TW')">
+                    TW
+                  </button>
+                  <button type="button" @click="summaryLanguage = 'EN'" :class="subLangBtnClass(summaryLanguage === 'EN')">
+                    EN
+                  </button>
+                </div>
+              </div>
+              <div v-show="summaryLanguage === 'TW'">
+                <textarea
+                  v-model="form.summary.TW"
+                  rows="6"
+                  :class="[inputClass, validationErrors['summary.TW'] ? 'border-red-500' : '']"
+                  placeholder="請輸入摘要 (繁體中文)"
+                />
+                <p v-if="validationErrors['summary.TW']" class="text-red-500 text-xs mt-1">
+                  {{ validationErrors['summary.TW'] }}
+                </p>
+              </div>
+              <div v-show="summaryLanguage === 'EN'">
+                <textarea
+                  v-model="form.summary.EN"
+                  rows="6"
+                  :class="[inputClass]"
+                  placeholder="Summary (English)"
                 />
               </div>
             </div>
 
-            <!-- 摘要 -->
-            <div class="mb-6">
-              <div class="flex justify-between items-center mb-3">
-                <label class="block theme-text">摘要 *</label>
-                <language-switcher v-model="summaryMetaLang" />
-              </div>
-              <textarea
-                v-show="summaryMetaLang === 'TW'"
-                v-model="form.summary.TW"
-                rows="6"
-                placeholder="請輸入摘要"
-                :class="inputClass"
-              ></textarea>
-              <textarea
-                v-show="summaryMetaLang === 'EN'"
-                v-model="form.summary.EN"
-                rows="6"
-                placeholder="Enter Summary"
-                :class="inputClass"
-              ></textarea>
-            </div>
-
-            <!-- 相關新聞 -->
-            <div class="mb-6">
-              <div class="flex justify-between items-center mb-3">
+            <div class="space-y-3 mt-4">
+              <div class="flex justify-between items-center mb-2">
                 <label class="block theme-text">相關新聞</label>
-                <div class="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    @click="relatedNewsFilterCategory = null"
-                    :class="[
-                      !relatedNewsFilterCategory
-                        ? 'bg-blue-500 text-white'
-                        : conditionalClass(
-                            'bg-gray-700 text-gray-300',
-                            'bg-gray-200 text-gray-700',
-                          ),
-                      'px-3 py-1.5 text-xs rounded-md transition-colors',
-                    ]"
-                  >
+                <div class="flex flex-wrap items-center gap-2">
+                  <button type="button" @click="relatedNewsFilterCategory = null" :class="chipClass(!relatedNewsFilterCategory)">
                     全部分類
                   </button>
                   <button
@@ -244,15 +222,7 @@
                     :key="cat"
                     type="button"
                     @click="relatedNewsFilterCategory = cat"
-                    :class="[
-                      relatedNewsFilterCategory === cat
-                        ? 'bg-blue-500 text-white'
-                        : conditionalClass(
-                            'bg-gray-700 text-gray-300',
-                            'bg-gray-200 text-gray-700',
-                          ),
-                      'px-3 py-1.5 text-xs rounded-md transition-colors',
-                    ]"
+                    :class="chipClass(relatedNewsFilterCategory === cat)"
                   >
                     {{ cat }}
                   </button>
@@ -271,30 +241,120 @@
                   class="flex items-center space-x-3 py-2"
                 >
                   <input
-                    :id="`news-${news._id}`"
+                    :id="`rn-${news._id}`"
+                    v-model="form.relatedNews"
                     type="checkbox"
                     :value="news._id"
-                    v-model="form.relatedNews"
                     class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <label :for="`news-${news._id}`" class="theme-text text-sm cursor-pointer">
-                    {{ news.title.TW }}
+                  <label :for="`rn-${news._id}`" class="theme-text text-sm cursor-pointer">
+                    {{ news.title?.TW }}
                   </label>
                 </div>
               </div>
             </div>
 
-            <!-- 主要圖片 -->
-            <div class="mb-6">
+            <!-- 封面（基本資訊底部） -->
+            <div class="mt-6">
               <label class="block mb-3 theme-text">封面圖片 *</label>
               <div
-                class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
+                class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400 transition-colors"
                 :class="conditionalClass('border-gray-600', 'border-gray-300')"
-                @click="triggerImageInput"
+                role="button"
+                tabindex="0"
+                aria-label="上傳封面圖片，可點擊或拖曳檔案至此"
+                @click="triggerCoverInput"
+                @keydown.enter.prevent="triggerCoverInput"
+                @keydown.space.prevent="triggerCoverInput"
+                @dragenter.prevent
+                @dragover.prevent
+                @drop.prevent="onCoverDrop"
               >
-                <div class="space-y-1 text-center">
+                <div class="space-y-2 text-center min-h-[110px]">
+                  <img
+                    v-if="imagePreview || form.coverImageUrl"
+                    :src="imagePreview || form.coverImageUrl"
+                    alt="封面預覽"
+                    class="mx-auto max-h-40 rounded mb-2"
+                  />
+                  <div v-else class="space-y-1 pointer-events-none">
+                    <svg
+                      class="mx-auto h-12 w-12"
+                      :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                      stroke="currentColor"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="1.5"
+                        d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                      />
+                    </svg>
+                    <div class="flex text-sm justify-center" :class="conditionalClass('text-gray-500', 'text-gray-400')">
+                      <p class="pl-1">點擊或拖曳以上傳封面</p>
+                    </div>
+                    <p class="text-xs" :class="conditionalClass('text-gray-600', 'text-gray-500')">
+                      PNG, JPG, GIF, WEBP, SVG
+                    </p>
+                  </div>
+                  <button
+                    v-if="imagePreview || form.coverImageUrl"
+                    type="button"
+                    class="mt-2 text-xs text-red-500"
+                    @click.stop="removeCover"
+                  >
+                    移除
+                  </button>
+                </div>
+                <input
+                  ref="coverInputRef"
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  @change="handleCoverChange"
+                />
+              </div>
+              <p v-if="validationErrors.coverImageUrl" class="text-red-500 text-xs mt-1">
+                {{ validationErrors.coverImageUrl }}
+              </p>
+            </div>
+          </div>
+
+          <!-- 主要內容 -->
+          <div v-show="currentTab === 'mainContent'">
+            <label class="block theme-text mb-2">主要內容 *</label>
+            <RichTextBlockEditor
+              v-model="form.article"
+              :initial-language="articleLanguage"
+            />
+            <p v-if="validationErrors.article" class="text-red-500 text-xs mt-1">
+              {{ validationErrors.article }}
+            </p>
+          </div>
+
+          <!-- 附加檔案（版面對齊 FAQ：圖片 → 文件 → 影片） -->
+          <div v-show="currentTab === 'attachments'">
+            <!-- 圖片（固定高度；預覽顯示在框內） -->
+            <div class="mb-6">
+              <label class="block mb-3 theme-text">圖片 (可上傳多張)</label>
+              <div
+                class="mt-1 relative px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400 transition-colors h-[220px]"
+                :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                role="button"
+                tabindex="0"
+                aria-label="上傳圖片，可點擊或拖曳檔案至此"
+                @click="triggerAttachImageInput"
+                @keydown.enter.prevent="triggerAttachImageInput"
+                @keydown.space.prevent="triggerAttachImageInput"
+                @dragenter.prevent
+                @dragover.prevent
+                @drop.prevent="onAttachImagesDrop"
+              >
+                <div v-if="form.attachmentImages.length === 0" class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full">
                   <svg
-                    v-if="!imagePreview && !form.coverImageUrl"
                     class="mx-auto h-12 w-12"
                     :class="conditionalClass('text-gray-500', 'text-gray-400')"
                     stroke="currentColor"
@@ -309,294 +369,265 @@
                       d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
                     />
                   </svg>
-                  <img
-                    v-if="imagePreview || form.coverImageUrl"
-                    :src="imagePreview || form.coverImageUrl"
-                    alt="圖片預覽"
-                    class="mx-auto max-h-40 rounded mb-2"
-                  />
                   <div
-                    class="flex text-sm"
+                    class="flex text-sm justify-center"
                     :class="conditionalClass('text-gray-500', 'text-gray-400')"
                   >
-                    <p class="pl-1">
-                      {{
-                        imageFile
-                          ? imageFile.name
-                          : form.coverImageUrl
-                            ? '當前圖片'
-                            : '點擊或拖曳以上傳圖片'
-                      }}
-                    </p>
+                    <p class="pl-1">點擊或拖曳以上傳圖片</p>
                   </div>
-                  <p
-                    v-if="!imageFile && !form.coverImageUrl"
-                    class="text-xs"
-                    :class="conditionalClass('text-gray-600', 'text-gray-500')"
-                  >
-                    PNG, JPG, GIF, WEBP up to 10MB
+                  <p class="text-xs" :class="conditionalClass('text-gray-600', 'text-gray-500')">
+                    PNG, JPG, GIF, WEBP, SVG
                   </p>
-                  <button
-                    v-if="imagePreview || form.coverImageUrl"
-                    type="button"
-                    @click.stop="removeImage"
-                    class="mt-2 text-xs text-red-500 hover:text-red-700"
-                  >
-                    移除圖片
-                  </button>
+                </div>
+                <div v-else class="absolute inset-3 overflow-y-auto">
+                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div
+                      v-for="(row, idx) in form.attachmentImages"
+                      :key="row._key"
+                      class="relative rounded-md overflow-hidden border"
+                      :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                    >
+                      <img
+                        v-if="row._preview || row.url"
+                        :src="row._preview || row.url"
+                        class="w-full h-24 object-cover"
+                        alt=""
+                      />
+                      <div class="px-2 py-1 text-[11px] theme-text opacity-80 truncate">
+                        {{ row._newFile?.name || getFileNameFromUrl(row.url) || '圖片' }}
+                      </div>
+                      <div class="absolute top-1 right-1 flex items-center gap-1">
+                        <button
+                          type="button"
+                          class="bg-red-600/80 text-white text-xs rounded px-1.5 py-0.5"
+                          aria-label="刪除"
+                          @click.stop="removeAttachmentImage(idx)"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <input
-                  ref="imageInputRef"
+                  ref="attachImageInputRef"
                   type="file"
                   accept="image/*"
+                  multiple
                   class="hidden"
-                  @change="handleImageUpload"
+                  @change="onAttachImagesSelected"
                 />
               </div>
             </div>
-          </div>
 
-          <!-- 內容 Tab -->
-          <div v-show="currentTab === 'content'">
-            <div class="flex justify-between items-center mb-6">
-              <h3 class="text-lg theme-text">主要內容 *</h3>
-              <!-- Add Block Dropdown/Button -->
-              <div class="relative">
-                <button
-                  type="button"
-                  @click="showAddBlockMenu = !showAddBlockMenu"
-                  class="px-4 py-2 text-sm rounded-md flex items-center"
-                  :class="
-                    conditionalClass(
-                      'bg-indigo-600 hover:bg-indigo-700 text-white',
-                      'bg-indigo-500 hover:bg-indigo-600 text-white',
-                    )
-                  "
-                >
-                  新增區塊
+            <!-- 文件（固定高度；清單顯示在框內） -->
+            <div class="mb-6">
+              <label class="block mb-3 theme-text">文件 (可上傳多個)</label>
+              <div
+                class="mt-1 relative px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400 transition-colors h-[200px]"
+                :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                role="button"
+                tabindex="0"
+                aria-label="上傳文件，可點擊或拖曳檔案至此"
+                @click="triggerAttachDocInput"
+                @keydown.enter.prevent="triggerAttachDocInput"
+                @keydown.space.prevent="triggerAttachDocInput"
+                @dragenter.prevent
+                @dragover.prevent
+                @drop.prevent="onAttachDocsDrop"
+              >
+                <div v-if="form.attachmentDocuments.length === 0" class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full">
+                  <svg
+                    class="mx-auto h-12 w-12"
+                    :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                    stroke="currentColor"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                      d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                    />
+                  </svg>
+                  <div
+                    class="flex text-sm justify-center"
+                    :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                  >
+                    <p class="pl-1">點擊或拖曳以上傳文件</p>
+                  </div>
+                  <p class="text-xs" :class="conditionalClass('text-gray-600', 'text-gray-500')">
+                    PDF, DOC, XLS, PPT, TXT
+                  </p>
+                </div>
+                <div v-else class="absolute inset-3 overflow-y-auto space-y-2">
+                  <div
+                    v-for="(row, idx) in form.attachmentDocuments"
+                    :key="row._key"
+                    class="flex items-center justify-between gap-2 rounded-md border px-3 py-2"
+                    :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                  >
+                    <div class="min-w-0">
+                      <a
+                        v-if="row.url && !row._newFile"
+                        :href="row.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-sm text-blue-400 hover:underline block truncate"
+                        @click.stop
+                      >
+                        {{ getFileNameFromUrl(row.url) }}
+                      </a>
+                      <p v-else class="text-sm theme-text truncate">
+                        {{ row._newFile?.name || getFileNameFromUrl(row.url) || '文件' }}
+                      </p>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        class="bg-red-600/80 text-white text-xs rounded px-1.5 py-0.5"
+                        aria-label="刪除"
+                        @click.stop="removeAttachmentDoc(idx)"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <input
+                  ref="attachDocInputRef"
+                  type="file"
+                  :accept="documentAccept"
+                  multiple
+                  class="hidden"
+                  @change="onAttachDocsSelected"
+                />
+              </div>
+            </div>
+
+            <!-- 影片（固定高度；預覽顯示在框內；嵌入列也在框內） -->
+            <div class="mb-6">
+              <label class="block mb-3 theme-text">影片 (可上傳多部)</label>
+              <div
+                class="mt-1 relative px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400 transition-colors h-[240px]"
+                :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                role="button"
+                tabindex="0"
+                aria-label="上傳影片，可點擊或拖曳檔案至此"
+                @click="triggerVideoUploadInput"
+                @keydown.enter.prevent="triggerVideoUploadInput"
+                @keydown.space.prevent="triggerVideoUploadInput"
+                @dragenter.prevent
+                @dragover.prevent
+                @drop.prevent="onAttachVideosDrop"
+              >
+                <div v-if="form.attachmentVideos.length === 0" class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full">
+                  <svg
+                    class="mx-auto h-12 w-12"
+                    :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                    stroke="currentColor"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                      d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                    />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6v12m-3-10.5v9" />
+                  </svg>
+                  <div
+                    class="flex text-sm justify-center"
+                    :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                  >
+                    <p class="pl-1">點擊或拖曳以上傳影片</p>
+                  </div>
+                  <p class="text-xs" :class="conditionalClass('text-gray-600', 'text-gray-500')">
+                    MP4, WEBM, MOV
+                  </p>
+                </div>
+                <div v-else class="absolute inset-3 overflow-y-auto space-y-3">
+                  <div
+                    v-for="(row, idx) in form.attachmentVideos"
+                    :key="row._key"
+                    class="rounded-md border p-2"
+                    :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                  >
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                      <p class="text-xs theme-text opacity-80">{{ row.source === 'embed' ? '嵌入' : '上傳' }}</p>
+                      <div class="flex items-center gap-1">
+                        <button
+                          type="button"
+                          class="bg-red-600/80 text-white text-xs rounded px-1.5 py-0.5"
+                          aria-label="刪除"
+                          @click.stop="removeAttachmentVideo(idx)"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+
+                    <template v-if="row.source === 'embed'">
+                      <input v-model="row.embedUrl" :class="[inputClass]" placeholder="影片嵌入 URL" @click.stop />
+                    </template>
+                    <template v-else>
+                      <video v-if="row._preview || row.url" :src="row._preview || row.url" class="w-full max-h-32 rounded bg-black" controls @click.stop />
+                      <button type="button" class="text-xs text-blue-500 mt-2" @click.stop="pickVideoForRow(idx)">
+                        選擇或更換檔案
+                      </button>
+                    </template>
+                  </div>
+                </div>
+                <input
+                  ref="attachVideoInputRef"
+                  type="file"
+                  accept="video/*"
+                  multiple
+                  class="hidden"
+                  @change="onAttachVideosSelected"
+                />
+              </div>
+              <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <button type="button" class="text-sm text-blue-500" @click="addEmbedVideoRow">
+                  + 新增嵌入影片
                 </button>
-                <!-- Add Block Menu -->
-                <div
-                  v-if="showAddBlockMenu"
-                  class="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 z-10"
-                  :class="
-                    conditionalClass(
-                      'bg-gray-700 ring-1 ring-black ring-opacity-5',
-                      'bg-white ring-1 ring-black ring-opacity-5',
-                    )
-                  "
-                >
-                  <a
-                    href="#"
-                    @click.prevent="addBlock('richText')"
-                    class="block px-4 py-2 text-sm theme-text hover:bg-opacity-10"
-                    :class="conditionalClass('hover:bg-gray-600', 'hover:bg-gray-100')"
-                    >富文本 (Rich Text)</a
-                  >
-                  <a
-                    href="#"
-                    @click.prevent="addBlock('image')"
-                    class="block px-4 py-2 text-sm theme-text hover:bg-opacity-10"
-                    :class="conditionalClass('hover:bg-gray-600', 'hover:bg-gray-100')"
-                    >圖片 (Image)</a
-                  >
-                  <a
-                    href="#"
-                    @click.prevent="addBlock('videoEmbed')"
-                    class="block px-4 py-2 text-sm theme-text hover:bg-opacity-10"
-                    :class="conditionalClass('hover:bg-gray-600', 'hover:bg-gray-100')"
-                    >嵌入影片 (Video)</a
-                  >
-                  <a
-                    href="#"
-                    @click.prevent="addBlock('document')"
-                    class="block px-4 py-2 text-sm theme-text hover:bg-opacity-10"
-                    :class="conditionalClass('hover:bg-gray-600', 'hover:bg-gray-100')"
-                    >文件 (Document)</a
-                  >
-                </div>
-              </div>
-            </div>
-
-            <!-- Validation Error for Content (e.g., if no blocks are added) -->
-            <p v-if="validationErrors.content" class="text-red-500 text-sm -mt-3 mb-3">
-              {{ validationErrors.content }}
-            </p>
-
-            <!-- Content Blocks List -->
-            <div class="space-y-6">
-              <div
-                v-for="(block, index) in form.contentBlocks"
-                :key="block._tempId || block._id"
-                class="p-4 border rounded-lg group relative"
-                :class="[
-                  conditionalClass(
-                    'border-gray-700 bg-gray-800/30',
-                    'border-gray-300 bg-gray-50/50',
-                  ),
-                  validationErrors[`content_${index}`] ? 'border-red-500' : '',
-                ]"
-              >
-                <!-- Block Controls (Move, Delete) -->
-                <div
-                  class="absolute z-20 top-1/2 right-0 transform -translate-y-1/2 flex flex-col items-center space-y-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150"
-                >
-                  <!-- Move Up Button -->
-                  <button
-                    type="button"
-                    @click="moveBlock(index, -1)"
-                    :disabled="index === 0"
-                    class="p-1.5 rounded-md shadow-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
-                    :class="
-                      conditionalClass(
-                        'bg-gray-700 text-gray-300 hover:bg-gray-600',
-                        'bg-white text-gray-500 hover:bg-gray-100 border border-gray-300',
-                      )
-                    "
-                    title="上移"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      class="w-4 h-4"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M10 17a.75.75 0 01-.75-.75V5.612L5.03 9.83a.75.75 0 01-1.06-1.06l5.5-5.5a.75.75 0 011.06 0l5.5 5.5a.75.75 0 11-1.06 1.06L10.75 5.612V16.25A.75.75 0 0110 17z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                  <!-- Move Down Button -->
-                  <button
-                    type="button"
-                    @click="moveBlock(index, 1)"
-                    :disabled="index === form.contentBlocks.length - 1"
-                    class="p-1.5 rounded-md shadow-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
-                    :class="
-                      conditionalClass(
-                        'bg-gray-700 text-gray-300 hover:bg-gray-600',
-                        'bg-white text-gray-500 hover:bg-gray-100 border border-gray-300',
-                      )
-                    "
-                    title="下移"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      class="w-4 h-4"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M10 3a.75.75 0 01.75.75v10.638l4.22-4.22a.75.75 0 111.06 1.06l-5.5 5.5a.75.75 0 01-1.06 0l-5.5-5.5a.75.75 0 111.06-1.06l4.22 4.22V3.75A.75.75 0 0110 3z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                  <!-- Delete Button -->
-                  <button
-                    type="button"
-                    @click="deleteBlock(index)"
-                    class="p-1.5 rounded-md shadow-sm flex items-center justify-center"
-                    :class="
-                      conditionalClass(
-                        'bg-gray-700 text-red-400 hover:bg-gray-600 hover:text-red-300',
-                        'bg-white text-red-500 hover:bg-red-100 border border-gray-300',
-                      )
-                    "
-                    title="刪除區塊"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                      />
-                    </svg>
-                  </button>
-                </div>
-
-                <!-- Dynamic Block Component -->
-                <component
-                  :is="getBlockComponent(block.itemType)"
-                  :blockData="block"
-                  :modelValue="block.itemType === 'richText' ? block.richTextData : {}"
-                  :initialLanguage="block._currentLang || 'TW'"
-                  :blockIndex="index"
-                  @update:modelValue="handleBlockRichTextUpdate(index, $event)"
-                  @update:blockData="handleBlockDataUpdate(index, $event)"
-                />
-                <p v-if="validationErrors[`content_${index}`]" class="text-red-500 text-xs mt-1">
-                  {{ validationErrors[`content_${index}`] }}
-                </p>
-              </div>
-              <!-- Fallback if no blocks -->
-              <div
-                v-if="form.contentBlocks.length === 0"
-                class="text-center py-10 border border-dashed rounded-lg"
-                :class="
-                  conditionalClass('text-gray-500 border-gray-600', 'text-gray-400 border-gray-300')
-                "
-              >
-                點擊 "新增區塊" 開始添加內容。
+                <span class="text-xs" :class="conditionalClass('text-gray-500', 'text-gray-500')">
+                  YouTube、Vimeo 等公開連結
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 底部操作按鈕 -->
         <div
-          class="pt-4 mt-auto border-t"
+          class="flex justify-end space-x-3 pt-4 border-t"
           :class="conditionalClass('border-gray-700', 'border-gray-200')"
         >
-          <div class="flex justify-end gap-x-3">
-            <button
-              type="button"
-              class="px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2"
-              :class="
-                conditionalClass(
-                  'bg-gray-600 hover:bg-gray-500 text-gray-100 focus:ring-gray-500',
-                  'bg-slate-200 hover:bg-slate-300 text-slate-700 focus:ring-slate-400',
-                )
-              "
-              @click="closeModal"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-              :disabled="isProcessing"
-            >
-              <span v-if="isProcessing">
-                <svg
-                  class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    class="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    stroke-width="4"
-                  ></circle>
-                  <path
-                    class="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                處理中...
-              </span>
-              <span v-else>{{ isEditing ? '更新新聞' : '新增新聞' }}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            @click="closeModal"
+            :disabled="isProcessing"
+            class="px-4 py-2 text-sm font-medium rounded-md transition-colors"
+            :class="
+              conditionalClass(
+                'bg-gray-600 hover:bg-gray-500 text-gray-200',
+                'bg-slate-200 hover:bg-slate-300 text-slate-700',
+              )
+            "
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            :disabled="isProcessing || loading"
+            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {{ isProcessing ? '處理中…' : isEditing ? '更新新聞' : '新增新聞' }}
+          </button>
         </div>
       </form>
     </div>
@@ -608,24 +639,15 @@ import { ref, computed, watch, onBeforeUnmount, defineAsyncComponent } from 'vue
 import { useNewsStore } from '@/stores/newsStore'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { useFormValidation } from '@/composables/useFormValidation'
-import { v4 as uuidv4 } from 'uuid'
-import LanguageSwitcher from '@/components/common/languageSwitcher.vue'
 import { useUserStore } from '@/stores/userStore'
+import { useApi } from '@/composables/axios'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
-// Dynamically import block editor components
 const RichTextBlockEditor = defineAsyncComponent(
   () => import('@/components/news/RichTextBlockEditor.vue'),
 )
-const ImageBlockEditor = defineAsyncComponent(
-  () => import('@/components/news/ImageBlockEditor.vue'),
-)
-const VideoBlockEditor = defineAsyncComponent(
-  () => import('@/components/news/VideoBlockEditor.vue'),
-)
-const DocumentBlockEditor = defineAsyncComponent(
-  () => import('@/components/news/DocumentBlockEditor.vue'),
-)
+
+const NEWS_NEW_FILE_MARKER = '__NEWS_NEW_FILE__'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -638,465 +660,449 @@ const emit = defineEmits(['update:show', 'saved'])
 const newsStore = useNewsStore()
 const userStore = useUserStore()
 const { cardClass, inputClass: themeInputClass, conditionalClass } = useThemeClass()
-const {
-  errors: validationErrors,
-  clearErrors: clearValidationErrors,
-  setError: setValidationError,
-} = useFormValidation()
+const { errors: validationErrors, clearErrors, setError } = useFormValidation()
 
 const isAdmin = computed(() => userStore.isAdmin)
+const isEditing = computed(() => !!props.newsItem?._id)
 
 const inputClass = computed(() => [
   themeInputClass.value,
   'w-full rounded-[10px] ps-[12px] py-[8px] lg:ps-[16px] lg:py-[12px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
 ])
 
-// News categories for filtering
-const newsCategoriesTW = ['智慧方案', '產品介紹', '品牌新聞']
+const newsCategoriesTW = ref([])
+const newsCategoryEnMap = {
+  智慧方案: 'Smart Solutions',
+  產品介紹: 'Product Introduction',
+  品牌新聞: 'Brand News',
+}
 
-// Filtered news for related news selection
-const filteredAllNews = computed(() => {
-  if (!props.allNews || props.allNews.length === 0) return []
-
-  let filtered = props.allNews.filter(
-    (news) => news._id !== form.value._id, // 排除當前編輯的新聞
-  )
-  filtered = filtered.filter((news) => news?.isActive)
-
-  if (relatedNewsFilterCategory.value) {
-    filtered = filtered.filter((news) => {
-      // News 的分類是直接的字串，不是物件結構
-      return news.category === relatedNewsFilterCategory.value
-    })
-  }
-
-  return filtered
-})
-
-// --- Component State ---
 const loading = ref(false)
 const formError = ref('')
 const isProcessing = ref(false)
-const isEditing = computed(() => !!props.newsItem?._id)
-
 const currentTab = ref('general')
 const tabs = [
-  { name: 'general', label: '基本資料' },
-  { name: 'content', label: '主要內容' },
+  { name: 'general', label: '基本資訊' },
+  { name: 'mainContent', label: '主要內容' },
+  { name: 'attachments', label: '附加檔案' },
 ]
 
-// Language switchers
-const titleLang = ref('TW')
-const summaryMetaLang = ref('TW')
-
-// Image handling (Cover Image)
-const imageInputRef = ref(null)
-const imageFile = ref(null)
-const imagePreview = ref(null)
-
-// Add Block Menu State
-const showAddBlockMenu = ref(false)
-
-// Related News State
+const titleLanguage = ref('TW')
+const summaryLanguage = ref('TW')
+const articleLanguage = ref('TW')
 const relatedNewsFilterCategory = ref(null)
 
-// --- Form Data ---
+const coverInputRef = ref(null)
+const attachImageInputRef = ref(null)
+const attachVideoInputRef = ref(null)
+const attachDocInputRef = ref(null)
+const imageFile = ref(null)
+const imagePreview = ref(null)
+const videoRowPickingIndex = ref(null)
+
+let rowKey = 0
+const nextKey = () => `k-${++rowKey}`
+
+const emptyDoc = () => ({ type: 'doc', content: [{ type: 'paragraph' }] })
+
 const initialFormState = () => ({
   _id: null,
   title: { TW: '', EN: '' },
   summary: { TW: '', EN: '' },
-  contentBlocks: [],
+  article: { TW: emptyDoc(), EN: emptyDoc() },
+  category: { main: { TW: '', EN: '' } },
+  attachmentImages: [],
+  attachmentVideos: [],
+  attachmentDocuments: [],
   author: '',
-  category: '',
   coverImageUrl: null,
   publishDate: formatDateForInput(new Date()),
   isActive: false,
   relatedNews: [],
 })
+
 const form = ref(initialFormState())
 
-// --- Block Component Mapping ---
-const getBlockComponent = (itemType) => {
-  switch (itemType) {
-    case 'richText':
-      return RichTextBlockEditor
-    case 'image':
-      return ImageBlockEditor
-    case 'videoEmbed':
-      return VideoBlockEditor
-    case 'document':
-      return DocumentBlockEditor
-    default:
-      return null // Or a default placeholder component
+const subLangBtnClass = (on) =>
+  [
+    on ? 'bg-blue-500 text-white' : conditionalClass('bg-gray-700 text-gray-300', 'bg-gray-200 text-gray-700'),
+    'px-2 py-1 text-xs rounded-md',
+  ]
+
+const chipClass = (on) =>
+  [
+    on ? 'bg-blue-500 text-white' : conditionalClass('bg-gray-700 text-gray-300', 'bg-gray-200 text-gray-700'),
+    'px-3 py-1.5 text-xs rounded-md',
+  ]
+
+const filteredAllNews = computed(() => {
+  if (!props.allNews?.length) return []
+  let list = props.allNews.filter((n) => n._id !== form.value._id && n?.isActive)
+  if (relatedNewsFilterCategory.value) {
+    list = list.filter((n) => newsMainTw(n) === relatedNewsFilterCategory.value)
   }
+  return list
+})
+
+function newsMainTw(news) {
+  const c = news.category
+  if (c && typeof c === 'object' && c.main) {
+    return typeof c.main === 'object' ? c.main.TW : c.main
+  }
+  return typeof c === 'string' ? c : ''
 }
 
-// --- Block Data Update Handlers ---
-const handleBlockRichTextUpdate = (index, newRichTextData) => {
-  if (form.value.contentBlocks[index] && form.value.contentBlocks[index].itemType === 'richText') {
-    form.value.contentBlocks[index].richTextData = newRichTextData
-  }
+watch(
+  () => form.value.category.main.TW,
+  (tw) => {
+    if (!form.value.category.main) form.value.category.main = { TW: '', EN: '' }
+    form.value.category.main.EN = tw ? newsCategoryEnMap[tw] || '' : ''
+  },
+)
+
+const isTiptapEmpty = (doc) => {
+  if (!doc?.content?.length) return true
+  return (
+    doc.content.length === 1 &&
+    doc.content[0].type === 'paragraph' &&
+    !doc.content[0].content
+  )
 }
 
-const handleBlockDataUpdate = (index, newBlockData) => {
-  if (form.value.contentBlocks[index]) {
-    const oldBlock = form.value.contentBlocks[index]
-    form.value.contentBlocks[index] = {
-      ...oldBlock,
-      ...newBlockData,
-    }
+const triggerCoverInput = () => coverInputRef.value?.click()
+const handleCoverChange = (e) => {
+  const file = e.target.files?.[0]
+  if (!file?.type?.startsWith('image/')) {
+    e.target.value = ''
+    return
   }
+  imageFile.value = file
+  if (imagePreview.value?.startsWith('blob:')) URL.revokeObjectURL(imagePreview.value)
+  imagePreview.value = URL.createObjectURL(file)
+  form.value.coverImageUrl = '__NEW_COVER__'
+  e.target.value = ''
 }
 
-// --- Block Management Functions (some might be partially moved to child components later) ---
-const addBlock = (itemType) => {
-  const newBlock = {
-    _tempId: uuidv4(),
-    itemType: itemType,
-    sortOrder: form.value.contentBlocks.length,
-    _currentLang: 'TW',
-  }
-
-  switch (itemType) {
-    case 'richText':
-      newBlock.richTextData = {
-        TW: { type: 'doc', content: [{ type: 'paragraph' }] },
-        EN: { type: 'doc', content: [{ type: 'paragraph' }] },
-      }
-      break
-    case 'image':
-      newBlock.imageUrl = ''
-      newBlock.imageAltText = { TW: '', EN: '' }
-      newBlock.imageCaption = { TW: '', EN: '' }
-      newBlock._newFile = null
-      newBlock._previewUrl = null
-      newBlock._fileInputRef = null
-      break
-    case 'videoEmbed':
-      newBlock.videoEmbedUrl = ''
-      newBlock.videoCaption = { TW: '', EN: '' }
-      newBlock._newVideoFile = null
-      newBlock._previewVideoUrl = null
-      break
-    case 'document':
-      newBlock.documentUrl = ''
-      newBlock.documentDescription = { TW: '', EN: '' }
-      newBlock._newDocumentFile = null
-      break
-  }
-
-  form.value.contentBlocks.push(newBlock)
-  showAddBlockMenu.value = false
+const onCoverDrop = (e) => {
+  const file = e.dataTransfer?.files?.[0]
+  if (!file?.type?.startsWith('image/')) return
+  imageFile.value = file
+  if (imagePreview.value?.startsWith('blob:')) URL.revokeObjectURL(imagePreview.value)
+  imagePreview.value = URL.createObjectURL(file)
+  form.value.coverImageUrl = '__NEW_COVER__'
 }
 
-const deleteBlock = (index) => {
-  if (confirm('確定要刪除這個內容區塊嗎？')) {
-    const block = form.value.contentBlocks[index]
-    if (block.itemType === 'image' && block._previewUrl && block._previewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(block._previewUrl)
-    }
-    if (
-      block.itemType === 'videoEmbed' &&
-      block._previewVideoUrl &&
-      block._previewVideoUrl.startsWith('blob:')
-    ) {
-      URL.revokeObjectURL(block._previewVideoUrl)
-    }
-    if (block.itemType === 'document' && block._newDocumentFile) {
-      // 清理 document 相關的臨時資源
-    }
-    form.value.contentBlocks.splice(index, 1)
-    form.value.contentBlocks.forEach((b, i) => (b.sortOrder = i))
-  }
-}
-
-const moveBlock = (index, direction) => {
-  const newIndex = index + direction
-  if (newIndex < 0 || newIndex >= form.value.contentBlocks.length) return
-
-  const itemToMove = form.value.contentBlocks.splice(index, 1)[0]
-  form.value.contentBlocks.splice(newIndex, 0, itemToMove)
-  form.value.contentBlocks.forEach((block, i) => (block.sortOrder = i))
-}
-
-const isTiptapContentEmpty = (content) => {
-  if (!content || !content.content) {
-    return true
-  }
-  if (content.content.length === 0) {
-    return true
-  }
-  if (
-    content.content.length === 1 &&
-    content.content[0].type === 'paragraph' &&
-    !content.content[0].content
-  ) {
-    return true
-  }
-  return false
-}
-
-// --- Form Validation ---
-const validateForm = () => {
-  clearValidationErrors()
-  let isValid = true
-
-  if (!form.value.title.TW?.trim()) {
-    setValidationError('title_TW', 'TW標題為必填')
-    isValid = false
-  }
-  if (!form.value.title.EN?.trim()) {
-    setValidationError('title_EN', 'EN 標題為必填，用於產生語意化路由')
-    isValid = false
-  }
-  if (!form.value.author?.trim()) {
-    setValidationError('author', '作者為必填')
-    isValid = false
-  }
-  if (!form.value.category) {
-    setValidationError('category', '分類為必填')
-    isValid = false
-  }
-
-  if (form.value.contentBlocks.length === 0) {
-    setValidationError('content', '主要內容至少需要一個區塊')
-    isValid = false
-  } else {
-    form.value.contentBlocks.forEach((block, index) => {
-      if (block.itemType === 'richText') {
-        const isTwEmpty = isTiptapContentEmpty(block.richTextData.TW)
-        const isEnEmpty = isTiptapContentEmpty(block.richTextData.EN)
-        if (isTwEmpty && isEnEmpty) {
-          setValidationError(`content_${index}`, '富文本區塊內容不能為空')
-          isValid = false
-        }
-      }
-      if (block.itemType === 'image') {
-        if (block.imageUrl === '__NEW_CONTENT_IMAGE__' && !block._newFile) {
-          console.warn(`Block ${index} marked for new image but no file attached.`)
-        } else if (!block.imageUrl && !block._newFile && !block._id) {
-          setValidationError(`content_${index}`, '圖片為必填')
-          isValid = false
-        }
-      }
-      if (block.itemType === 'videoEmbed') {
-        if (block.videoEmbedUrl === '__NEW_CONTENT_VIDEO__' && !block._newVideoFile) {
-          console.warn(`Block ${index} marked for new video but no file attached.`)
-        } else if (!block.videoEmbedUrl && !block._newVideoFile && !block._id) {
-          setValidationError(`content_${index}`, '影片來源 (URL或檔案) 為必填')
-          isValid = false
-        }
-      }
-      if (block.itemType === 'document') {
-        if (!block.documentUrl && !block._newDocumentFile && !block._id) {
-          setValidationError(`content_${index}`, '文件檔案為必填')
-          isValid = false
-        }
-      }
-    })
-  }
-
-  if (!isValid && !formError.value) {
-    const errorKeys = validationErrors.value ? Object.keys(validationErrors.value) : []
-    const firstErrorKey = errorKeys[0]
-    if (firstErrorKey) {
-      // Auto-switch to the tab with the first error
-      if (firstErrorKey.startsWith('content')) {
-        currentTab.value = 'content'
-      } else {
-        currentTab.value = 'general'
-      }
-
-      // Auto-switch language tab for title
-      if (firstErrorKey === 'title_EN') {
-        titleLang.value = 'EN'
-      } else if (firstErrorKey === 'title_TW') {
-        titleLang.value = 'TW'
-      }
-
-      // Auto-switch language tab for summary
-      if (firstErrorKey === 'summary_EN') {
-        summaryMetaLang.value = 'EN'
-      } else if (firstErrorKey === 'summary_TW') {
-        summaryMetaLang.value = 'TW'
-      }
-    }
-    formError.value = validationErrors.value[firstErrorKey] || '請檢查表單中標記的必填欄位或內容。'
-  } else if (isValid) {
-    formError.value = ''
-  }
-  return isValid
-}
-
-// --- Image Handling (Cover Image) ---
-const triggerImageInput = () => imageInputRef.value?.click()
-
-const handleImageUpload = (event) => {
-  const file = event.target.files[0]
-  if (file && file.type.startsWith('image/')) {
-    imageFile.value = file
-    if (imagePreview.value && imagePreview.value.startsWith('blob:')) {
-      URL.revokeObjectURL(imagePreview.value)
-    }
-    imagePreview.value = URL.createObjectURL(file)
-    form.value.coverImageUrl = '__NEW_COVER__'
-  } else {
-    if (form.value.coverImageUrl === '__NEW_COVER__') {
-      form.value.coverImageUrl = props.newsItem?.coverImageUrl || null
-    }
-    imageFile.value = null
-    if (imagePreview.value && imagePreview.value.startsWith('blob:')) {
-      URL.revokeObjectURL(imagePreview.value)
-    }
-    imagePreview.value = props.newsItem?.coverImageUrl || null
-  }
-  if (imageInputRef.value) imageInputRef.value.value = ''
-}
-
-const removeImage = () => {
-  if (imagePreview.value && imagePreview.value.startsWith('blob:')) {
-    URL.revokeObjectURL(imagePreview.value)
-  }
+const removeCover = () => {
+  if (imagePreview.value?.startsWith('blob:')) URL.revokeObjectURL(imagePreview.value)
   imageFile.value = null
   imagePreview.value = null
   form.value.coverImageUrl = null
 }
 
-// --- Form Submission ---
-const submitForm = async () => {
-  formError.value = ''
-  if (!validateForm()) return
+const documentAccept =
+  '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain'
 
-  isProcessing.value = true
+const isAllowedDocumentFile = (file) => {
+  const name = (file?.name || '').toLowerCase()
+  const type = (file?.type || '').toLowerCase()
 
-  const contentImageFiles = []
-  const contentVideoFiles = []
-  const contentDocumentFiles = []
+  if (type) {
+    return [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain',
+    ].includes(type)
+  }
 
-  form.value.contentBlocks.forEach((block) => {
-    if (
-      block.itemType === 'image' &&
-      block._newFile &&
-      block.imageUrl === '__NEW_CONTENT_IMAGE__'
-    ) {
-      contentImageFiles.push(block._newFile)
-    } else if (
-      block.itemType === 'videoEmbed' &&
-      block._newVideoFile &&
-      block.videoEmbedUrl === '__NEW_CONTENT_VIDEO__'
-    ) {
-      contentVideoFiles.push(block._newVideoFile)
-    } else if (
-      block.itemType === 'document' &&
-      block._newDocumentFile &&
-      block.documentUrl === '__NEW_CONTENT_DOCUMENT__'
-    ) {
-      contentDocumentFiles.push(block._newDocumentFile)
+  return ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt'].some((ext) =>
+    name.endsWith(ext),
+  )
+}
+
+const getFileNameFromUrl = (url) => {
+  if (!url || typeof url !== 'string') return ''
+  try {
+    const decodedUrl = decodeURIComponent(url)
+    return decodedUrl.substring(decodedUrl.lastIndexOf('/') + 1)
+  } catch {
+    return url.substring(url.lastIndexOf('/') + 1)
+  }
+}
+
+const addNewsImageFiles = (fileList) => {
+  for (const file of fileList) {
+    if (!file?.type?.startsWith('image/')) continue
+    form.value.attachmentImages.push({
+      _key: nextKey(),
+      url: NEWS_NEW_FILE_MARKER,
+      _newFile: file,
+      _preview: URL.createObjectURL(file),
+    })
+  }
+}
+
+const triggerAttachImageInput = () => attachImageInputRef.value?.click()
+const onAttachImagesSelected = (e) => {
+  addNewsImageFiles([...(e.target.files || [])])
+  e.target.value = ''
+}
+const onAttachImagesDrop = (e) => {
+  addNewsImageFiles([...(e.dataTransfer?.files || [])])
+}
+
+const removeAttachmentImage = (idx) => {
+  const row = form.value.attachmentImages[idx]
+  if (row._preview?.startsWith('blob:')) URL.revokeObjectURL(row._preview)
+  form.value.attachmentImages.splice(idx, 1)
+}
+
+const addEmbedVideoRow = () => {
+  form.value.attachmentVideos.push({
+    _key: nextKey(),
+    source: 'embed',
+    url: '',
+    embedUrl: '',
+    _newFile: null,
+    _preview: null,
+  })
+}
+
+const pickVideoForRow = (idx) => {
+  videoRowPickingIndex.value = idx
+  attachVideoInputRef.value?.click()
+}
+
+const addNewsVideoUploadRows = (fileList) => {
+  for (const file of fileList) {
+    if (!file?.type?.startsWith('video/')) continue
+    form.value.attachmentVideos.push({
+      _key: nextKey(),
+      source: 'upload',
+      url: NEWS_NEW_FILE_MARKER,
+      embedUrl: '',
+      _newFile: file,
+      _preview: URL.createObjectURL(file),
+    })
+  }
+}
+
+const triggerVideoUploadInput = () => {
+  videoRowPickingIndex.value = null
+  attachVideoInputRef.value?.click()
+}
+
+const onAttachVideosSelected = (e) => {
+  const files = [...(e.target.files || [])]
+  const idx = videoRowPickingIndex.value
+  if (idx != null && files.length) {
+    const file = files[0]
+    const row = form.value.attachmentVideos[idx]
+    if (row.source !== 'upload') {
+      videoRowPickingIndex.value = null
+      e.target.value = ''
+      return
+    }
+    if (row._preview?.startsWith('blob:')) URL.revokeObjectURL(row._preview)
+    row._newFile = file
+    row.url = NEWS_NEW_FILE_MARKER
+    row._preview = URL.createObjectURL(file)
+  } else {
+    addNewsVideoUploadRows(files)
+  }
+  videoRowPickingIndex.value = null
+  e.target.value = ''
+}
+
+const onAttachVideosDrop = (e) => {
+  videoRowPickingIndex.value = null
+  addNewsVideoUploadRows([...(e.dataTransfer?.files || [])])
+}
+
+const removeAttachmentVideo = (idx) => {
+  const row = form.value.attachmentVideos[idx]
+  if (row._preview?.startsWith('blob:')) URL.revokeObjectURL(row._preview)
+  form.value.attachmentVideos.splice(idx, 1)
+}
+
+const addNewsDocFiles = (fileList) => {
+  for (const file of fileList) {
+    if (!isAllowedDocumentFile(file)) continue
+    form.value.attachmentDocuments.push({
+      _key: nextKey(),
+      url: NEWS_NEW_FILE_MARKER,
+      _newFile: file,
+    })
+  }
+}
+
+const triggerAttachDocInput = () => attachDocInputRef.value?.click()
+const onAttachDocsSelected = (e) => {
+  addNewsDocFiles([...(e.target.files || [])])
+  e.target.value = ''
+}
+const onAttachDocsDrop = (e) => {
+  addNewsDocFiles([...(e.dataTransfer?.files || [])])
+}
+
+const removeAttachmentDoc = (idx) => {
+  form.value.attachmentDocuments.splice(idx, 1)
+}
+
+const validateForm = () => {
+  clearErrors()
+  let ok = true
+  if (!form.value.author?.trim()) {
+    setError('author', '作者為必填')
+    ok = false
+  }
+  if (!form.value.category.main?.TW) {
+    setError('category.main.TW', '主分類為必填')
+    ok = false
+  }
+  if (!form.value.title.TW?.trim()) {
+    setError('title.TW', '繁體標題為必填')
+    ok = false
+  }
+  if (!form.value.title.EN?.trim()) {
+    setError('title.EN', '英文標題為必填')
+    ok = false
+  }
+  if (!form.value.summary.TW?.trim()) {
+    setError('summary.TW', '摘要 (TW) 為必填')
+    ok = false
+  }
+  if (!form.value.publishDate) {
+    setError('publishDate', '發布日期為必填')
+    ok = false
+  } else if (isNaN(new Date(form.value.publishDate).getTime())) {
+    setError('publishDate', '日期無效')
+    ok = false
+  }
+  if (isTiptapEmpty(form.value.article.TW) && isTiptapEmpty(form.value.article.EN)) {
+    setError('article', '主要內容至少填寫一種語言')
+    ok = false
+  }
+  if (!form.value.coverImageUrl) {
+    setError('coverImageUrl', '請上傳封面')
+    ok = false
+  }
+
+  form.value.attachmentImages.forEach((row, i) => {
+    if (row.url === NEWS_NEW_FILE_MARKER && !row._newFile) {
+      setError(`attach_img_${i}`, '圖片檔案缺失')
+      ok = false
+    }
+  })
+  form.value.attachmentVideos.forEach((row, i) => {
+    if (row.source === 'embed' && !row.embedUrl?.trim()) {
+      setError(`attach_vid_${i}`, '請填嵌入網址')
+      ok = false
+    }
+    if (row.source === 'upload' && (!row.url || row.url === NEWS_NEW_FILE_MARKER) && !row._newFile) {
+      setError(`attach_vid_${i}`, '請選擇影片檔')
+      ok = false
+    }
+  })
+  form.value.attachmentDocuments.forEach((row, i) => {
+    if (row.url === NEWS_NEW_FILE_MARKER && !row._newFile) {
+      setError(`attach_doc_${i}`, '請選擇文件')
+      ok = false
     }
   })
 
-  const finalContentBlocks = form.value.contentBlocks.map((block) => {
-    const cleanBlock = { ...block }
+  if (!ok) {
+    const keys = Object.keys(validationErrors)
+    const first = keys[0]
+    if (first?.startsWith('attach_')) currentTab.value = 'attachments'
+    else if (first === 'article') currentTab.value = 'mainContent'
+    else currentTab.value = 'general'
+    formError.value = (first && validationErrors[first]) || '請修正表單'
+  } else {
+    formError.value = ''
+  }
+  return ok
+}
 
-    delete cleanBlock._tempId
-    delete cleanBlock._currentLang
-    delete cleanBlock._previewUrl
-    delete cleanBlock._fileInputRef
-    delete cleanBlock._newFile
-    delete cleanBlock._newVideoFile
-    delete cleanBlock._previewVideoUrl
-    delete cleanBlock._newDocumentFile
+const buildPayload = () => {
+  const attachmentImages = form.value.attachmentImages.map((r) => ({
+    ...(r._id ? { _id: r._id } : {}),
+    url: r._newFile ? NEWS_NEW_FILE_MARKER : r.url,
+  }))
 
-    if (block.itemType === 'richText') {
-      cleanBlock.richTextData = {
-        TW: block.richTextData?.TW || { type: 'doc', content: [] },
-        EN: block.richTextData?.EN || { type: 'doc', content: [] },
+  const attachmentVideos = form.value.attachmentVideos.map((r) => {
+    if (r.source === 'embed') {
+      return {
+        ...(r._id ? { _id: r._id } : {}),
+        source: 'embed',
+        embedUrl: r.embedUrl || '',
+        url: '',
       }
-      delete cleanBlock.imageUrl
-      delete cleanBlock.imageAltText
-      delete cleanBlock.imageCaption
-      delete cleanBlock.videoEmbedUrl
-      delete cleanBlock.videoCaption
-      delete cleanBlock.documentUrl
-      delete cleanBlock.documentDescription
-    } else if (block.itemType === 'image') {
-      if (block.imageUrl === '__NEW_CONTENT_IMAGE__' && !block._newFile) {
-        cleanBlock.imageUrl = null // Explicitly nullify if marked new but no file.
-      }
-      delete cleanBlock.richTextData
-      delete cleanBlock.videoEmbedUrl
-      delete cleanBlock.videoCaption
-      delete cleanBlock.documentUrl
-      delete cleanBlock.documentDescription
-    } else if (block.itemType === 'videoEmbed') {
-      if (block.videoEmbedUrl === '__NEW_CONTENT_VIDEO__' && !block._newVideoFile) {
-        cleanBlock.videoEmbedUrl = null
-      }
-      delete cleanBlock.richTextData
-      delete cleanBlock.imageUrl
-      delete cleanBlock.imageAltText
-      delete cleanBlock.imageCaption
-      delete cleanBlock.documentUrl
-      delete cleanBlock.documentDescription
-    } else if (block.itemType === 'document') {
-      if (block.documentUrl === '__NEW_CONTENT_DOCUMENT__' && !block._newDocumentFile) {
-        cleanBlock.documentUrl = null
-      }
-      delete cleanBlock.richTextData
-      delete cleanBlock.imageUrl
-      delete cleanBlock.imageAltText
-      delete cleanBlock.imageCaption
-      delete cleanBlock.videoEmbedUrl
-      delete cleanBlock.videoCaption
     }
-    return cleanBlock
+    return {
+      ...(r._id ? { _id: r._id } : {}),
+      source: 'upload',
+      url: r._newFile ? NEWS_NEW_FILE_MARKER : r.url || '',
+      embedUrl: '',
+    }
   })
 
-  const useFormData =
-    !!imageFile.value ||
-    contentImageFiles.length > 0 ||
-    contentVideoFiles.length > 0 ||
-    contentDocumentFiles.length > 0
-  let submissionPayload
+  const attachmentDocuments = form.value.attachmentDocuments.map((r) => ({
+    ...(r._id ? { _id: r._id } : {}),
+    url: r._newFile ? NEWS_NEW_FILE_MARKER : r.url,
+  }))
 
-  const newsDataPayload = {
+  return {
     title: form.value.title,
-    summary: form.value.summary,
-    content: finalContentBlocks,
+    summary: { ...form.value.summary },
+    article: JSON.parse(JSON.stringify(form.value.article)),
+    category: JSON.parse(JSON.stringify(form.value.category)),
+    attachmentImages,
+    attachmentVideos,
+    attachmentDocuments,
     author: form.value.author,
-    category: form.value.category,
     coverImageUrl: form.value.coverImageUrl,
     publishDate: form.value.publishDate ? new Date(form.value.publishDate).toISOString() : null,
     isActive: form.value.isActive,
     relatedNews: form.value.relatedNews,
   }
+}
+
+const submitForm = async () => {
+  if (!validateForm()) return
+  isProcessing.value = true
+  formError.value = ''
+
+  const newsDataPayload = buildPayload()
   if (isEditing.value && form.value._id) {
     newsDataPayload._id = form.value._id
   }
 
-  if (useFormData) {
-    submissionPayload = new FormData()
-    submissionPayload.append('newsDataPayload', JSON.stringify(newsDataPayload))
+  const hasFiles =
+    !!imageFile.value ||
+    form.value.attachmentImages.some((r) => r._newFile) ||
+    form.value.attachmentVideos.some((r) => r._newFile) ||
+    form.value.attachmentDocuments.some((r) => r._newFile)
 
-    if (imageFile.value) {
-      submissionPayload.append('coverImage', imageFile.value)
-    }
-
-    if (contentImageFiles.length > 0) {
-      contentImageFiles.forEach((file) => {
-        submissionPayload.append('contentImages', file)
-      })
-    }
-    if (contentVideoFiles.length > 0) {
-      contentVideoFiles.forEach((file) => {
-        submissionPayload.append('contentVideos', file)
-      })
-    }
-    if (contentDocumentFiles.length > 0) {
-      contentDocumentFiles.forEach((file) => {
-        submissionPayload.append('contentDocuments', file)
-      })
-    }
+  let submissionPayload
+  if (hasFiles) {
+    const fd = new FormData()
+    fd.append('newsDataPayload', JSON.stringify(newsDataPayload))
+    if (imageFile.value) fd.append('coverImage', imageFile.value)
+    form.value.attachmentImages.forEach((r) => {
+      if (r._newFile) fd.append('newsImages', r._newFile)
+    })
+    form.value.attachmentVideos.forEach((r) => {
+      if (r.source === 'upload' && r._newFile) fd.append('newsVideos', r._newFile)
+    })
+    form.value.attachmentDocuments.forEach((r) => {
+      if (r._newFile) fd.append('newsDocuments', r._newFile)
+    })
+    submissionPayload = fd
   } else {
     submissionPayload = newsDataPayload
   }
@@ -1108,79 +1114,78 @@ const submitForm = async () => {
     } else {
       result = await newsStore.create(submissionPayload)
     }
-
     if (newsStore.error) {
-      const errMsg =
-        newsStore.error.response?.data?.message || newsStore.error.message || '操作失敗'
-      throw new Error(errMsg)
+      throw new Error(
+        newsStore.error.response?.data?.message || newsStore.error.message || '操作失敗',
+      )
     }
-
-    emit('saved', {
-      news: result || { _id: form.value._id, ...newsDataPayload },
-      isNew: !isEditing.value,
-    })
+    emit('saved', { news: result || { _id: form.value._id, ...newsDataPayload }, isNew: !isEditing.value })
     closeModal()
-  } catch (error) {
-    console.error('新聞操作失敗:', error)
-    formError.value = error.message || '發生未知錯誤，請稍後再試。'
+  } catch (e) {
+    formError.value = e.message || '操作失敗'
   } finally {
     isProcessing.value = false
   }
 }
 
-// --- Modal Control & Form Reset ---
 const closeModal = () => {
   if (isProcessing.value) return
-  if (imagePreview.value && imagePreview.value.startsWith('blob:')) {
-    URL.revokeObjectURL(imagePreview.value)
-  }
-  form.value.contentBlocks.forEach((block) => {
-    if (block.itemType === 'image' && block._previewUrl && block._previewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(block._previewUrl)
-    }
-    if (
-      block.itemType === 'videoEmbed' &&
-      block._previewVideoUrl &&
-      block._previewVideoUrl.startsWith('blob:')
-    ) {
-      URL.revokeObjectURL(block._previewVideoUrl)
-      block._previewVideoUrl = null
-    }
-  })
+  releaseBlobs()
   emit('update:show', false)
+}
+
+const releaseBlobs = () => {
+  if (imagePreview.value?.startsWith('blob:')) URL.revokeObjectURL(imagePreview.value)
+  form.value.attachmentImages.forEach((r) => {
+    if (r._preview?.startsWith('blob:')) URL.revokeObjectURL(r._preview)
+  })
+  form.value.attachmentVideos.forEach((r) => {
+    if (r._preview?.startsWith('blob:')) URL.revokeObjectURL(r._preview)
+  })
+}
+
+function formatDateForInput(dateStringOrDate) {
+  if (!dateStringOrDate) return ''
+  try {
+    const date = new Date(dateStringOrDate)
+    const y = date.getFullYear()
+    const m = ('0' + (date.getMonth() + 1)).slice(-2)
+    const d = ('0' + date.getDate()).slice(-2)
+    return `${y}-${m}-${d}`
+  } catch {
+    return ''
+  }
+}
+
+function normalizeCategoryFromItem(category) {
+  if (category && typeof category === 'object' && category.main) {
+    return {
+      main: {
+        TW: category.main.TW || '',
+        EN: category.main.EN || newsCategoryEnMap[category.main.TW] || '',
+      },
+    }
+  }
+  if (typeof category === 'string' && category) {
+    return {
+      main: { TW: category, EN: newsCategoryEnMap[category] || '' },
+    }
+  }
+  return { main: { TW: '', EN: '' } }
 }
 
 const resetAndInitializeForm = async () => {
   loading.value = true
   formError.value = ''
-  clearValidationErrors()
-  isProcessing.value = false
-  relatedNewsFilterCategory.value = null // 重置相關新聞篩選器
-
-  if (imagePreview.value && imagePreview.value.startsWith('blob:')) {
-    URL.revokeObjectURL(imagePreview.value)
-  }
-  form.value.contentBlocks.forEach((block) => {
-    if (block.itemType === 'image' && block._previewUrl && block._previewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(block._previewUrl)
-    }
-    if (
-      block.itemType === 'videoEmbed' &&
-      block._previewVideoUrl &&
-      block._previewVideoUrl.startsWith('blob:')
-    ) {
-      URL.revokeObjectURL(block._previewVideoUrl)
-    }
-  })
-
+  clearErrors()
+  releaseBlobs()
   form.value = initialFormState()
   imageFile.value = null
   imagePreview.value = null
-
-  titleLang.value = 'TW'
-  summaryMetaLang.value = 'TW'
+  titleLanguage.value = 'TW'
+  summaryLanguage.value = 'TW'
   currentTab.value = 'general'
-  showAddBlockMenu.value = false
+  relatedNewsFilterCategory.value = null
 
   if (props.newsItem?._id) {
     const item = props.newsItem
@@ -1188,140 +1193,68 @@ const resetAndInitializeForm = async () => {
     form.value.title = { TW: item.title?.TW || '', EN: item.title?.EN || '' }
     form.value.summary = { TW: item.summary?.TW || '', EN: item.summary?.EN || '' }
     form.value.author = item.author || ''
-    form.value.category = item.category || ''
+    form.value.category = normalizeCategoryFromItem(item.category)
     form.value.coverImageUrl = item.coverImageUrl || null
     form.value.publishDate = formatDateForInput(item.publishDate)
-    form.value.isActive = item.isActive || false
-    form.value.relatedNews = item.relatedNews?.map((news) => news._id || news) || []
-
-    if (form.value.coverImageUrl) {
-      imagePreview.value = form.value.coverImageUrl
+    form.value.isActive = !!item.isActive
+    form.value.relatedNews = item.relatedNews?.map((n) => n._id || n) || []
+    form.value.article = {
+      TW: item.article?.TW || emptyDoc(),
+      EN: item.article?.EN || emptyDoc(),
     }
-
-    if (!form.value.title.TW && form.value.title.EN) titleLang.value = 'EN'
-    if (!form.value.summary.TW && form.value.summary.EN) {
-      summaryMetaLang.value = 'EN'
-    }
-
-    if (Array.isArray(item.content)) {
-      form.value.contentBlocks = item.content.map((block) => {
-        const newClientBlock = {
-          ...block,
-          _id: block._id || uuidv4(),
-          _tempId: uuidv4(),
-          _currentLang: 'TW',
-        }
-        if (block.itemType === 'image') {
-          newClientBlock._newFile = null
-          newClientBlock._previewUrl = block.imageUrl || null
-          newClientBlock._fileInputRef = null
-        } else if (block.itemType === 'richText') {
-          newClientBlock.richTextData = {
-            TW: block.richTextData?.TW || { type: 'doc', content: [{ type: 'paragraph' }] },
-            EN: block.richTextData?.EN || { type: 'doc', content: [{ type: 'paragraph' }] },
-          }
-        } else if (block.itemType === 'videoEmbed') {
-          newClientBlock._newVideoFile = null
-          newClientBlock._previewVideoUrl =
-            block.videoEmbedUrl &&
-            (block.videoEmbedUrl.startsWith('blob:') || block.videoEmbedUrl.startsWith('/storage'))
-              ? block.videoEmbedUrl
-              : null
-        } else if (block.itemType === 'document') {
-          newClientBlock._newDocumentFile = null
-          newClientBlock.documentDescription = {
-            TW: block.documentDescription?.TW || '',
-            EN: block.documentDescription?.EN || '',
-          }
-        }
-        return newClientBlock
-      })
-    } else {
-      form.value.contentBlocks = []
-    }
+    form.value.attachmentImages = (item.attachmentImages || []).map((r) => ({
+      _key: nextKey(),
+      _id: r._id,
+      url: r.url,
+    }))
+    form.value.attachmentVideos = (item.attachmentVideos || []).map((r) => ({
+      _key: nextKey(),
+      _id: r._id,
+      source: r.source || 'upload',
+      url: r.url || '',
+      embedUrl: r.embedUrl || '',
+    }))
+    form.value.attachmentDocuments = (item.attachmentDocuments || []).map((r) => ({
+      _key: nextKey(),
+      _id: r._id,
+      url: r.url,
+    }))
+    if (form.value.coverImageUrl) imagePreview.value = form.value.coverImageUrl
   }
   loading.value = false
 }
 
-// --- Date Formatting ---
-function formatDateForInput(dateStringOrDate) {
-  if (!dateStringOrDate) return ''
-  try {
-    const date = new Date(dateStringOrDate)
-    const year = date.getFullYear()
-    const month = ('0' + (date.getMonth() + 1)).slice(-2)
-    const day = ('0' + date.getDate()).slice(-2)
-    return `${year}-${month}-${day}`
-  } catch (e) {
-    console.error('Error formatting date:', e)
-    return ''
-  }
-}
-
-// --- Watchers & Lifecycle ---
 watch(
   () => props.show,
-  (newVal) => {
-    if (newVal) {
-      resetAndInitializeForm()
-    } else {
-      if (imagePreview.value && imagePreview.value.startsWith('blob:')) {
-        URL.revokeObjectURL(imagePreview.value)
-        imagePreview.value = null
-      }
-      if (form.value && form.value.contentBlocks) {
-        form.value.contentBlocks.forEach((block) => {
-          if (
-            block.itemType === 'image' &&
-            block._previewUrl &&
-            block._previewUrl.startsWith('blob:')
-          ) {
-            URL.revokeObjectURL(block._previewUrl)
-            block._previewUrl = null
-          }
-          if (
-            block.itemType === 'videoEmbed' &&
-            block._previewVideoUrl &&
-            block._previewVideoUrl.startsWith('blob:')
-          ) {
-            URL.revokeObjectURL(block._previewVideoUrl)
-            block._previewVideoUrl = null
-          }
-        })
-      }
-    }
+  (v) => {
+    if (v) resetAndInitializeForm()
+    else releaseBlobs()
   },
   { immediate: true },
 )
 
-onBeforeUnmount(() => {
-  if (imagePreview.value && imagePreview.value.startsWith('blob:')) {
-    URL.revokeObjectURL(imagePreview.value)
+onBeforeUnmount(() => releaseBlobs())
+
+;(async () => {
+  try {
+    const { entityApi } = useApi()
+    const api = entityApi('news', { responseKey: 'news' })
+    newsCategoriesTW.value = await api.getCategories()
+  } catch (e) {
+    console.warn('載入新聞分類失敗', e?.message || e)
+    newsCategoriesTW.value = Object.keys(newsCategoryEnMap)
   }
-  form.value.contentBlocks.forEach((block) => {
-    if (block.itemType === 'image' && block._previewUrl && block._previewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(block._previewUrl)
-    }
-    if (
-      block.itemType === 'videoEmbed' &&
-      block._previewVideoUrl &&
-      block._previewVideoUrl.startsWith('blob:')
-    ) {
-      URL.revokeObjectURL(block._previewVideoUrl)
-    }
-  })
-})
+})()
 </script>
 
 <style>
-/* Basic styling for tabs and toolbar, can be enhanced with Tailwind components */
 .tiptap-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   padding: 0.5rem;
-  border-bottom: 1px solid; /* Gets color from conditionalClass */
-  gap: 0.5rem; /* Spacing between buttons */
+  border-bottom: 1px solid;
+  gap: 0.5rem;
 }
 .toolbar-button {
   padding: 0.25rem 0.5rem;
@@ -1335,15 +1268,15 @@ onBeforeUnmount(() => {
   background-color: rgba(128, 128, 128, 0.1);
 }
 .toolbar-button.is-active {
-  background-color: #3b82f6; /* blue-500 */
+  background-color: #3b82f6;
   color: white;
 }
 html.dark .toolbar-button.is-active {
-  background-color: #60a5fa; /* blue-400 */
+  background-color: #60a5fa;
   color: #1f2937;
 }
 .toolbar-button.remark-button.is-active {
-  background-color: #a855f7; /* purple-500 */
+  background-color: #a855f7;
 }
 html.dark .toolbar-button.remark-button.is-active {
   background-color: #c084fc;
@@ -1358,7 +1291,7 @@ html.dark .toolbar-button.remark-button.is-active {
 }
 .toolbar-divider {
   width: 1px;
-  height: 1.25rem; /* 20px */
+  height: 1.25rem;
   background-color: #ccc;
   margin-left: 0.5rem;
   margin-right: 0.5rem;
@@ -1366,13 +1299,10 @@ html.dark .toolbar-button.remark-button.is-active {
 html.dark .toolbar-divider {
   background-color: #555;
 }
-
 .tiptap-editor-wrapper .prose {
-  max-width: none; /* Override prose max-width if needed */
+  max-width: none;
   padding: 0.5rem;
 }
-
-/* Ensure editor content respects theme text color */
 .tiptap-editor-wrapper .prose,
 .tiptap-editor-wrapper .prose p,
 .tiptap-editor-wrapper .prose h1,
@@ -1383,9 +1313,8 @@ html.dark .toolbar-divider {
 .tiptap-editor-wrapper .prose h6,
 .tiptap-editor-wrapper .prose strong,
 .tiptap-editor-wrapper .prose em {
-  color: inherit; /* Inherit from parent for theme-text to work */
+  color: inherit;
 }
-
 .tiptap-editor-wrapper .prose [data-purpose='remark'] {
   font-size: 0.9em;
   opacity: 0.85;
@@ -1394,11 +1323,10 @@ html.dark .toolbar-divider {
   margin-top: 0.8em;
   margin-bottom: 0.8em;
 }
-/* Conditional remark border color */
 html:not(.dark) .tiptap-editor-wrapper .prose [data-purpose='remark'] {
-  border-left-color: #a855f7; /* purple-500 for light mode */
+  border-left-color: #a855f7;
 }
 html.dark .tiptap-editor-wrapper .prose [data-purpose='remark'] {
-  border-left-color: #c084fc; /* purple-400 for dark mode */
+  border-left-color: #c084fc;
 }
 </style>

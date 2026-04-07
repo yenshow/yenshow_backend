@@ -26,7 +26,7 @@ router.post("/", checkRole([Permissions.ADMIN, Permissions.STAFF]), uploadNewsIm
 router.put(
 	"/:id",
 	checkRole([Permissions.ADMIN, Permissions.STAFF]),
-	uploadNewsImages, // 同樣處理 'coverImage' 和 'contentImages'
+	uploadNewsImages, // 處理 coverImage、newsImages、newsVideos、newsDocuments
 	NewsController.updateItem
 );
 

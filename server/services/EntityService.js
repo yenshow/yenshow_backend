@@ -273,7 +273,7 @@ export class EntityService {
 
 			const page = pagination?.page || 1;
 			const limit = pagination?.limit || 100;
-			const searchFields = ["code", "name.TW", "name.EN"];
+			const searchFields = options.searchFields || ["code", "name.TW", "name.EN"];
 
 			const searchResults = await performSearch({
 				model: this.model,

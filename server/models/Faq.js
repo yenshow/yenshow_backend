@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose";
+import { FAQ_CATEGORY_MAIN_EN_ENUM, FAQ_CATEGORY_MAIN_TW_ENUM } from "../constants/mainCategories.js";
 
 const faqSchema = new Schema(
 	{
@@ -24,12 +25,12 @@ const faqSchema = new Schema(
 			main: {
 				TW: {
 					type: String,
-					enum: ["名詞解說", "產品介紹", "故障排除"],
+					enum: [...FAQ_CATEGORY_MAIN_TW_ENUM],
 					required: [true, "主分類為必填"]
 				},
 				EN: {
 					type: String,
-					enum: ["Glossary", "Product Introduction", "Troubleshooting"],
+					enum: [...FAQ_CATEGORY_MAIN_EN_ENUM],
 					trim: true
 				}
 			},

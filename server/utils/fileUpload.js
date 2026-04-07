@@ -39,14 +39,40 @@ class FileUpload {
 
 		// 檔案過濾器
 		this.fileFilter = (req, file, cb) => {
+			const allowedDocumentMimeTypes = [
+				"application/pdf",
+				"application/msword",
+				"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+				"application/vnd.ms-excel",
+				"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+				"application/vnd.ms-powerpoint",
+				"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+				"text/plain"
+			];
+
 			// 定義檔案類型驗證規則
 			const fileTypeRules = {
 				// 圖片欄位
-				imageFields: ["contentImages", "images", "faqImages", "coverImage", "caseStudyImages"],
+				imageFields: [
+					"contentImages",
+					"images",
+					"faqImages",
+					"coverImage",
+					"caseStudyImages",
+					"newsImages"
+				],
 				// 文件欄位
-				documentFields: ["contentDocuments", "documents", "documents_TW", "documents_EN", "faqDocuments", "contentDocuments", "caseStudyDocuments"],
+				documentFields: [
+					"contentDocuments",
+					"documents",
+					"documents_TW",
+					"documents_EN",
+					"faqDocuments",
+					"caseStudyDocuments",
+					"newsDocuments"
+				],
 				// 影片欄位
-				videoFields: ["contentVideos", "videos", "faqVideos", "caseStudyVideos"]
+				videoFields: ["contentVideos", "videos", "faqVideos", "caseStudyVideos", "newsVideos"]
 			};
 
 			// 檢查檔案類型
@@ -55,8 +81,8 @@ class FileUpload {
 					return cb(new ApiError(400, `${file.fieldname} 只允許上傳圖片檔案`), false);
 				}
 			} else if (fileTypeRules.documentFields.includes(file.fieldname)) {
-				if (file.mimetype !== "application/pdf") {
-					return cb(new ApiError(400, `${file.fieldname} 僅允許 PDF 格式`), false);
+				if (!allowedDocumentMimeTypes.includes(file.mimetype)) {
+					return cb(new ApiError(400, `${file.fieldname} 僅允許 PDF/DOC/DOCX/XLS/XLSX/PPT/PPTX/TXT 格式`), false);
 				}
 			} else if (fileTypeRules.videoFields.includes(file.fieldname)) {
 				if (!file.mimetype.startsWith("video/")) {
@@ -121,9 +147,9 @@ class FileUpload {
 	getNewsUploadMiddleware() {
 		return this.upload.fields([
 			{ name: "coverImage", maxCount: 1 },
-			{ name: "contentImages", maxCount: MAX_NEWS_CONTENT_IMAGES },
-			{ name: "contentVideos", maxCount: MAX_NEWS_CONTENT_VIDEOS },
-			{ name: "contentDocuments", maxCount: MAX_NEWS_CONTENT_DOCUMENTS }
+			{ name: "newsImages", maxCount: MAX_NEWS_CONTENT_IMAGES },
+			{ name: "newsVideos", maxCount: MAX_NEWS_CONTENT_VIDEOS },
+			{ name: "newsDocuments", maxCount: MAX_NEWS_CONTENT_DOCUMENTS }
 		]);
 	}
 

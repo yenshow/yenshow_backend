@@ -233,7 +233,7 @@
                 <td class="py-3 px-4 theme-text max-w-[450px] truncate">
                   {{ item.title?.TW || '-' }}
                 </td>
-                <td class="py-3 px-4 theme-text">{{ item.category || '-' }}</td>
+                <td class="py-3 px-4 theme-text">{{ newsCategoryLabel(item) }}</td>
                 <td class="py-3 px-4 theme-text">
                   {{
                     formatDate(
@@ -251,24 +251,24 @@
                 </td>
                 <td
                   class="py-3 px-4"
-                  :title="'圖片: ' + (hasContentImages(item.content) ? '✓' : '✗')"
-                  :class="hasContentImages(item.content) ? 'text-green-500' : 'text-red-500'"
+                  :title="'圖片: ' + (hasNewsAttachmentImages(item) ? '✓' : '✗')"
+                  :class="hasNewsAttachmentImages(item) ? 'text-green-500' : 'text-red-500'"
                 >
-                  {{ hasContentImages(item.content) ? '✓' : '✗' }}
+                  {{ hasNewsAttachmentImages(item) ? '✓' : '✗' }}
                 </td>
                 <td
                   class="py-3 px-4"
-                  :title="'影片: ' + (hasContentVideos(item.content) ? '✓' : '✗')"
-                  :class="hasContentVideos(item.content) ? 'text-green-500' : 'text-red-500'"
+                  :title="'影片: ' + (hasNewsAttachmentVideos(item) ? '✓' : '✗')"
+                  :class="hasNewsAttachmentVideos(item) ? 'text-green-500' : 'text-red-500'"
                 >
-                  {{ hasContentVideos(item.content) ? '✓' : '✗' }}
+                  {{ hasNewsAttachmentVideos(item) ? '✓' : '✗' }}
                 </td>
                 <td
                   class="py-3 px-4"
-                  :title="'文件: ' + (hasContentDocuments(item.content) ? '✓' : '✗')"
-                  :class="hasContentDocuments(item.content) ? 'text-green-500' : 'text-red-500'"
+                  :title="'文件: ' + (hasNewsAttachmentDocuments(item) ? '✓' : '✗')"
+                  :class="hasNewsAttachmentDocuments(item) ? 'text-green-500' : 'text-red-500'"
                 >
-                  {{ hasContentDocuments(item.content) ? '✓' : '✗' }}
+                  {{ hasNewsAttachmentDocuments(item) ? '✓' : '✗' }}
                 </td>
                 <td class="py-3 px-4">
                   <span
@@ -753,7 +753,13 @@ const filteredItems = computed(() => {
             : item.category
         return itemCategory === selectedCategory
       } else {
-        return item.category === selectedCategory
+        const tw =
+          typeof item.category === 'object' && item.category?.main
+            ? typeof item.category.main === 'object'
+              ? item.category.main.TW
+              : item.category.main
+            : item.category
+        return tw === selectedCategory
       }
     })
   }
@@ -1077,22 +1083,31 @@ const handleFaqUpdate = (payload) => {
   notify.notifySuccess(`問題已成功${isNew ? '新增' : '更新'}`)
 }
 
-// 檢查 News content 是否包含圖片
-const hasContentImages = (content) => {
-  if (!content || !Array.isArray(content)) return false
-  return content.some((block) => block.itemType === 'image' && block.imageUrl)
+const newsCategoryLabel = (item) => {
+  const c = item?.category
+  if (c && typeof c === 'object' && c.main) {
+    return typeof c.main === 'object' ? c.main.TW || '-' : c.main || '-'
+  }
+  if (typeof c === 'string') return c || '-'
+  return '-'
 }
 
-// 檢查 News content 是否包含影片
-const hasContentVideos = (content) => {
-  if (!content || !Array.isArray(content)) return false
-  return content.some((block) => block.itemType === 'videoEmbed' && block.videoEmbedUrl)
+const hasNewsAttachmentImages = (item) => {
+  const list = item?.attachmentImages
+  if (!Array.isArray(list)) return false
+  return list.some((row) => row.url)
 }
 
-// 檢查 News content 是否包含文件
-const hasContentDocuments = (content) => {
-  if (!content || !Array.isArray(content)) return false
-  return content.some((block) => block.itemType === 'document' && block.documentUrl)
+const hasNewsAttachmentVideos = (item) => {
+  const list = item?.attachmentVideos
+  if (!Array.isArray(list) || list.length === 0) return false
+  return list.some((row) => (row.source === 'embed' && row.embedUrl) || (row.source === 'upload' && row.url))
+}
+
+const hasNewsAttachmentDocuments = (item) => {
+  const list = item?.attachmentDocuments
+  if (!Array.isArray(list)) return false
+  return list.some((row) => row.url)
 }
 </script>
 

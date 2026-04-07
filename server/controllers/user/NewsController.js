@@ -2,91 +2,215 @@ import News from "../../models/News.js";
 import { EntityController } from "../EntityController.js";
 import { ApiError } from "../../utils/responseHandler.js";
 import { StatusCodes } from "http-status-codes";
-import fileUpload from "../../utils/fileUpload.js"; // 引入統一的檔案處理工具
-import { Permissions } from "../../middlewares/permission.js"; // 導入 Permissions
+import fileUpload from "../../utils/fileUpload.js";
+import { Permissions } from "../../middlewares/permission.js";
+import { newsCategoryMainTwToEn } from "../../constants/mainCategories.js";
 
-// --- Helper function to validate content items (can be moved to a service/validator) ---
-function validateContentItems(content) {
-	if (!Array.isArray(content)) {
-		throw new ApiError(StatusCodes.BAD_REQUEST, "內容 (content) 必須是一個陣列");
+export const NEWS_NEW_FILE_MARKER = "__NEWS_NEW_FILE__";
+
+const defaultEmptyDoc = () => ({ type: "doc", content: [{ type: "paragraph" }] });
+
+function validateTiptapDoc(content, fieldLabel) {
+	if (!content || typeof content !== "object" || content.type !== "doc" || !Array.isArray(content.content)) {
+		throw new ApiError(StatusCodes.BAD_REQUEST, `${fieldLabel} 的內容格式無效，不是有效的 Tiptap document`);
 	}
+}
 
-	for (const item of content) {
-		if (!item || typeof item !== "object") {
-			throw new ApiError(StatusCodes.BAD_REQUEST, "內容陣列中的項目格式無效");
-		}
-		if (!item.itemType || !["richText", "image", "videoEmbed", "document"].includes(item.itemType)) {
-			throw new ApiError(StatusCodes.BAD_REQUEST, `無效的內容項目類型: ${item.itemType}`);
-		}
+function validateArticle(article, isCreate) {
+	if (!article || typeof article !== "object") {
+		throw new ApiError(StatusCodes.BAD_REQUEST, "article 格式無效");
+	}
+	if (article.TW) {
+		validateTiptapDoc(article.TW, "article.TW");
+	}
+	if (article.EN) {
+		validateTiptapDoc(article.EN, "article.EN");
+	}
+	if (!isCreate) {
+		return;
+	}
+	const twEmpty =
+		!article.TW ||
+		article.TW.content?.length === 0 ||
+		(article.TW.content?.length === 1 && article.TW.content[0].type === "paragraph" && !article.TW.content[0].content);
+	const enEmpty =
+		!article.EN ||
+		article.EN.content?.length === 0 ||
+		(article.EN.content?.length === 1 && article.EN.content[0].type === "paragraph" && !article.EN.content[0].content);
+	if (twEmpty && enEmpty) {
+		throw new ApiError(StatusCodes.BAD_REQUEST, "繁體中文或英文主要內容至少需填寫一種語言");
+	}
+}
 
-		// Validate based on itemType and clean up extraneous fields
-		switch (item.itemType) {
-			case "richText":
-				if (!item.richTextData || typeof item.richTextData !== "object") {
-					throw new ApiError(StatusCodes.BAD_REQUEST, "richText 項目缺少有效的 richTextData 物件");
-				}
-				if (!item.richTextData.TW || typeof item.richTextData.TW !== "object" || !item.richTextData.EN || typeof item.richTextData.EN !== "object") {
-					throw new ApiError(StatusCodes.BAD_REQUEST, "richTextdata 必須包含 TW 和 EN 物件");
-				}
-				if (item.richTextData.TW.type !== "doc" || item.richTextData.EN.type !== "doc") {
-					console.warn("Rich text data for TW or EN might not be a valid Tiptap document structure (missing type: 'doc')");
-				}
-				delete item.imageUrl;
-				delete item.imageAltText;
-				delete item.imageCaption;
-				delete item.videoEmbedUrl;
-				delete item.videoCaption;
-				break;
-			case "image":
-				if (item.imageUrl !== undefined && item.imageUrl !== null && typeof item.imageUrl !== "string" && item.imageUrl !== "__NEW_CONTENT_IMAGE__") {
-					throw new ApiError(StatusCodes.BAD_REQUEST, "image 項目提供的 imageUrl 格式無效");
-				}
-				if (item.imageAltText && typeof item.imageAltText !== "object") throw new ApiError(StatusCodes.BAD_REQUEST, "imageAltText 格式無效");
-				if (item.imageCaption && typeof item.imageCaption !== "object") throw new ApiError(StatusCodes.BAD_REQUEST, "imageCaption 格式無效");
-				delete item.richTextData;
-				delete item.videoEmbedUrl;
-				delete item.videoCaption;
-				break;
-			case "videoEmbed":
-				// Allow videoEmbedUrl to be a marker like "__NEW_CONTENT_VIDEO__" or an actual URL string
-				if (
-					item.videoEmbedUrl !== undefined &&
-					item.videoEmbedUrl !== null &&
-					typeof item.videoEmbedUrl !== "string" &&
-					item.videoEmbedUrl !== "__NEW_CONTENT_VIDEO__"
-				) {
-					throw new ApiError(StatusCodes.BAD_REQUEST, "videoEmbed 項目 videoEmbedUrl 格式無效");
-				}
-				if (item.videoCaption && typeof item.videoCaption !== "object") throw new ApiError(StatusCodes.BAD_REQUEST, "videoCaption 格式無效");
-				delete item.richTextData;
-				delete item.imageUrl;
-				delete item.imageAltText;
-				delete item.imageCaption;
-				break;
-			case "document":
-				if (
-					item.documentUrl !== undefined &&
-					item.documentUrl !== null &&
-					typeof item.documentUrl !== "string" &&
-					item.documentUrl !== "__NEW_CONTENT_DOCUMENT__"
-				) {
-					throw new ApiError(StatusCodes.BAD_REQUEST, "document 項目 documentUrl 格式無效");
-				}
-				if (item.documentDescription && typeof item.documentDescription !== "object")
-					throw new ApiError(StatusCodes.BAD_REQUEST, "documentDescription 格式無效");
-				delete item.richTextData;
-				delete item.imageUrl;
-				delete item.imageAltText;
-				delete item.imageCaption;
-				delete item.videoEmbedUrl;
-				delete item.videoCaption;
-				break;
-		}
-		if (item.sortOrder !== undefined && typeof item.sortOrder !== "number") {
-			throw new ApiError(StatusCodes.BAD_REQUEST, "sortOrder 必須是數字");
+function collectStoragePathsFromPlain(obj) {
+	const paths = [];
+	if (!obj) {
+		return paths;
+	}
+	if (obj.coverImageUrl && typeof obj.coverImageUrl === "string" && obj.coverImageUrl.startsWith("/storage")) {
+		paths.push(obj.coverImageUrl);
+	}
+	for (const r of obj.attachmentImages || []) {
+		if (r.url && r.url.startsWith("/storage")) {
+			paths.push(r.url);
 		}
 	}
-	content.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+	for (const r of obj.attachmentVideos || []) {
+		if (r.source === "upload" && r.url && r.url.startsWith("/storage")) {
+			paths.push(r.url);
+		}
+	}
+	for (const r of obj.attachmentDocuments || []) {
+		if (r.url && r.url.startsWith("/storage")) {
+			paths.push(r.url);
+		}
+	}
+	return paths;
+}
+
+function validateAttachmentPayload(data) {
+	for (const r of data.attachmentImages || []) {
+		if (typeof r !== "object") {
+			throw new ApiError(StatusCodes.BAD_REQUEST, "attachmentImages 項目格式無效");
+		}
+		const url = r.url;
+		if (!url || (url !== NEWS_NEW_FILE_MARKER && typeof url !== "string")) {
+			throw new ApiError(StatusCodes.BAD_REQUEST, "圖片附件需有 url 或新檔標記");
+		}
+	}
+	for (const r of data.attachmentVideos || []) {
+		if (!r || typeof r !== "object") {
+			throw new ApiError(StatusCodes.BAD_REQUEST, "attachmentVideos 項目格式無效");
+		}
+		if (!["upload", "embed"].includes(r.source)) {
+			throw new ApiError(StatusCodes.BAD_REQUEST, "影片 source 必須為 upload 或 embed");
+		}
+		if (r.source === "embed") {
+			if (!r.embedUrl || typeof r.embedUrl !== "string") {
+				throw new ApiError(StatusCodes.BAD_REQUEST, "嵌入影片需填 embedUrl");
+			}
+		}
+		if (r.source === "upload") {
+			const u = r.url;
+			if (!u || (u !== NEWS_NEW_FILE_MARKER && typeof u !== "string")) {
+				throw new ApiError(StatusCodes.BAD_REQUEST, "上傳型影片需有 url 或新檔標記");
+			}
+		}
+	}
+	for (const r of data.attachmentDocuments || []) {
+		if (typeof r !== "object") {
+			throw new ApiError(StatusCodes.BAD_REQUEST, "attachmentDocuments 項目格式無效");
+		}
+		const url = r.url;
+		if (!url || (url !== NEWS_NEW_FILE_MARKER && typeof url !== "string")) {
+			throw new ApiError(StatusCodes.BAD_REQUEST, "文件附件需有 url 或新檔標記");
+		}
+	}
+}
+
+/**
+ * 將待上傳檔掛到資料列並檢查數量；新檔列之 url 暫置為空字串以便通過後續寫入。
+ */
+function assignPendingNewsFiles(data, pendingImages, pendingVideos, pendingDocuments) {
+	let iIdx = 0;
+	let vIdx = 0;
+	let dIdx = 0;
+	for (const r of data.attachmentImages || []) {
+		if (r.url === NEWS_NEW_FILE_MARKER) {
+			const f = pendingImages[iIdx++];
+			if (!f) {
+				throw new ApiError(StatusCodes.BAD_REQUEST, "圖片上傳數量與標記不相符");
+			}
+			r._pendingFile = f;
+			r.url = "";
+		}
+	}
+	if (iIdx !== pendingImages.length) {
+		throw new ApiError(StatusCodes.BAD_REQUEST, "多餘的圖片檔或缺少對應標記");
+	}
+	for (const r of data.attachmentVideos || []) {
+		if (r.source === "upload" && r.url === NEWS_NEW_FILE_MARKER) {
+			const f = pendingVideos[vIdx++];
+			if (!f) {
+				throw new ApiError(StatusCodes.BAD_REQUEST, "影片上傳數量與標記不相符");
+			}
+			r._pendingFile = f;
+			r.url = "";
+		}
+	}
+	if (vIdx !== pendingVideos.length) {
+		throw new ApiError(StatusCodes.BAD_REQUEST, "多餘的影片檔或缺少對應標記");
+	}
+	for (const r of data.attachmentDocuments || []) {
+		if (r.url === NEWS_NEW_FILE_MARKER) {
+			const f = pendingDocuments[dIdx++];
+			if (!f) {
+				throw new ApiError(StatusCodes.BAD_REQUEST, "文件上傳數量與標記不相符");
+			}
+			r._pendingFile = f;
+			r.url = "";
+		}
+	}
+	if (dIdx !== pendingDocuments.length) {
+		throw new ApiError(StatusCodes.BAD_REQUEST, "多餘的文件檔或缺少對應標記");
+	}
+}
+
+function detachUploadPlans(data) {
+	const plans = { images: [], videos: [], documents: [] };
+	(data.attachmentImages || []).forEach((r, i) => {
+		if (r._pendingFile) {
+			plans.images.push({ index: i, file: r._pendingFile });
+			delete r._pendingFile;
+		}
+	});
+	(data.attachmentVideos || []).forEach((r, i) => {
+		if (r._pendingFile) {
+			plans.videos.push({ index: i, file: r._pendingFile });
+			delete r._pendingFile;
+		}
+	});
+	(data.attachmentDocuments || []).forEach((r, i) => {
+		if (r._pendingFile) {
+			plans.documents.push({ index: i, file: r._pendingFile });
+			delete r._pendingFile;
+		}
+	});
+	return plans;
+}
+
+async function applyUploadPlans(entityDoc, plans, entityContext) {
+	let changed = false;
+	for (const { index, file } of plans.images) {
+		try {
+			const url = fileUpload.saveAsset(file.buffer, "news", entityContext, "images", file.originalname, "news_img");
+			entityDoc.attachmentImages[index].url = url;
+			changed = true;
+		} catch (e) {
+			console.error("新聞附加圖片上傳失敗:", e);
+		}
+	}
+	for (const { index, file } of plans.videos) {
+		try {
+			const url = fileUpload.saveAsset(file.buffer, "news", entityContext, "videos", file.originalname, "news_vid");
+			entityDoc.attachmentVideos[index].url = url;
+			changed = true;
+		} catch (e) {
+			console.error("新聞附加影片上傳失敗:", e);
+		}
+	}
+	for (const { index, file } of plans.documents) {
+		try {
+			const url = fileUpload.saveAsset(file.buffer, "news", entityContext, "documents", file.originalname, "news_doc");
+			entityDoc.attachmentDocuments[index].url = url;
+			changed = true;
+		} catch (e) {
+			console.error("新聞附加文件上傳失敗:", e);
+		}
+	}
+	if (changed) {
+		await entityDoc.save();
+	}
 }
 
 class NewsController extends EntityController {
@@ -94,18 +218,52 @@ class NewsController extends EntityController {
 		super(News, {
 			entityName: "news",
 			responseKey: "news",
-			// 調整 basicFields 移除 status
-			basicFields: ["title", "category", "isActive", "publishDate", "author", "summary", "coverImageUrl", "relatedNews", "createdAt", "updatedAt"]
+			basicFields: [
+				"title",
+				"category",
+				"isActive",
+				"publishDate",
+				"author",
+				"summary",
+				"coverImageUrl",
+				"article",
+				"attachmentImages",
+				"attachmentVideos",
+				"attachmentDocuments",
+				"relatedNews",
+				"createdAt",
+				"updatedAt"
+			]
 		});
-		if (this._prepareNewsData) {
-			this._prepareNewsData = this._prepareNewsData.bind(this);
-		}
 	}
 
-	// 取得分類清單（從 Mongoose enum 讀取）
+	searchItems = async (req, res, next) => {
+		try {
+			const { keyword, page, limit, sort, sortDirection } = req.query;
+			const filterActive = this._shouldFilterActive(req);
+			const baseQuery = {};
+			if (filterActive) {
+				baseQuery.isActive = true;
+			}
+			const results = await this.entityService.search(baseQuery, {
+				keyword,
+				pagination: { page: parseInt(page) || 1, limit: Math.min(parseInt(limit) || 20, 100) },
+				sort: { [sort || "createdAt"]: sortDirection === "desc" ? -1 : 1 },
+				searchFields: ["title.TW", "title.EN", "summary.TW", "summary.EN", "author"]
+			});
+			this._sendResponse(res, StatusCodes.OK, `${this.entityName}搜索結果`, {
+				[this.responseKey]: results.data,
+				pagination: results.pagination
+			});
+		} catch (error) {
+			this._handleError(error, "搜索", next);
+		}
+	};
+
 	getCategories = async (req, res, next) => {
 		try {
-			const categories = News.schema.path("category").enumValues || [];
+			const mainPath = News.schema.path("category.main.TW");
+			const categories = mainPath?.enumValues || [];
 			this._sendResponse(res, StatusCodes.OK, `分類清單獲取成功`, { categories });
 		} catch (error) {
 			this._handleError(error, "獲取分類清單", next);
@@ -115,28 +273,20 @@ class NewsController extends EntityController {
 	getAllItems = async (req, res, next) => {
 		try {
 			const { category, sort, sortDirection, page, limit } = req.query;
-
-			// 基礎條件：依權限自動過濾 isActive
 			const query = {};
 			if (this._shouldFilterActive(req)) {
 				query.isActive = true;
 			}
-			// 分類過濾
 			if (category) {
-				query.category = category;
+				query["category.main.TW"] = category;
 			}
-
-			// 解析排序
 			const allowedSortFields = ["publishDate", "createdAt"];
 			const sortField = allowedSortFields.includes(sort) ? sort : "publishDate";
-			const order = sortDirection === "asc" ? 1 : -1; // 預設 desc
+			const order = sortDirection === "asc" ? 1 : -1;
 			const sortOption = sortField === "createdAt" ? { createdAt: order } : { [sortField]: order, createdAt: -1 };
-
-			// 分頁參數
 			const pageNum = Math.max(parseInt(page) || 1, 1);
 			const limitNum = Math.min(Math.max(parseInt(limit) || 20, 1), 100);
 			const skip = (pageNum - 1) * limitNum;
-
 			const total = await this.model.countDocuments(query);
 			const items = await this.model
 				.find(query)
@@ -163,22 +313,15 @@ class NewsController extends EntityController {
 	getItemBySlug = async (req, res, next) => {
 		try {
 			const { slug } = req.params;
-
-			// Public-facing route should only find active news.
 			const query = { slug: slug };
 			const userRole = req.accessContext?.userRole;
-
-			// If the user is not an admin or staff, only show active items.
 			if (userRole !== Permissions.ADMIN && userRole !== Permissions.STAFF) {
 				query.isActive = true;
 			}
-
 			const item = await this.model.findOne(query).populate("relatedNews", "title.TW title.EN summary.TW summary.EN slug category");
-
 			if (!item) {
 				throw new ApiError(StatusCodes.NOT_FOUND, `${this.entityName} 未找到`);
 			}
-
 			const formattedItem = this.entityService.formatOutput(item);
 			this._sendResponse(res, StatusCodes.OK, `${this.entityName} 獲取成功`, { [this.responseKey]: formattedItem });
 		} catch (error) {
@@ -199,148 +342,68 @@ class NewsController extends EntityController {
 		}
 
 		const data = { ...rawData };
+		delete data.content;
+
 		const files = req.files || {};
-		const userRole = req.accessContext?.userRole; // 從 accessContext 獲取角色
+		const userRole = req.accessContext?.userRole;
 
 		if (isUpdate && data._id) {
 			delete data._id;
 		}
 
-		data._pendingCoverFile = files.coverImage?.[0];
-		data._pendingContentImageFiles = files.contentImages || [];
-		data._pendingContentVideoFiles = files.contentVideos || [];
-		data._pendingContentDocumentFiles = files.contentDocuments || [];
-
-		let imagesToDeletePaths = [];
-		let videosToDeletePaths = []; // NEW: for videos to delete
-		let documentsToDeletePaths = []; // NEW: for documents to delete
-
-		let currentContentImageFileIndex = 0;
-		let currentContentVideoFileIndex = 0; // NEW: index for video files
-		let currentContentDocumentFileIndex = 0; // NEW: index for document files
+		const pendingCoverFile = files.coverImage?.[0];
+		const pendingNewsImages = files.newsImages || [];
+		const pendingNewsVideos = files.newsVideos || [];
+		const pendingNewsDocuments = files.newsDocuments || [];
 
 		if (data.title !== undefined) {
 			if (typeof data.title !== "object" || !data.title.TW) {
 				throw new ApiError(StatusCodes.BAD_REQUEST, "繁體中文標題為必填，或標題格式錯誤");
 			}
-			data.newsTitleTw = data.title.TW; // Keep this for context
+			data.newsTitleTw = data.title.TW;
 		} else if (!isUpdate) {
 			throw new ApiError(StatusCodes.BAD_REQUEST, "缺少標題欄位");
 		} else if (existingNews) {
-			// If title is not being updated, use existing title for path context
 			data.newsTitleTw = data.title?.TW || existingNews.title?.TW;
 		}
 
-		if (data.content !== undefined) {
-			try {
-				if (Array.isArray(data.content)) {
-					data.content.forEach((item) => {
-						if ((item.itemType === "image" || item.itemType === "videoEmbed" || item.itemType === "document") && item.richTextData) {
-							delete item.richTextData;
-						}
-					});
-				}
-				validateContentItems(data.content);
-			} catch (validationError) {
-				throw validationError;
-			}
-			if (Array.isArray(data.content)) {
-				data.content.forEach((block) => {
-					if (block.itemType === "image") {
-						const wantsNewImageForBlock = block.imageUrl === "__NEW_CONTENT_IMAGE__";
-						if (wantsNewImageForBlock && data._pendingContentImageFiles[currentContentImageFileIndex]) {
-							block._pendingFile = data._pendingContentImageFiles[currentContentImageFileIndex];
-							currentContentImageFileIndex++;
-							if (isUpdate && existingNews) {
-								const existingBlockInNews = existingNews.content.find((eb) => eb._id?.toString() === block._id?.toString());
-								if (existingBlockInNews?.imageUrl && !existingBlockInNews.imageUrl.startsWith("http")) {
-									imagesToDeletePaths.push(existingBlockInNews.imageUrl);
-								}
-							}
-							block.imageUrl = ""; // Will be replaced by uploaded file path
-						} else if (isUpdate && block.imageUrl === null && existingNews) {
-							// Explicitly removing an image
-							const existingBlockInNews = existingNews.content.find((eb) => eb._id?.toString() === block._id?.toString());
-							if (existingBlockInNews?.imageUrl && !existingBlockInNews.imageUrl.startsWith("http")) {
-								imagesToDeletePaths.push(existingBlockInNews.imageUrl);
-							}
-						}
-					} else if (block.itemType === "videoEmbed") {
-						// NEW: Handle video blocks
-						const wantsNewVideoForBlock = block.videoEmbedUrl === "__NEW_CONTENT_VIDEO__";
-						if (wantsNewVideoForBlock && data._pendingContentVideoFiles[currentContentVideoFileIndex]) {
-							block._pendingVideoFile = data._pendingContentVideoFiles[currentContentVideoFileIndex];
-							currentContentVideoFileIndex++;
-							if (isUpdate && existingNews) {
-								const existingBlockInNews = existingNews.content.find((eb) => eb._id?.toString() === block._id?.toString());
-								if (existingBlockInNews?.videoEmbedUrl && existingBlockInNews.videoEmbedUrl.startsWith("/storage")) {
-									videosToDeletePaths.push(existingBlockInNews.videoEmbedUrl);
-								}
-							}
-							block.videoEmbedUrl = ""; // Will be replaced by uploaded file path
-						} else if (isUpdate && block.videoEmbedUrl === null && existingNews) {
-							// Explicitly removing a video
-							const existingBlockInNews = existingNews.content.find((eb) => eb._id?.toString() === block._id?.toString());
-							if (existingBlockInNews?.videoEmbedUrl && existingBlockInNews.videoEmbedUrl.startsWith("/storage")) {
-								videosToDeletePaths.push(existingBlockInNews.videoEmbedUrl);
-							}
-						}
-					} else if (block.itemType === "document") {
-						// NEW: Handle document blocks
-						const wantsNewDocumentForBlock = block.documentUrl === "__NEW_CONTENT_DOCUMENT__";
-						if (wantsNewDocumentForBlock && data._pendingContentDocumentFiles[currentContentDocumentFileIndex]) {
-							block._pendingDocumentFile = data._pendingContentDocumentFiles[currentContentDocumentFileIndex];
-							currentContentDocumentFileIndex++;
-							if (isUpdate && existingNews) {
-								const existingBlockInNews = existingNews.content.find((eb) => eb._id?.toString() === block._id?.toString());
-								if (existingBlockInNews?.documentUrl && existingBlockInNews.documentUrl.startsWith("/storage")) {
-									documentsToDeletePaths.push(existingBlockInNews.documentUrl);
-								}
-							}
-							block.documentUrl = ""; // Will be replaced by uploaded file path
-						} else if (isUpdate && block.documentUrl === null && existingNews) {
-							// Explicitly removing a document
-							const existingBlockInNews = existingNews.content.find((eb) => eb._id?.toString() === block._id?.toString());
-							if (existingBlockInNews?.documentUrl && existingBlockInNews.documentUrl.startsWith("/storage")) {
-								documentsToDeletePaths.push(existingBlockInNews.documentUrl);
-							}
-						}
-					}
-				});
-			}
+		if (data.article !== undefined) {
+			validateArticle(data.article, !isUpdate);
 		} else if (!isUpdate) {
-			data.content = [];
-		} else if (isUpdate && data.content === null) {
-			// If client sends null for content, means remove all content
-			data.content = [];
-			if (existingNews?.content) {
-				existingNews.content.forEach((block) => {
-					if (block.itemType === "image" && block.imageUrl && !block.imageUrl.startsWith("http")) {
-						imagesToDeletePaths.push(block.imageUrl);
-					}
-					if (block.itemType === "videoEmbed" && block.videoEmbedUrl && block.videoEmbedUrl.startsWith("/storage")) {
-						videosToDeletePaths.push(block.videoEmbedUrl);
-					}
-					if (block.itemType === "document" && block.documentUrl && block.documentUrl.startsWith("/storage")) {
-						documentsToDeletePaths.push(block.documentUrl);
-					}
-				});
-			}
+			data.article = { TW: defaultEmptyDoc(), EN: defaultEmptyDoc() };
+			validateArticle(data.article, true);
 		}
 
+		if (!data.attachmentImages) {
+			data.attachmentImages = [];
+		}
+		if (!data.attachmentVideos) {
+			data.attachmentVideos = [];
+		}
+		if (!data.attachmentDocuments) {
+			data.attachmentDocuments = [];
+		}
+		validateAttachmentPayload(data);
+		assignPendingNewsFiles(data, pendingNewsImages, pendingNewsVideos, pendingNewsDocuments);
+
 		if (data.category !== undefined) {
-			const validCategories = News.schema.path("category").enumValues;
-			if (!validCategories.includes(data.category)) {
-				throw new ApiError(StatusCodes.BAD_REQUEST, `無效的分類：${data.category}`);
+			if (typeof data.category !== "object" || !data.category.main) {
+				throw new ApiError(StatusCodes.BAD_REQUEST, "分類格式無效");
+			}
+			const tw = data.category.main.TW;
+			const enumTw = News.schema.path("category.main.TW").enumValues;
+			if (!tw || !enumTw.includes(tw)) {
+				throw new ApiError(StatusCodes.BAD_REQUEST, `無效的主分類：${tw}`);
+			}
+			if (!data.category.main.EN) {
+				data.category.main.EN = newsCategoryMainTwToEn(tw) || "";
 			}
 		} else if (!isUpdate) {
 			throw new ApiError(StatusCodes.BAD_REQUEST, "缺少分類欄位");
 		}
 
-		if (data.summary !== undefined) {
-			if (typeof data.summary !== "object") {
-				throw new ApiError(StatusCodes.BAD_REQUEST, "摘要格式無效或解析錯誤");
-			}
+		if (data.summary !== undefined && typeof data.summary !== "object") {
+			throw new ApiError(StatusCodes.BAD_REQUEST, "摘要格式無效或解析錯誤");
 		}
 
 		if (data.publishDate !== undefined) {
@@ -376,55 +439,37 @@ class NewsController extends EntityController {
 			}
 		}
 
+		let filesToDelete = [];
+		if (isUpdate && existingNews) {
+			const oldPlain = existingNews.toObject();
+			const newPlain = { ...data };
+			const oldPaths = collectStoragePathsFromPlain(oldPlain);
+			const newPathsFromPayload = collectStoragePathsFromPlain(newPlain);
+			filesToDelete = oldPaths.filter((p) => !newPathsFromPayload.includes(p));
+		}
+
 		const wantsNewCover = data.coverImageUrl === "__NEW_COVER__";
-		if (wantsNewCover && data._pendingCoverFile) {
-			if (isUpdate && existingNews?.coverImageUrl && !existingNews.coverImageUrl.startsWith("http")) {
-				imagesToDeletePaths.push(existingNews.coverImageUrl);
+		if (wantsNewCover && pendingCoverFile) {
+			if (isUpdate && existingNews?.coverImageUrl && existingNews.coverImageUrl.startsWith("/storage")) {
+				filesToDelete.push(existingNews.coverImageUrl);
 			}
-			data.coverImageUrl = ""; // Will be replaced by uploaded file path
-		} else if (isUpdate && data.coverImageUrl === null && existingNews?.coverImageUrl && !existingNews.coverImageUrl.startsWith("http")) {
-			imagesToDeletePaths.push(existingNews.coverImageUrl);
+			data.coverImageUrl = "";
+			data._pendingCoverFile = pendingCoverFile;
+		} else if (isUpdate && data.coverImageUrl === null && existingNews?.coverImageUrl?.startsWith("/storage")) {
+			filesToDelete.push(existingNews.coverImageUrl);
 		} else if (!wantsNewCover && data.coverImageUrl !== undefined) {
-			// Keep existing URL or client provided external URL
+			// keep
 		} else if (isUpdate && data.coverImageUrl === undefined) {
-			delete data.coverImageUrl; // No change intended to cover image
+			delete data.coverImageUrl;
 		} else if (!isUpdate && data.coverImageUrl === undefined) {
-			data.coverImageUrl = null; // Default to null if not provided during creation and not a new cover upload
+			data.coverImageUrl = null;
 		}
 
-		// NEW: Handle deletion of files from blocks that were completely removed during an update
-		if (isUpdate && existingNews && existingNews.content && Array.isArray(data.content)) {
-			const newContentBlockIds = new Set(data.content.map((b) => b._id?.toString()).filter((id) => id));
-			existingNews.content.forEach((existingBlock) => {
-				if (existingBlock._id && !newContentBlockIds.has(existingBlock._id.toString())) {
-					// This block was removed from the content array
-					if (existingBlock.itemType === "image" && existingBlock.imageUrl && existingBlock.imageUrl.startsWith("/storage/")) {
-						if (!imagesToDeletePaths.includes(existingBlock.imageUrl)) {
-							imagesToDeletePaths.push(existingBlock.imageUrl);
-						}
-					}
-					if (existingBlock.itemType === "videoEmbed" && existingBlock.videoEmbedUrl && existingBlock.videoEmbedUrl.startsWith("/storage/")) {
-						if (!videosToDeletePaths.includes(existingBlock.videoEmbedUrl)) {
-							videosToDeletePaths.push(existingBlock.videoEmbedUrl);
-						}
-					}
-					if (existingBlock.itemType === "document" && existingBlock.documentUrl && existingBlock.documentUrl.startsWith("/storage/")) {
-						if (!documentsToDeletePaths.includes(existingBlock.documentUrl)) {
-							documentsToDeletePaths.push(existingBlock.documentUrl);
-						}
-					}
-				}
-			});
-		}
-
-		// Make sure newsTitleTw is available for context for saveAsset calls
 		const newsTitleTwForContext = data.newsTitleTw || (existingNews ? existingNews.title?.TW : null) || "untitled_news";
 
 		return {
 			processedData: data,
-			imagesToDelete: imagesToDeletePaths,
-			videosToDelete: videosToDeletePaths,
-			documentsToDelete: documentsToDeletePaths,
+			filesToDelete,
 			newsTitleTwForContext
 		};
 	}
@@ -432,131 +477,42 @@ class NewsController extends EntityController {
 	createItem = async (req, res, next) => {
 		try {
 			const { processedData, newsTitleTwForContext } = await this._prepareNewsData(req, false, null);
-
 			if (!processedData.author) {
 				throw new ApiError(StatusCodes.BAD_REQUEST, "作者欄位為必填");
 			}
 
-			const pendingCoverFile = processedData._pendingCoverFile;
-			// Keep a reference to original content blocks with pending files before they are cleaned up
-			const originalContentBlocksWithFiles = processedData.content ? JSON.parse(JSON.stringify(processedData.content)) : [];
-
-			// Clean up data for database insertion
+			const pendingCover = processedData._pendingCoverFile;
 			delete processedData._pendingCoverFile;
-			delete processedData._pendingContentImageFiles;
-			delete processedData._pendingContentVideoFiles;
-			delete processedData._pendingContentDocumentFiles;
-			delete processedData.newsTitleTw; // Remove from DB data, use newsTitleTwForContext for paths
+			delete processedData.newsTitleTw;
 
-			if (Array.isArray(processedData.content)) {
-				processedData.content.forEach((block) => {
-					delete block._tempClientKey;
-					delete block._pendingFile;
-					delete block._pendingVideoFile;
-					delete block._pendingDocumentFile;
-					if ((block.itemType === "image" || block.itemType === "videoEmbed" || block.itemType === "document") && block.richTextData) {
-						delete block.richTextData;
-					}
-					// Ensure imageUrl, videoEmbedUrl, and documentUrl are not empty strings if no file was uploaded for them
-					if (block.itemType === "image" && block.imageUrl === "") block.imageUrl = null;
-					if (block.itemType === "videoEmbed" && block.videoEmbedUrl === "") block.videoEmbedUrl = null;
-					if (block.itemType === "document" && block.documentUrl === "") block.documentUrl = null;
-				});
-			}
-			processedData.coverImageUrl = null; // Set to null initially, will be updated if file exists
+			const uploadPlans = detachUploadPlans(processedData);
 
 			let newsItem = await this.entityService.create(processedData, {
 				session: req.dbSession,
 				returnRawInstance: true
 			});
 
-			console.log("創建完成的 News 物件:", newsItem);
-
 			const newsId = newsItem._id.toString();
 			const entityContext = { id: newsId, name: newsTitleTwForContext };
-			let itemChangedByFileUpload = false;
 
-			if (pendingCoverFile) {
+			if (pendingCover) {
 				try {
 					newsItem.coverImageUrl = fileUpload.saveAsset(
-						pendingCoverFile.buffer,
+						pendingCover.buffer,
 						"news",
 						entityContext,
-						"covers", // assetCategory
-						pendingCoverFile.originalname,
-						"cover" // assetPrefix
+						"covers",
+						pendingCover.originalname,
+						"cover"
 					);
-					itemChangedByFileUpload = true;
+					await newsItem.save({ session: req.dbSession });
 				} catch (e) {
 					console.error("封面圖片上傳失敗:", e);
-					// Potentially revert coverImageUrl or handle error
 				}
 			}
 
-			// Process content images and videos using originalContentBlocksWithFiles
-			if (Array.isArray(newsItem.content) && Array.isArray(originalContentBlocksWithFiles)) {
-				for (let blockIndex = 0; blockIndex < newsItem.content.length; blockIndex++) {
-					const blockInRawItem = newsItem.content[blockIndex]; // This is the block in the DB item
-					const originalBlockData =
-						originalContentBlocksWithFiles.find(
-							(b) => (b._id && b._id === blockInRawItem._id?.toString()) || (b._tempClientKey && b._tempClientKey === blockInRawItem._tempClientKey)
-						) || originalContentBlocksWithFiles[blockIndex]; // Fallback to index if no ID/key match, less reliable
-
-					if (originalBlockData?.itemType === "image" && originalBlockData.imageUrl === "" && originalBlockData._pendingFile) {
-						try {
-							const imageUrl = fileUpload.saveAsset(
-								originalBlockData._pendingFile.buffer,
-								"news",
-								entityContext,
-								"images", // assetCategory
-								originalBlockData._pendingFile.originalname,
-								"content_img" // assetPrefix
-							);
-							blockInRawItem.imageUrl = imageUrl;
-							itemChangedByFileUpload = true;
-						} catch (uploadError) {
-							console.error(`內容圖片上傳失敗 (original index ${blockIndex}):`, uploadError);
-							blockInRawItem.imageUrl = null;
-						}
-					} else if (originalBlockData?.itemType === "videoEmbed" && originalBlockData.videoEmbedUrl === "" && originalBlockData._pendingVideoFile) {
-						try {
-							const videoUrl = fileUpload.saveAsset(
-								originalBlockData._pendingVideoFile.buffer,
-								"news",
-								entityContext,
-								"videos", // assetCategory
-								originalBlockData._pendingVideoFile.originalname,
-								"content_vid" // assetPrefix
-							);
-							blockInRawItem.videoEmbedUrl = videoUrl;
-							itemChangedByFileUpload = true;
-						} catch (uploadError) {
-							console.error(`內容影片上傳失敗 (original index ${blockIndex}):`, uploadError);
-							blockInRawItem.videoEmbedUrl = null;
-						}
-					} else if (originalBlockData?.itemType === "document" && originalBlockData.documentUrl === "" && originalBlockData._pendingDocumentFile) {
-						try {
-							const documentUrl = fileUpload.saveAsset(
-								originalBlockData._pendingDocumentFile.buffer,
-								"news",
-								entityContext,
-								"documents", // assetCategory
-								originalBlockData._pendingDocumentFile.originalname,
-								"content_doc" // assetPrefix
-							);
-							blockInRawItem.documentUrl = documentUrl;
-							itemChangedByFileUpload = true;
-						} catch (uploadError) {
-							console.error(`內容文件上傳失敗 (original index ${blockIndex}):`, uploadError);
-							blockInRawItem.documentUrl = null;
-						}
-					}
-				}
-			}
-
-			if (itemChangedByFileUpload) {
-				newsItem = await newsItem.save({ session: req.dbSession });
-			}
+			await applyUploadPlans(newsItem, uploadPlans, entityContext);
+			newsItem = await News.findById(newsItem._id);
 
 			const formattedNewItem = this.entityService.formatOutput(newsItem);
 			this._sendResponse(res, StatusCodes.CREATED, `${this.entityName} 創建成功`, { [this.responseKey]: formattedNewItem });
@@ -569,159 +525,53 @@ class NewsController extends EntityController {
 		try {
 			const { id } = req.params;
 			const existingItem = await this.model.findById(id);
-			if (!existingItem) throw new ApiError(StatusCodes.NOT_FOUND, `${this.entityName} 未找到`);
+			if (!existingItem) {
+				throw new ApiError(StatusCodes.NOT_FOUND, `${this.entityName} 未找到`);
+			}
 
-			const oldCoverUrl = existingItem.coverImageUrl && existingItem.coverImageUrl.startsWith("/storage") ? existingItem.coverImageUrl : null;
+			const { processedData, filesToDelete, newsTitleTwForContext } = await this._prepareNewsData(req, true, existingItem);
+			const pendingCover = processedData._pendingCoverFile;
+			delete processedData._pendingCoverFile;
+			delete processedData.newsTitleTw;
 
-			const {
-				processedData,
-				imagesToDelete: filesToDeleteFromPrepare,
-				videosToDelete: additionalVideosToDeleteFromPrepare,
-				documentsToDelete: documentsToDeleteFromPrepare,
-				newsTitleTwForContext // Get this from _prepareNewsData
-			} = await this._prepareNewsData(req, true, existingItem);
+			const uploadPlans = detachUploadPlans(processedData);
 
 			const newsId = existingItem._id.toString();
 			const entityContext = { id: newsId, name: newsTitleTwForContext };
 
-			const pendingCoverFile = processedData._pendingCoverFile;
-
-			// Clean up data for database update
-			delete processedData._pendingCoverFile;
-			delete processedData._pendingContentImageFiles;
-			delete processedData._pendingContentVideoFiles;
-			delete processedData._pendingContentDocumentFiles;
-			delete processedData.newsTitleTw; // Remove from DB data
-
-			if (Array.isArray(processedData.content)) {
-				processedData.content.forEach((block) => {
-					delete block._tempClientKey;
-					// _pendingFile, _pendingVideoFile, and _pendingDocumentFile are kept for upload logic below
-					if ((block.itemType === "image" || block.itemType === "videoEmbed" || block.itemType === "document") && block.richTextData) {
-						delete block.richTextData;
-					}
-				});
-			}
-
-			const updatePayload = { ...processedData };
-
-			if (pendingCoverFile) {
+			if (pendingCover) {
 				try {
-					updatePayload.coverImageUrl = fileUpload.saveAsset(
-						pendingCoverFile.buffer,
+					processedData.coverImageUrl = fileUpload.saveAsset(
+						pendingCover.buffer,
 						"news",
 						entityContext,
-						"covers", // assetCategory
-						pendingCoverFile.originalname,
-						"cover" // assetPrefix
+						"covers",
+						pendingCover.originalname,
+						"cover"
 					);
 				} catch (e) {
-					console.error("封面圖片更新上傳失敗:", e);
-					if (updatePayload.coverImageUrl === "") {
-						// If saveAsset failed and left it as "", revert to old or null
-						updatePayload.coverImageUrl = oldCoverUrl;
-					} else {
-						// If not specifically set to "", means no change intended or failed before setting
-						delete updatePayload.coverImageUrl; // Avoid overwriting with undefined
-					}
-				}
-			} else if (updatePayload.coverImageUrl === "") {
-				// Explicitly trying to set to an empty string (likely because new upload was intended but failed on client)
-				updatePayload.coverImageUrl = oldCoverUrl; // Revert to old if exists, otherwise will become null by DB schema
-			}
-
-			// Update content images and videos
-			if (Array.isArray(updatePayload.content)) {
-				for (let i = 0; i < updatePayload.content.length; i++) {
-					const block = updatePayload.content[i];
-					const existingBlockEquivalent = existingItem.content.find((b) => b._id?.toString() === block._id?.toString());
-
-					if (block.itemType === "image" && block._pendingFile) {
-						try {
-							block.imageUrl = fileUpload.saveAsset(
-								block._pendingFile.buffer,
-								"news",
-								entityContext,
-								"images", // assetCategory
-								block._pendingFile.originalname,
-								"content_img" // assetPrefix
-							);
-						} catch (e) {
-							console.error(`內容圖片更新上傳失敗 for block (ID: ${block._id || "new"}):`, e);
-							block.imageUrl = existingBlockEquivalent?.imageUrl || null;
-						}
-						delete block._pendingFile;
-					} else if (block.itemType === "image" && block.imageUrl === "") {
-						// No new file, but imageUrl was cleared
-						block.imageUrl = existingBlockEquivalent?.imageUrl || null; // Keep old or set to null
-					}
-
-					if (block.itemType === "videoEmbed" && block._pendingVideoFile) {
-						try {
-							block.videoEmbedUrl = fileUpload.saveAsset(
-								block._pendingVideoFile.buffer,
-								"news",
-								entityContext,
-								"videos", // assetCategory
-								block._pendingVideoFile.originalname,
-								"content_vid" // assetPrefix
-							);
-						} catch (e) {
-							console.error(`內容影片更新上傳失敗 for block (ID: ${block._id || "new"}):`, e);
-							block.videoEmbedUrl = existingBlockEquivalent?.videoEmbedUrl || null;
-						}
-						delete block._pendingVideoFile;
-					} else if (block.itemType === "videoEmbed" && block.videoEmbedUrl === "") {
-						// No new file, but videoEmbedUrl was cleared
-						block.videoEmbedUrl = existingBlockEquivalent?.videoEmbedUrl || null; // Keep old or set to null
-					}
-
-					if (block.itemType === "document" && block._pendingDocumentFile) {
-						try {
-							block.documentUrl = fileUpload.saveAsset(
-								block._pendingDocumentFile.buffer,
-								"news",
-								entityContext,
-								"documents", // assetCategory
-								block._pendingDocumentFile.originalname,
-								"content_doc" // assetPrefix
-							);
-						} catch (e) {
-							console.error(`內容文件更新上傳失敗 for block (ID: ${block._id || "new"}):`, e);
-							block.documentUrl = existingBlockEquivalent?.documentUrl || null;
-						}
-						delete block._pendingDocumentFile;
-					} else if (block.itemType === "document" && block.documentUrl === "") {
-						// No new file, but documentUrl was cleared
-						block.documentUrl = existingBlockEquivalent?.documentUrl || null; // Keep old or set to null
-					}
+					console.error("封面圖片更新失敗:", e);
 				}
 			}
 
-			Object.keys(updatePayload).forEach((key) => {
-				if (updatePayload[key] !== undefined || key === "coverImageUrl" || key === "content") {
-					// ensure null can be set
-					existingItem[key] = updatePayload[key];
+			Object.keys(processedData).forEach((key) => {
+				if (processedData[key] !== undefined) {
+					existingItem[key] = processedData[key];
 				}
 			});
 
-			const allFilesToDelete = new Set([...filesToDeleteFromPrepare, ...additionalVideosToDeleteFromPrepare, ...documentsToDeleteFromPrepare]);
+			let updatedItem = await existingItem.save({ session: req.dbSession });
+			await applyUploadPlans(updatedItem, uploadPlans, entityContext);
+			updatedItem = await News.findById(updatedItem._id);
 
-			const updatedItem = await existingItem.save({ session: req.dbSession });
-
-			console.log("更新完成的 News 物件:", updatedItem);
-
-			if (allFilesToDelete.size > 0) {
-				allFilesToDelete.forEach((filePath) => {
-					try {
-						if (filePath && filePath.startsWith("/storage")) {
-							const deleted = fileUpload.deleteFileByWebPath(filePath);
-							if (deleted) console.log("已刪除舊檔案 (圖片或影片):", filePath);
-						}
-					} catch (deleteError) {
-						console.error("刪除舊檔案失敗:", filePath, deleteError);
+			for (const filePath of filesToDelete) {
+				try {
+					if (filePath && filePath.startsWith("/storage")) {
+						fileUpload.deleteFileByWebPath(filePath);
 					}
-				});
+				} catch (deleteError) {
+					console.error("刪除舊檔案失敗:", filePath, deleteError);
+				}
 			}
 
 			const formattedUpdatedItem = this.entityService.formatOutput(updatedItem);
@@ -734,19 +584,16 @@ class NewsController extends EntityController {
 	deleteItem = async (req, res, next) => {
 		try {
 			const { id } = req.params;
-			const itemToDelete = await this.model.findById(id).lean(); // Use lean() for plain object if only reading for context
-			if (!itemToDelete) throw new ApiError(StatusCodes.NOT_FOUND, `${this.entityName} 未找到`);
-
-			// Delete from DB first
+			const itemToDelete = await this.model.findById(id).lean();
+			if (!itemToDelete) {
+				throw new ApiError(StatusCodes.NOT_FOUND, `${this.entityName} 未找到`);
+			}
 			await this.entityService.delete(id, { session: req.dbSession });
-
-			// Then delete associated directory
 			if (itemToDelete._id) {
 				const titleForPath = typeof itemToDelete.title?.TW === "string" ? itemToDelete.title.TW : "untitled_news";
 				const entityContext = { id: itemToDelete._id.toString(), name: titleForPath };
 				fileUpload.deleteEntityDirectory("news", entityContext);
 			}
-
 			res.status(StatusCodes.OK).json({ success: true, message: `${this.entityName} 刪除成功` });
 		} catch (error) {
 			this._handleError(error, "刪除", next);

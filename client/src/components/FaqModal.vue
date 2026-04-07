@@ -28,10 +28,7 @@
       </h2>
 
       <!-- 載入過渡（防止閃爍） -->
-      <LoadingSpinner
-        v-if="loading"
-        container-class="text-center py-8"
-      />
+      <LoadingSpinner v-if="loading" container-class="text-center py-8" />
 
       <form v-else @submit.prevent="submitForm" class="space-y-[12px] lg:space-y-[24px]">
         <!-- 頁籤導航 -->
@@ -261,7 +258,7 @@
               <div v-show="questionLanguage === 'TW'">
                 <textarea
                   v-model="form.question.TW"
-                  rows="1"
+                  rows="6"
                   :class="[inputClass, validationErrors['question.TW'] ? 'border-red-500' : '']"
                   placeholder="請輸入問題 (繁體中文)"
                 ></textarea>
@@ -269,7 +266,7 @@
               <div v-show="questionLanguage === 'EN'">
                 <textarea
                   v-model="form.question.EN"
-                  rows="3"
+                  rows="6"
                   :class="[inputClass, validationErrors['question.EN'] ? 'border-red-500' : '']"
                   placeholder="請輸入問題 (English) - 用於產生路由"
                 ></textarea>
@@ -419,11 +416,19 @@
             <div class="mb-6">
               <label class="block mb-3 theme-text">圖片 (可上傳多張)</label>
               <div
-                class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
+                class="mt-1 relative px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400 h-[220px]"
                 :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                role="button"
+                tabindex="0"
+                aria-label="上傳圖片，可點擊或拖曳檔案至此"
                 @click="triggerImageInput"
+                @keydown.enter.prevent="triggerImageInput"
+                @keydown.space.prevent="triggerImageInput"
+                @dragenter.prevent
+                @dragover.prevent
+                @drop.prevent="handleImageDrop"
               >
-                <div class="space-y-1 text-center">
+                <div v-if="form.imageUrl.length === 0 && imageFiles.length === 0" class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full">
                   <svg
                     class="mx-auto h-12 w-12"
                     :class="conditionalClass('text-gray-500', 'text-gray-400')"
@@ -449,6 +454,42 @@
                     PNG, JPG, GIF, WEBP, SVG
                   </p>
                 </div>
+                <div v-else class="absolute inset-3 overflow-y-auto">
+                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div
+                      v-for="(url, index) in form.imageUrl"
+                      :key="`existing-${index}`"
+                      class="relative rounded-md overflow-hidden border"
+                      :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                    >
+                      <img :src="url" alt="Existing image" class="w-full h-24 object-cover" />
+                      <button
+                        type="button"
+                        @click.stop="removeExistingImage(index)"
+                        class="absolute top-1 right-1 bg-red-600/80 text-white rounded px-1.5 py-0.5 text-xs"
+                        aria-label="刪除"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div
+                      v-for="(file, index) in imageFiles"
+                      :key="`new-${index}`"
+                      class="relative rounded-md overflow-hidden border"
+                      :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                    >
+                      <img :src="file.previewUrl" alt="New image" class="w-full h-24 object-cover" />
+                      <button
+                        type="button"
+                        @click.stop="removeNewImage(index)"
+                        class="absolute top-1 right-1 bg-red-600/80 text-white rounded px-1.5 py-0.5 text-xs"
+                        aria-label="刪除"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <input
                   ref="imageInputRef"
                   type="file"
@@ -458,61 +499,25 @@
                   @change="handleImageFiles"
                 />
               </div>
-              <!-- 預覽區域 -->
-              <div
-                v-if="form.imageUrl.length > 0 || imageFiles.length > 0"
-                class="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
-              >
-                <!-- 現有圖片 -->
-                <div
-                  v-for="(url, index) in form.imageUrl"
-                  :key="`existing-${index}`"
-                  class="relative group"
-                >
-                  <img
-                    :src="url"
-                    alt="Existing image"
-                    class="w-full h-24 object-cover rounded-md"
-                  />
-                  <button
-                    type="button"
-                    @click.stop="removeExistingImage(index)"
-                    class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs opacity-75 group-hover:opacity-100"
-                  >
-                    &#x2715;
-                  </button>
-                </div>
-                <!-- 新上傳圖片 -->
-                <div
-                  v-for="(file, index) in imageFiles"
-                  :key="`new-${index}`"
-                  class="relative group"
-                >
-                  <img
-                    :src="file.previewUrl"
-                    alt="New image"
-                    class="w-full h-24 object-cover rounded-md"
-                  />
-                  <button
-                    type="button"
-                    @click.stop="removeNewImage(index)"
-                    class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs opacity-75 group-hover:opacity-100"
-                  >
-                    &#x2715;
-                  </button>
-                </div>
-              </div>
             </div>
 
             <!-- 文件上傳 -->
             <div class="mb-6">
               <label class="block mb-3 theme-text">文件 (可上傳多個)</label>
               <div
-                class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
+                class="mt-1 relative px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400 h-[200px]"
                 :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                role="button"
+                tabindex="0"
+                aria-label="上傳文件，可點擊或拖曳檔案至此"
                 @click="triggerDocumentInput"
+                @keydown.enter.prevent="triggerDocumentInput"
+                @keydown.space.prevent="triggerDocumentInput"
+                @dragenter.prevent
+                @dragover.prevent
+                @drop.prevent="handleDocumentDrop"
               >
-                <div class="space-y-1 text-center">
+                <div v-if="form.documentUrl.length === 0 && documentFiles.length === 0" class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full">
                   <!-- Icon for document -->
                   <svg
                     class="mx-auto h-12 w-12"
@@ -539,6 +544,42 @@
                     PDF, DOC, XLS, PPT, TXT
                   </p>
                 </div>
+                <div v-else class="absolute inset-3 overflow-y-auto space-y-2">
+                  <div
+                    v-for="(url, index) in form.documentUrl"
+                    :key="`existing-doc-${index}`"
+                    class="flex items-center justify-between gap-2 p-2 rounded-md border"
+                    :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                  >
+                    <a :href="url" target="_blank" class="text-sm truncate hover:underline" @click.stop>{{
+                      getFileNameFromUrl(url)
+                    }}</a>
+                    <button
+                      type="button"
+                      @click.stop="removeExistingDocument(index)"
+                      class="bg-red-600/80 text-white rounded px-1.5 py-0.5 text-xs"
+                      aria-label="刪除"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div
+                    v-for="(file, index) in documentFiles"
+                    :key="`new-doc-${index}`"
+                    class="flex items-center justify-between gap-2 p-2 rounded-md border"
+                    :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                  >
+                    <span class="text-sm truncate">{{ file.name }}</span>
+                    <button
+                      type="button"
+                      @click.stop="removeNewDocument(index)"
+                      class="bg-red-600/80 text-white rounded px-1.5 py-0.5 text-xs"
+                      aria-label="刪除"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
                 <input
                   ref="documentInputRef"
                   type="file"
@@ -548,57 +589,25 @@
                   @change="handleDocumentFiles"
                 />
               </div>
-              <!-- Document Preview Area -->
-              <div
-                v-if="form.documentUrl.length > 0 || documentFiles.length > 0"
-                class="mt-4 space-y-2"
-              >
-                <!-- Existing Documents -->
-                <div
-                  v-for="(url, index) in form.documentUrl"
-                  :key="`existing-doc-${index}`"
-                  class="flex items-center justify-between p-2 rounded-md"
-                  :class="conditionalClass('bg-gray-700/50', 'bg-gray-100')"
-                >
-                  <a :href="url" target="_blank" class="text-sm truncate hover:underline">{{
-                    getFileNameFromUrl(url)
-                  }}</a>
-                  <button
-                    type="button"
-                    @click.stop="removeExistingDocument(index)"
-                    class="ml-4 text-red-500 hover:text-red-700"
-                  >
-                    移除
-                  </button>
-                </div>
-                <!-- New Documents -->
-                <div
-                  v-for="(file, index) in documentFiles"
-                  :key="`new-doc-${index}`"
-                  class="flex items-center justify-between p-2 rounded-md"
-                  :class="conditionalClass('bg-gray-700/50', 'bg-gray-100')"
-                >
-                  <span class="text-sm truncate">{{ file.name }}</span>
-                  <button
-                    type="button"
-                    @click.stop="removeNewDocument(index)"
-                    class="ml-4 text-red-500 hover:text-red-700"
-                  >
-                    移除
-                  </button>
-                </div>
-              </div>
             </div>
 
             <!-- 影片上傳 -->
             <div class="mb-6">
               <label class="block mb-3 theme-text">影片 (可上傳多部)</label>
               <div
-                class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
+                class="mt-1 relative px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400 h-[240px]"
                 :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                role="button"
+                tabindex="0"
+                aria-label="上傳影片，可點擊或拖曳檔案至此"
                 @click="triggerVideoInput"
+                @keydown.enter.prevent="triggerVideoInput"
+                @keydown.space.prevent="triggerVideoInput"
+                @dragenter.prevent
+                @dragover.prevent
+                @drop.prevent="handleVideoDrop"
               >
-                <div class="space-y-1 text-center">
+                <div v-if="form.videoUrl.length === 0 && videoFiles.length === 0" class="space-y-1 text-center pointer-events-none flex flex-col items-center justify-center h-full">
                   <!-- Icon for video -->
                   <svg
                     class="mx-auto h-12 w-12"
@@ -630,6 +639,42 @@
                     MP4, WEBM, MOV
                   </p>
                 </div>
+                <div v-else class="absolute inset-3 overflow-y-auto">
+                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div
+                      v-for="(url, index) in form.videoUrl"
+                      :key="`existing-vid-${index}`"
+                      class="relative rounded-md overflow-hidden border"
+                      :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                    >
+                      <video :src="url" class="w-full h-24 object-cover bg-black"></video>
+                      <button
+                        type="button"
+                        @click.stop="removeExistingVideo(index)"
+                        class="absolute top-1 right-1 bg-red-600/80 text-white rounded px-1.5 py-0.5 text-xs"
+                        aria-label="刪除"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div
+                      v-for="(file, index) in videoFiles"
+                      :key="`new-vid-${index}`"
+                      class="relative rounded-md overflow-hidden border"
+                      :class="conditionalClass('border-gray-600', 'border-gray-300')"
+                    >
+                      <video :src="file.previewUrl" class="w-full h-24 object-cover bg-black"></video>
+                      <button
+                        type="button"
+                        @click.stop="removeNewVideo(index)"
+                        class="absolute top-1 right-1 bg-red-600/80 text-white rounded px-1.5 py-0.5 text-xs"
+                        aria-label="刪除"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <input
                   ref="videoInputRef"
                   type="file"
@@ -638,45 +683,6 @@
                   class="hidden"
                   @change="handleVideoFiles"
                 />
-              </div>
-              <!-- Video Preview Area -->
-              <div
-                v-if="form.videoUrl.length > 0 || videoFiles.length > 0"
-                class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-4"
-              >
-                <!-- Existing Videos -->
-                <div
-                  v-for="(url, index) in form.videoUrl"
-                  :key="`existing-vid-${index}`"
-                  class="relative group"
-                >
-                  <video :src="url" class="w-full h-24 object-cover rounded-md bg-black"></video>
-                  <button
-                    type="button"
-                    @click.stop="removeExistingVideo(index)"
-                    class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs opacity-75 group-hover:opacity-100"
-                  >
-                    &#x2715;
-                  </button>
-                </div>
-                <!-- New Videos -->
-                <div
-                  v-for="(file, index) in videoFiles"
-                  :key="`new-vid-${index}`"
-                  class="relative group"
-                >
-                  <video
-                    :src="file.previewUrl"
-                    class="w-full h-24 object-cover rounded-md bg-black"
-                  ></video>
-                  <button
-                    type="button"
-                    @click.stop="removeNewVideo(index)"
-                    class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs opacity-75 group-hover:opacity-100"
-                  >
-                    &#x2715;
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -861,6 +867,17 @@ const handleImageFiles = (event) => {
   if (imageInputRef.value) imageInputRef.value.value = ''
 }
 
+const handleImageDrop = (event) => {
+  const files = Array.from(event.dataTransfer?.files || [])
+  files.forEach((file) => {
+    if (!file?.type?.startsWith('image/')) return
+    const fileWithPreview = Object.assign(file, {
+      previewUrl: URL.createObjectURL(file),
+    })
+    imageFiles.value.push(fileWithPreview)
+  })
+}
+
 const handleVideoFiles = (event) => {
   const files = Array.from(event.target.files)
   files.forEach((file) => {
@@ -872,10 +889,26 @@ const handleVideoFiles = (event) => {
   if (videoInputRef.value) videoInputRef.value.value = ''
 }
 
+const handleVideoDrop = (event) => {
+  const files = Array.from(event.dataTransfer?.files || [])
+  files.forEach((file) => {
+    if (!file?.type?.startsWith('video/')) return
+    const fileWithPreview = Object.assign(file, {
+      previewUrl: URL.createObjectURL(file),
+    })
+    videoFiles.value.push(fileWithPreview)
+  })
+}
+
 const handleDocumentFiles = (event) => {
   const files = Array.from(event.target.files)
   documentFiles.value.push(...files)
   if (documentInputRef.value) documentInputRef.value.value = ''
+}
+
+const handleDocumentDrop = (event) => {
+  const files = Array.from(event.dataTransfer?.files || [])
+  documentFiles.value.push(...files)
 }
 
 const removeNewImage = (index) => {
