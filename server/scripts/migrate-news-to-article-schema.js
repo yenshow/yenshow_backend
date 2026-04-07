@@ -167,6 +167,8 @@ async function run() {
 		const { article, attachmentImages, attachmentVideos, attachmentDocuments } = migrateContentArray(doc.content || []);
 		const category = migrateCategoryField(doc.category);
 
+		// MongoDB 不允許在同一次更新中同時操作父/子路徑（例如 set category 並 unset category.sub）。
+		// 因此分兩次 update：先覆寫新結構，再清理舊欄位。
 		await col.updateOne(
 			{ _id: doc._id },
 			{
@@ -177,8 +179,14 @@ async function run() {
 					attachmentVideos,
 					attachmentDocuments
 				},
+				$unset: { content: "" }
+			}
+		);
+
+		await col.updateOne(
+			{ _id: doc._id },
+			{
 				$unset: {
-					content: "",
 					"category.sub": "",
 					"attachmentImages.$[].imageAltText": "",
 					"attachmentImages.$[].imageCaption": "",
