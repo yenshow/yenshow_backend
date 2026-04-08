@@ -136,30 +136,6 @@
                         審核
                       </button>
                       <button
-                        v-if="license.status === 'active' && isAdmin && !license.parentLicenseKey"
-                        @click="handleUnbindLicense(license)"
-                        :disabled="unbindingLicense === licenseRowId(license)"
-                        class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                      >
-                        <span
-                          v-if="unbindingLicense === licenseRowId(license)"
-                          class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                        ></span>
-                        解除綁定
-                      </button>
-                      <button
-                        v-if="license.status === 'active' && isAdmin"
-                        @click="handleRevokeLicense(license)"
-                        :disabled="revokingLicense === licenseRowId(license)"
-                        class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                      >
-                        <span
-                          v-if="revokingLicense === licenseRowId(license)"
-                          class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                        ></span>
-                        收回
-                      </button>
-                      <button
                         v-if="license.licenseKey && !license.parentLicenseKey && isAdmin"
                         @click="handleOpenExtendModal(license)"
                         class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
@@ -172,6 +148,18 @@
                         class="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-sm transition cursor-pointer"
                       >
                         編輯
+                      </button>
+                      <button
+                        v-if="license.status === 'active' && isAdmin && !license.parentLicenseKey"
+                        @click="handleUnbindLicense(license)"
+                        :disabled="unbindingLicense === licenseRowId(license)"
+                        class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
+                      >
+                        <span
+                          v-if="unbindingLicense === licenseRowId(license)"
+                          class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
+                        ></span>
+                        解除綁定
                       </button>
                       <button
                         @click="handleDeleteLicense(license)"
@@ -272,18 +260,6 @@
                           class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
                         ></span>
                         審核
-                      </button>
-                      <button
-                        v-if="ext.status === 'active' && isAdmin"
-                        @click="handleRevokeLicense(ext)"
-                        :disabled="revokingLicense === licenseRowId(ext)"
-                        class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                      >
-                        <span
-                          v-if="revokingLicense === licenseRowId(ext)"
-                          class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                        ></span>
-                        收回
                       </button>
                       <button
                         @click="handleDeleteLicense(ext)"
@@ -457,7 +433,6 @@ const creatingLicense = ref(false)
 const updatingLicense = ref(false)
 const deletingLicense = ref(null)
 const unbindingLicense = ref(null)
-const revokingLicense = ref(null)
 const extendingLicense = ref(false)
 const extendTarget = ref(null)
 const handleReviewLicense = async (license) => {
@@ -480,7 +455,6 @@ const handleReviewLicense = async (license) => {
     reviewingLicense.value = null
   }
 }
-
 
 // 分頁
 const licensePagination = ref({
@@ -616,31 +590,6 @@ const handleUnbindLicense = async (license) => {
   }
 }
 
-const handleRevokeLicense = async (license) => {
-  const isExtension = !!license.parentLicenseKey
-  const label = isExtension ? '副 LK' : '授權'
-  const extCount = !isExtension ? (license.extensions || []).length : 0
-  const cascadeNote =
-    !isExtension && extCount > 0 ? `\n\n將一併收回其下 ${extCount} 組副 LK。` : ''
-
-  if (!confirm(`確定要收回${label}「${license.customerName || license.licenseKey}」嗎？收回後狀態將變更為「已停用」。${cascadeNote}`)) {
-    return
-  }
-
-  try {
-    const id = licenseRowId(license)
-    revokingLicense.value = id
-    await userStore.revokeLicense(id)
-    await fetchLicenses()
-  } catch (err) {
-    console.error('收回授權失敗:', err)
-    notify.notifyError(err.response?.data?.message || '收回授權失敗，請稍後再試')
-  } finally {
-    revokingLicense.value = null
-  }
-}
-
-
 const handleOpenExtendModal = (license) => {
   extendTarget.value = license
   showExtendModal.value = true
@@ -700,17 +649,9 @@ const handleEditSubmit = async (result) => {
 
     if (isAdmin.value && result.status !== undefined && result.previousStatus !== undefined) {
       const { status, previousStatus } = result
-      const needsRevoke = status === 'inactive' && previousStatus !== 'inactive'
-      const needsRestore = status === 'available' && previousStatus === 'inactive'
       const statusChanged = status !== previousStatus
 
-      if (needsRevoke) {
-        await userStore.updateLicense(id, { notes: notesPayload })
-        await userStore.revokeLicense(id)
-      } else if (needsRestore) {
-        await userStore.updateLicense(id, { notes: notesPayload })
-        await userStore.restoreLicenseToAvailable(id)
-      } else if (statusChanged) {
+      if (statusChanged) {
         await userStore.updateLicense(id, { notes: notesPayload, status })
       } else {
         await userStore.updateLicense(id, { notes: notesPayload })

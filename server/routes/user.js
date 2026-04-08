@@ -11,8 +11,6 @@ import {
 	reviewLicense,
 	extendLicense,
 	unbindLicense,
-	revokeLicense,
-	restoreLicenseToAvailable,
 	updateLicense,
 	deleteLicense
 } from "../controllers/user/admin.js";
@@ -47,8 +45,6 @@ router.post("/licenses", checkRole([Permissions.ADMIN, Permissions.STAFF]), crea
 router.post("/licenses/:id/review", checkRole([Permissions.ADMIN]), reviewLicense);
 router.post("/licenses/:id/extend", checkRole([Permissions.ADMIN]), extendLicense);
 router.post("/licenses/:id/unbind", checkRole([Permissions.ADMIN]), unbindLicense);
-router.post("/licenses/:id/revoke", checkRole([Permissions.ADMIN]), revokeLicense);
-router.post("/licenses/:id/restore-available", checkRole([Permissions.ADMIN]), restoreLicenseToAvailable);
 router.put("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), updateLicense);
 router.delete("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), deleteLicense);
 

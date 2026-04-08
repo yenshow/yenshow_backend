@@ -422,7 +422,7 @@ const statusDropdownOptions = computed(() => {
   const canGoPending = draft.value._originalStatus === 'pending'
   const base = [{ value: 'available', label: '可啟用', disabled: false }]
   const pendingOption = canGoPending ? [{ value: 'pending', label: '審核中', disabled: false }] : []
-  return [...pendingOption, ...base, { value: 'inactive', label: '已停用', disabled: false }]
+  return [...pendingOption, ...base]
 })
 
 const toggleStatusDropdown = () => {

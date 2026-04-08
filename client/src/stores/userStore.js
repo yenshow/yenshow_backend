@@ -548,48 +548,6 @@ export const useUserStore = defineStore(
       )
     }
 
-    const revokeLicense = async (licenseId) => {
-      return await safeApiCall(
-        async () => {
-          const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/revoke`)
-          if (!data || !data.success) {
-            throw new Error(data?.message || '收回授權失敗')
-          }
-          const extensionsUpdated =
-            data.result?.extensionsUpdated ?? data.extensionsUpdated ?? 0
-          const msg =
-            extensionsUpdated > 0
-              ? `授權已收回（停用），已連動收回 ${extensionsUpdated} 組副 LK`
-              : '授權已收回（停用）'
-          notify.notifySuccess(msg)
-          return { success: true, message: msg }
-        },
-        { defaultMessage: '收回授權失敗' },
-      )
-    }
-
-    const restoreLicenseToAvailable = async (licenseId) => {
-      return await safeApiCall(
-        async () => {
-          const { data } = await apiAuth.post(
-            `/api/users/licenses/${licenseId}/restore-available`,
-          )
-          if (!data || !data.success) {
-            throw new Error(data?.message || '恢復可啟用失敗')
-          }
-          const extensionsUpdated =
-            data.result?.extensionsUpdated ?? data.extensionsUpdated ?? 0
-          const msg =
-            extensionsUpdated > 0
-              ? `已恢復為可啟用，已連動 ${extensionsUpdated} 組副 LK`
-              : '已恢復為可啟用'
-          notify.notifySuccess(msg)
-          return { success: true, message: msg }
-        },
-        { defaultMessage: '恢復可啟用失敗' },
-      )
-    }
-
     const deleteLicense = async (licenseId) => {
       return await safeApiCall(
         async () => {
@@ -655,8 +613,6 @@ export const useUserStore = defineStore(
       reviewLicense,
       extendLicense,
       unbindLicense,
-      revokeLicense,
-      restoreLicenseToAvailable,
       updateLicense,
       deleteLicense,
 

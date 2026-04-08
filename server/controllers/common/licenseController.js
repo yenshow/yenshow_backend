@@ -6,7 +6,8 @@ import License from "../../models/License.js";
 const STATUS_MESSAGES = {
 	pending: "審核中",
 	available: "可啟用",
-	active: "使用中"
+	active: "使用中",
+	inactive: "已停用"
 };
 
 /**

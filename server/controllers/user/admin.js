@@ -487,10 +487,9 @@ const applyLicenseKeysForAvailable = async (license, mode) => {
 /**
  * 更新授權
  *
- * 狀態變更約定（避免與專用 API 重複）：
- * - 收回（→ inactive）：請使用 POST /api/users/licenses/:id/revoke
- * - 已停用恢復為可啟用：請使用 POST /api/users/licenses/:id/restore-available
- * - 本端點僅處理備註、模組、配額、部署樣貌，以及 pending / available 間可允許的調整（不含收回與恢復）
+ * 狀態變更約定：
+ * - 不支援將授權設為「已停用」（inactive）；停用情境請以解除綁定或刪除處理
+ * - 已停用（inactive）若要恢復為可啟用，可於此端點傳入 status: available（會清除綁定欄位並連動副 LK）
  */
 export const updateLicense = async (req, res, next) => {
 	try {
@@ -541,7 +540,7 @@ export const updateLicense = async (req, res, next) => {
 			}
 
 			if (status === "inactive") {
-				throw ApiError.badRequest("收回授權請使用 POST /api/users/licenses/:id/revoke，勿以 PUT 傳入 status: inactive");
+				throw ApiError.badRequest("不支援將授權設為已停用，請使用解除綁定或刪除授權");
 			}
 
 			if (status === "active") {
@@ -549,9 +548,14 @@ export const updateLicense = async (req, res, next) => {
 			}
 
 			if (status === "available" && license.status === "inactive") {
-				throw ApiError.badRequest(
-					"已停用授權若要恢復為可啟用，請使用 POST /api/users/licenses/:id/restore-available"
-				);
+				if (!license.parentLicenseKey && license.licenseKey) {
+					await License.updateMany(
+						{ parentLicenseKey: license.licenseKey },
+						{ $set: { status: "available", deviceFingerprint: null, activationMethod: null } }
+					);
+				}
+				license.deviceFingerprint = null;
+				license.activationMethod = null;
 			}
 
 			// 一旦離開 pending（已審核/可啟用/使用中/停用），不可再切回 pending，避免破壞審核語意
@@ -709,94 +713,6 @@ export const deleteLicense = async (req, res, next) => {
 		const message = deletedExtensions > 0 ? `授權刪除成功，已一併刪除 ${deletedExtensions} 組副授權` : "授權刪除成功";
 
 		return successResponse(res, StatusCodes.OK, message, { deletedExtensions });
-	} catch (error) {
-		next(error);
-	}
-};
-
-/**
- * 收回授權（停用）→ inactive
- * POST /api/users/licenses/:id/revoke
- *
- * 規則：
- * - 只允許 ADMIN
- * - 主 LK 收回時，連動收回其下所有副 LK
- * - 不清除 deviceFingerprint（停用≠解除綁定），僅改狀態
- */
-export const revokeLicense = async (req, res, next) => {
-	try {
-		const { id } = req.params;
-
-		const license = await License.findById(id);
-		if (!license) {
-			throw ApiError.notFound("授權不存在");
-		}
-
-		if (license.status === "inactive") {
-			return successResponse(res, StatusCodes.OK, "授權已是停用狀態", {
-				license,
-				extensionsUpdated: 0
-			});
-		}
-
-		let extensionsUpdated = 0;
-		if (!license.parentLicenseKey && license.licenseKey) {
-			const result = await License.updateMany(
-				// 避免 $ne：在 sanitizeFilter 下可能被清理造成錯誤
-				{ parentLicenseKey: license.licenseKey },
-				{ $set: { status: "inactive" } }
-			);
-			extensionsUpdated = result.modifiedCount;
-		}
-
-		license.status = "inactive";
-		await license.save();
-
-		return successResponse(res, StatusCodes.OK, "授權已收回（停用）", {
-			license,
-			extensionsUpdated
-		});
-	} catch (error) {
-		next(error);
-	}
-};
-
-/**
- * 恢復授權為「可啟用」→ available
- * POST /api/users/licenses/:id/restore-available
- *
- * 規則：
- * - 只允許 ADMIN
- * - 主 LK 恢復時，連動其下所有副 LK 一併恢復為 available
- * - 恢復為 available 代表可重新啟用，因此會清除 deviceFingerprint / activationMethod
- */
-export const restoreLicenseToAvailable = async (req, res, next) => {
-	try {
-		const { id } = req.params;
-
-		const license = await License.findById(id);
-		if (!license) {
-			throw ApiError.notFound("授權不存在");
-		}
-
-		let extensionsUpdated = 0;
-		if (!license.parentLicenseKey && license.licenseKey) {
-			const result = await License.updateMany(
-				{ parentLicenseKey: license.licenseKey },
-				{ $set: { status: "available", deviceFingerprint: null, activationMethod: null } }
-			);
-			extensionsUpdated = result.modifiedCount;
-		}
-
-		license.status = "available";
-		license.deviceFingerprint = null;
-		license.activationMethod = null;
-		await license.save();
-
-		return successResponse(res, StatusCodes.OK, "授權已恢復為可啟用", {
-			license,
-			extensionsUpdated
-		});
 	} catch (error) {
 		next(error);
 	}
