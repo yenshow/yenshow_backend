@@ -316,22 +316,10 @@ const draft = ref({
   features: [],
   notes: '',
 })
-const quotaDraft = ref({})
 const sourceLicense = ref(null)
 
 const statusDropdownRef = ref(null)
 const isStatusDropdownOpen = ref(false)
-
-const buildQuotaDraftFromLicense = (license) => {
-  const next = {}
-  const features = license?.features || []
-  const quotas = license?.quotas || {}
-  for (const featureKey of features) {
-    const value = quotas?.[featureKey]?.maxDevices
-    next[featureKey] = value === null || value === undefined ? '' : value
-  }
-  return next
-}
 
 const toNumberOrNull = (v) => {
   if (v === '' || v === null || v === undefined) return null
@@ -398,7 +386,6 @@ watch(
       features: Array.isArray(src.features) ? [...src.features] : [],
       notes: src.notes || '',
     }
-    quotaDraft.value = buildQuotaDraftFromLicense(src)
     isStatusDropdownOpen.value = false
   },
 )

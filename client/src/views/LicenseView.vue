@@ -39,7 +39,6 @@
               <tr>
                 <th class="text-left py-3 px-4 theme-text">客戶名稱</th>
                 <th class="text-left py-3 px-4 theme-text">方案</th>
-                <th class="text-left py-3 px-4 theme-text">授權模組</th>
                 <th class="text-left py-3 px-4 theme-text">Serial Number</th>
                 <th class="text-left py-3 px-4 theme-text">License Key</th>
                 <th class="text-left py-3 px-4 theme-text">狀態</th>
@@ -56,9 +55,9 @@
                   :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
                 >
                   <td class="py-3 px-4 theme-text">{{ license.customerName || '-' }}</td>
-                  <td class="py-3 px-4">
+                  <td class="py-3 px-4 relative group">
                     <span
-                      class="px-2 py-1 rounded-full text-xs"
+                      class="px-2 py-1 rounded-full text-xs leading-none"
                       :class="
                         license.deploymentProfile === 'construction'
                           ? conditionalClass(
@@ -73,27 +72,19 @@
                     >
                       {{ license.deploymentProfile === 'construction' ? '工地管理' : '中央監控' }}
                     </span>
-                  </td>
-                  <td class="py-3 px-4">
-                    <div class="flex flex-wrap gap-1">
-                      <span
-                        v-for="feat in (license.features || []).slice(0, 3)"
-                        :key="feat"
-                        class="px-1.5 py-0.5 rounded text-xs bg-indigo-500/20 text-indigo-300"
-                      >
-                        {{ getFeatureLabel(feat) }}
-                      </span>
-                      <span
-                        v-if="(license.features?.length || 0) === 0"
-                        class="text-xs opacity-50 theme-text"
-                        >-</span
-                      >
-                      <span
-                        v-if="(license.features?.length || 0) > 3"
-                        class="text-xs px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-200"
-                      >
-                        +{{ (license.features?.length || 0) - 3 }} 更多
-                      </span>
+
+                    <div
+                      class="pointer-events-none absolute top-full z-20 hidden rounded-lg border w-max px-3 py-2 text-sm shadow-lg group-hover:block"
+                      :class="
+                        conditionalClass(
+                          'border-white/10 bg-[#0f172a] text-slate-100',
+                          'border-slate-200 bg-white text-slate-700',
+                        )
+                      "
+                    >
+                      <div class="break-words">
+                        {{ getFeatureTooltipText(license.features) }}
+                      </div>
                     </div>
                   </td>
                   <td class="py-3 px-4 theme-text font-mono">{{ license.serialNumber || '-' }}</td>
@@ -195,29 +186,21 @@
                       }}
                     </span>
                   </td>
-                  <td class="py-3 px-4">
-                    <span class="text-xs opacity-70 theme-text">-</span>
-                  </td>
-                  <td class="py-3 px-4">
-                    <div class="flex flex-wrap gap-1">
-                      <span
-                        v-for="feat in (ext.features || []).slice(0, 3)"
-                        :key="feat"
-                        class="px-1.5 py-0.5 rounded text-xs bg-purple-500/20 text-purple-300"
-                      >
-                        {{ getFeatureLabel(feat) }}
-                      </span>
-                      <span
-                        v-if="(ext.features?.length || 0) === 0"
-                        class="text-xs opacity-50 theme-text"
-                        >-</span
-                      >
-                      <span
-                        v-if="(ext.features?.length || 0) > 3"
-                        class="text-xs px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-200"
-                      >
-                        +{{ (ext.features?.length || 0) - 3 }} 更多
-                      </span>
+                  <td class="py-3 px-4 relative group">
+                    <span class="text-xs opacity-70 theme-text leading-none">-</span>
+
+                    <div
+                      class="pointer-events-none absolute top-full z-20 hidden rounded-lg border w-max px-3 py-2 text-sm shadow-lg group-hover:block"
+                      :class="
+                        conditionalClass(
+                          'border-white/10 bg-[#0f172a] text-slate-100',
+                          'border-slate-200 bg-white text-slate-700',
+                        )
+                      "
+                    >
+                      <div class="break-words">
+                        {{ getFeatureTooltipText(ext.features) }}
+                      </div>
                     </div>
                   </td>
                   <td class="py-3 px-4 theme-text font-mono">
@@ -247,7 +230,7 @@
                     </div>
                   </td>
                   <td class="py-3 px-4 theme-text text-sm">{{ ext.notes || '-' }}</td>
-                  <td class="py-3 px-4 max-w-[200px]">
+                  <td class="py-3 px-4">
                     <div class="flex gap-2 flex-wrap">
                       <button
                         v-if="ext.status === 'pending' && isAdmin"
@@ -274,7 +257,7 @@
               </template>
               <tr v-if="licenses.length === 0">
                 <td
-                  colspan="11"
+                  colspan="10"
                   class="text-center py-6"
                   :class="conditionalClass('text-gray-400', 'text-slate-500')"
                 >
@@ -364,7 +347,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed, onUnmounted } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { useNotifications } from '@/composables/notificationCenter'
@@ -399,6 +382,12 @@ const BA_FEATURES = [
 const getFeatureLabel = (featureValue) => {
   const feat = BA_FEATURES.find((f) => f.value === featureValue)
   return feat ? feat.label : featureValue
+}
+
+const getFeatureTooltipText = (features) => {
+  const safeFeatures = Array.isArray(features) ? features : []
+  if (safeFeatures.length === 0) return '無'
+  return safeFeatures.map((f) => getFeatureLabel(f)).join('、')
 }
 
 const licenseRowId = (row) => row?._id || row?.id
@@ -518,8 +507,6 @@ onMounted(async () => {
     await fetchLicenses()
   })
 })
-
-onUnmounted(() => {})
 
 const handleCreateSubmit = async (result) => {
   if (result?.error) {
