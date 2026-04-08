@@ -143,7 +143,7 @@
             <div
               v-for="feat in licenseDraft.features"
               :key="feat"
-              class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border"
+              class="flex items-center justify-between gap-3 px-6 py-2 rounded-lg border"
               :class="conditionalClass('border-gray-600 bg-[#2A3441]', 'border-slate-300 bg-white')"
             >
               <div class="theme-text text-sm">{{ getFeatureLabel(feat) }}</div>

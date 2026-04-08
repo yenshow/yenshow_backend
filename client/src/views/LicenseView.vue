@@ -247,7 +247,7 @@
                     </div>
                   </td>
                   <td class="py-3 px-4 theme-text text-sm">{{ ext.notes || '-' }}</td>
-                  <td class="py-3 px-4">
+                  <td class="py-3 px-4 max-w-[200px]">
                     <div class="flex gap-2 flex-wrap">
                       <button
                         v-if="ext.status === 'pending' && isAdmin"

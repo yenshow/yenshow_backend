@@ -99,7 +99,7 @@
           </div>
           <p
             v-if="availableExtendFeatures.length === 0"
-            class="text-xs mt-1"
+            class="text-sm mt-1"
             :class="conditionalClass('text-yellow-400', 'text-yellow-600')"
           >
             無可用的功能模組
@@ -108,11 +108,18 @@
 
         <div class="md:col-span-2">
           <label class="block theme-text mb-2">配額</label>
+          <p
+            v-if="extendFeatures.length > 0"
+            class="text-sm mb-2"
+            :class="conditionalClass('text-gray-400', 'text-slate-500')"
+          >
+            輸入的配額為「追加數量」，會與目前已存在的配額相加。
+          </p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div
               v-for="feat in extendFeatures"
               :key="feat"
-              class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border"
+              class="flex items-center justify-between gap-3 px-6 py-2 rounded-lg border"
               :class="conditionalClass('border-gray-600 bg-[#2A3441]', 'border-slate-300 bg-white')"
             >
               <div class="theme-text">{{ getFeatureLabel(feat) }}</div>
@@ -123,7 +130,7 @@
                   min="0"
                   step="1"
                   placeholder="空白=不限"
-                  class="w-28 px-3 py-1.5 rounded-lg border"
+                  class="w-28 px-3 py-1.5 rounded-lg border text-sm text-center"
                   :class="
                     conditionalClass(
                       'bg-[#1f2732] border-gray-600 theme-text',
@@ -136,7 +143,7 @@
           </div>
           <p
             v-if="extendFeatures.length === 0"
-            class="text-xs mt-1"
+            class="text-sm mt-1"
             :class="conditionalClass('text-gray-400', 'text-slate-500')"
           >
             先選擇功能模組後才可設定配額
