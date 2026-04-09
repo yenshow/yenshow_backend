@@ -20,31 +20,70 @@
       :class="conditionalClass('bg-gray-700/20 border-gray-600', 'bg-gray-100/80 border-gray-300')"
     >
       <!-- Format Group -->
-      <div class="toolbar-button-group flex items-center gap-1 text-[13px]">
+      <div class="toolbar-button-group flex flex-wrap items-center gap-1 text-[13px]">
         <label :class="['toolbar-label', conditionalClass('text-gray-400', 'text-gray-600')]">
           格式：
         </label>
         <button
           type="button"
-          @click="editor.chain().focus().toggleHeading({ level: 2 }).run()"
-          :class="['toolbar-button', isHeadingActive ? 'is-active' : defaultButtonClass]"
-          title="標題 (H2)"
+          @click="editor.chain().focus().toggleHeading({ level: 1 }).run()"
+          :class="['toolbar-button', isH1Active ? 'is-active' : defaultButtonClass]"
+          title="標題 H1"
+          aria-label="標題 H1"
         >
-          標題
+          H1
+        </button>
+        <button
+          type="button"
+          @click="editor.chain().focus().toggleHeading({ level: 2 }).run()"
+          :class="['toolbar-button', isH2Active ? 'is-active' : defaultButtonClass]"
+          title="標題 H2"
+          aria-label="標題 H2"
+        >
+          H2
+        </button>
+        <button
+          type="button"
+          @click="editor.chain().focus().toggleHeading({ level: 3 }).run()"
+          :class="['toolbar-button', isH3Active ? 'is-active' : defaultButtonClass]"
+          title="標題 H3"
+          aria-label="標題 H3"
+        >
+          H3
         </button>
         <button
           type="button"
           @click="editor.chain().focus().setParagraph().run()"
           :class="['toolbar-button', isParagraphActive ? 'is-active' : defaultButtonClass]"
           title="內文 (Paragraph)"
+          aria-label="內文段落"
         >
           內文
+        </button>
+        <button
+          type="button"
+          @click="editor.chain().focus().toggleBulletList().run()"
+          :class="['toolbar-button', isBulletListActive ? 'is-active' : defaultButtonClass]"
+          title="項目符號清單"
+          aria-label="項目符號清單"
+        >
+          • 清單
+        </button>
+        <button
+          type="button"
+          @click="editor.chain().focus().toggleOrderedList().run()"
+          :class="['toolbar-button', isOrderedListActive ? 'is-active' : defaultButtonClass]"
+          title="編號清單"
+          aria-label="編號清單"
+        >
+          1. 清單
         </button>
         <button
           type="button"
           @click="editor.chain().focus().toggleBlockquote().run()"
           :class="['toolbar-button', isBlockquoteActive ? 'is-active' : defaultButtonClass]"
           title="備註 (引用)"
+          aria-label="備註引用"
         >
           備註
         </button>
@@ -61,6 +100,7 @@
           :disabled="!editor.can().chain().focus().toggleBold().run()"
           :class="['toolbar-button', editor.isActive('bold') ? 'is-active' : defaultButtonClass]"
           title="粗體"
+          aria-label="粗體"
         >
           粗體
         </button>
@@ -70,6 +110,7 @@
           :disabled="!editor.can().chain().focus().toggleItalic().run()"
           :class="['toolbar-button', editor.isActive('italic') ? 'is-active' : defaultButtonClass]"
           title="斜體"
+          aria-label="斜體"
         >
           斜體
         </button>
@@ -243,13 +284,9 @@ const editor = useEditor({
   extensions: [
     StarterKit.configure({
       heading: {
-        levels: [2],
+        levels: [1, 2, 3],
       },
-      bulletList: false,
-      orderedList: false,
-      listItem: false,
       codeBlock: false,
-      hardBreak: false,
       horizontalRule: false,
     }),
     Link.configure({
@@ -278,8 +315,22 @@ const editor = useEditor({
 })
 
 // Computed properties for button active states
-const isHeadingActive = computed(() => {
+const isH1Active = computed(() => {
+  return editor.value ? editor.value.isActive('heading', { level: 1 }) : false
+})
+const isH2Active = computed(() => {
   return editor.value ? editor.value.isActive('heading', { level: 2 }) : false
+})
+const isH3Active = computed(() => {
+  return editor.value ? editor.value.isActive('heading', { level: 3 }) : false
+})
+
+const isBulletListActive = computed(() => {
+  return editor.value ? editor.value.isActive('bulletList') : false
+})
+
+const isOrderedListActive = computed(() => {
+  return editor.value ? editor.value.isActive('orderedList') : false
 })
 
 const isBlockquoteActive = computed(() => {
@@ -344,6 +395,20 @@ onUnmounted(() => {
   if (editor.value) {
     editor.value.destroy()
   }
+})
+
+/** 供父層或自動化腳本寫入已轉換之 Tiptap JSON（不經由 API 時仍可用） */
+const setContentFromTiptapDoc = (docJson, emitUpdate = true) => {
+  if (!editor.value || !docJson) {
+    return
+  }
+  const valid = getValidTiptapContent(docJson)
+  editor.value.commands.setContent(valid, emitUpdate)
+}
+
+defineExpose({
+  setContentFromTiptapDoc,
+  getEditor: () => editor.value,
 })
 </script>
 
@@ -444,11 +509,33 @@ html:not(.dark) .tiptap-content-area .ProseMirror {
   background-color: white;
 }
 
+.ProseMirror h1 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin-top: 0.5em;
+  margin-bottom: 0.25em;
+  line-height: 1.3;
+}
 .ProseMirror h2 {
   font-size: 1.25em;
   font-weight: 600;
   margin-top: 0.5em;
   margin-bottom: 0.25em;
+}
+.ProseMirror h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-top: 0.5em;
+  margin-bottom: 0.25em;
+}
+.ProseMirror ul,
+.ProseMirror ol {
+  margin: 0.35em 0 0.5em;
+  padding-left: 1.35rem;
+}
+.ProseMirror li {
+  margin-bottom: 0.25em;
+  line-height: 1.6;
 }
 .ProseMirror p {
   margin-bottom: 0.5em;

@@ -16,6 +16,13 @@ router.get("/:slug", checkRole([Permissions.PUBLIC]), NewsController.getItemBySl
 // 需要身份驗證的路由
 router.use(requireAuth);
 
+// AI / 自動化：類 Markdown 純文字 → Tiptap JSON（須置於 /:slug 等動態路由之前）
+router.post(
+	"/convert-article-text",
+	checkRole([Permissions.ADMIN, Permissions.STAFF]),
+	NewsController.convertArticleText
+);
+
 // 獲取處理 'newsImages' 欄位的 multer 中間件 (陣列)
 const uploadNewsImages = fileUpload.getNewsUploadMiddleware();
 

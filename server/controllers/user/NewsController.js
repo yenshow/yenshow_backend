@@ -5,6 +5,7 @@ import { StatusCodes } from "http-status-codes";
 import fileUpload from "../../utils/fileUpload.js";
 import { Permissions } from "../../middlewares/permission.js";
 import { newsCategoryMainTwToEn } from "../../constants/mainCategories.js";
+import { markdownLikeToTiptapDoc } from "../../utils/markdownLikeToTiptapDoc.js";
 
 export const NEWS_NEW_FILE_MARKER = "__NEWS_NEW_FILE__";
 
@@ -267,6 +268,27 @@ class NewsController extends EntityController {
 			this._sendResponse(res, StatusCodes.OK, `分類清單獲取成功`, { categories });
 		} catch (error) {
 			this._handleError(error, "獲取分類清單", next);
+		}
+	};
+
+	/**
+	 * 將類 Markdown 純文字轉為 Tiptap JSON（供 AI / 自動化寫入最新消息主內容）。
+	 * body: { text: string, format?: "markdown-like" }
+	 */
+	convertArticleText = async (req, res, next) => {
+		try {
+			const fmt = req.body?.format || "markdown-like";
+			if (fmt !== "markdown-like") {
+				throw new ApiError(StatusCodes.BAD_REQUEST, "目前僅支援 format: markdown-like");
+			}
+			const text = req.body?.text;
+			if (text !== undefined && typeof text !== "string") {
+				throw new ApiError(StatusCodes.BAD_REQUEST, "text 必須為字串");
+			}
+			const content = markdownLikeToTiptapDoc(typeof text === "string" ? text : "");
+			this._sendResponse(res, StatusCodes.OK, "文章純文字已轉換為 Tiptap JSON", { content });
+		} catch (error) {
+			this._handleError(error, "轉換文章純文字", next);
 		}
 	};
 
