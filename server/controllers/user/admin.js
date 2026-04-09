@@ -235,7 +235,18 @@ export const getLicense = async (req, res, next) => {
  * status 自動設為 pending（審核中）
  * serialNumber 和 licenseKey 在審核時才生成
  */
-const CENTRAL_FEATURES = ["people_counting", "lighting", "drainage", "fire", "emergency_rescue", "environment", "surveillance", "vehicle_access"];
+const CENTRAL_FEATURES = [
+	"people_counting",
+	"lighting",
+	"hvac",
+	"drainage",
+	"power",
+	"fire",
+	"emergency_rescue",
+	"environment",
+	"surveillance",
+	"vehicle_access"
+];
 const CONSTRUCTION_FEATURES = ["people_counting", "environment", "surveillance", "vehicle_access"];
 
 const normalizeDeploymentProfile = (value) => {

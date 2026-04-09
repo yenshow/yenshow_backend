@@ -30,7 +30,18 @@ const licenseSchema = new Schema(
 		},
 		features: {
 			type: [String],
-			enum: ["people_counting", "lighting", "drainage", "fire", "emergency_rescue", "environment", "surveillance", "vehicle_access"],
+			enum: [
+				"people_counting",
+				"lighting",
+				"hvac",
+				"drainage",
+				"power",
+				"fire",
+				"emergency_rescue",
+				"environment",
+				"surveillance",
+				"vehicle_access"
+			],
 			default: [],
 			comment: "授權功能模組（僅 BA-system 使用）"
 		},

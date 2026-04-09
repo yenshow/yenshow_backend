@@ -371,7 +371,9 @@ const error = ref('')
 const BA_FEATURES = [
   { value: 'people_counting', label: '人流統計' },
   { value: 'lighting', label: '照明系統' },
+  { value: 'hvac', label: '空調系統' },
   { value: 'drainage', label: '排水系統' },
+  { value: 'power', label: '電力系統' },
   { value: 'fire', label: '消防系統' },
   { value: 'emergency_rescue', label: '緊急求救' },
   { value: 'environment', label: '環境品質' },
@@ -399,7 +401,9 @@ const getAllowedFeatureKeysByProfile = (deploymentProfile) => {
   return [
     'people_counting',
     'lighting',
+    'hvac',
     'drainage',
+    'power',
     'fire',
     'emergency_rescue',
     'environment',
