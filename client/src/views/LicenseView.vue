@@ -339,6 +339,7 @@
       :conditional-class="conditionalClass"
       :license="editingLicense"
       :is-admin="isAdmin"
+      :ba-features="BA_FEATURES"
       :get-feature-label="getFeatureLabel"
       @close="showEditLicenseModal = false"
       @submit="handleEditSubmit"
@@ -412,9 +413,41 @@ const getAllowedFeatureKeysByProfile = (deploymentProfile) => {
   ]
 }
 
+const safeTimeValue = (value) => {
+  if (!value) return 0
+  const date = new Date(value)
+  const time = date.getTime()
+  return Number.isFinite(time) ? time : 0
+}
+
+const sortExtensionsStable = (extensions) => {
+  const safe = Array.isArray(extensions) ? extensions : []
+  return [...safe].sort((a, b) => {
+    const aTime = safeTimeValue(a?.appliedAt) || safeTimeValue(a?.createdAt) || safeTimeValue(a?.updatedAt)
+    const bTime = safeTimeValue(b?.appliedAt) || safeTimeValue(b?.createdAt) || safeTimeValue(b?.updatedAt)
+
+    if (aTime !== bTime) return aTime - bTime
+
+    const aId = licenseRowId(a)
+    const bId = licenseRowId(b)
+    if (!aId && !bId) return 0
+    if (!aId) return 1
+    if (!bId) return -1
+    return String(aId).localeCompare(String(bId))
+  })
+}
+
 const licenses = computed(() => {
   const storeLicenses = userStore.licenses
-  return Array.isArray(storeLicenses) ? storeLicenses : []
+  const safe = Array.isArray(storeLicenses) ? storeLicenses : []
+  return safe.map((license) => {
+    const hasExtensions = Array.isArray(license?.extensions) && license.extensions.length > 0
+    if (!hasExtensions) return license
+    return {
+      ...license,
+      extensions: sortExtensionsStable(license.extensions),
+    }
+  })
 })
 
 const showCreateLicenseModal = ref(false)

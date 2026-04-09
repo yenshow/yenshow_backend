@@ -207,7 +207,7 @@
           <label class="block theme-text mb-2">授權功能模組</label>
           <div class="flex flex-wrap gap-1">
             <span
-              v-for="feat in displayFeatures"
+              v-for="feat in orderedDisplayFeatures"
               :key="feat"
               class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300"
             >
@@ -221,7 +221,7 @@
           <label class="block theme-text mb-2">配額</label>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div
-              v-for="feat in displayFeatures"
+              v-for="feat in orderedDisplayFeatures"
               :key="feat"
               class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border opacity-50"
               :class="conditionalClass('border-gray-600 bg-[#2A3441]', 'border-slate-300 bg-white')"
@@ -300,6 +300,7 @@ const props = defineProps({
   conditionalClass: { type: Function, required: true },
   license: { type: Object, default: null },
   isAdmin: { type: Boolean, default: false },
+  baFeatures: { type: Array, default: () => [] },
   getFeatureLabel: { type: Function, required: true },
 })
 
@@ -350,6 +351,26 @@ const mergeQuotasForDisplay = (quotasList) => {
   return merged
 }
 
+const featureOrderIndex = computed(() => {
+  const map = new Map()
+  for (const [idx, feat] of (props.baFeatures || []).entries()) {
+    if (!feat?.value) continue
+    map.set(feat.value, idx)
+  }
+  return map
+})
+
+const orderFeatureKeys = (featureKeys) => {
+  const safe = Array.isArray(featureKeys) ? featureKeys : []
+  const order = featureOrderIndex.value
+  return [...safe].sort((a, b) => {
+    const aIdx = order.has(a) ? order.get(a) : Number.MAX_SAFE_INTEGER
+    const bIdx = order.has(b) ? order.get(b) : Number.MAX_SAFE_INTEGER
+    if (aIdx !== bIdx) return aIdx - bIdx
+    return String(a).localeCompare(String(b))
+  })
+}
+
 const displayFeatures = computed(() => {
   const src = sourceLicense.value
   if (!src) return draft.value.features || []
@@ -359,6 +380,8 @@ const displayFeatures = computed(() => {
   const ext = (src.extensions || []).flatMap((e) => e.features || [])
   return [...new Set([...main, ...ext])]
 })
+
+const orderedDisplayFeatures = computed(() => orderFeatureKeys(displayFeatures.value))
 
 const displayQuotas = computed(() => {
   const src = sourceLicense.value

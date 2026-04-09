@@ -141,7 +141,7 @@
           <label class="block theme-text mb-2">配額</label>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div
-              v-for="feat in licenseDraft.features"
+              v-for="feat in orderedSelectedFeatures"
               :key="feat"
               class="flex items-center justify-between gap-3 px-6 py-2 rounded-lg border"
               :class="conditionalClass('border-gray-600 bg-[#2A3441]', 'border-slate-300 bg-white')"
@@ -295,6 +295,26 @@ watch(
 const availableFeatures = computed(() => {
   const allowed = props.getAllowedFeatureKeysByProfile(licenseDraft.value.deploymentProfile)
   return (props.baFeatures || []).filter((f) => allowed.includes(f.value))
+})
+
+const featureOrderIndex = computed(() => {
+  const map = new Map()
+  for (const [idx, feat] of (props.baFeatures || []).entries()) {
+    if (!feat?.value) continue
+    map.set(feat.value, idx)
+  }
+  return map
+})
+
+const orderedSelectedFeatures = computed(() => {
+  const selected = Array.isArray(licenseDraft.value.features) ? licenseDraft.value.features : []
+  const order = featureOrderIndex.value
+  return [...selected].sort((a, b) => {
+    const aIdx = order.has(a) ? order.get(a) : Number.MAX_SAFE_INTEGER
+    const bIdx = order.has(b) ? order.get(b) : Number.MAX_SAFE_INTEGER
+    if (aIdx !== bIdx) return aIdx - bIdx
+    return String(a).localeCompare(String(b))
+  })
 })
 
 const handleSubmit = () => {

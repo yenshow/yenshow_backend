@@ -47,7 +47,7 @@
           <label class="block theme-text mb-2">目前已有的功能</label>
           <div class="flex flex-wrap gap-1">
             <span
-              v-for="feat in existingFeatures"
+              v-for="feat in orderedExistingFeatures"
               :key="feat"
               class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300"
             >
@@ -117,7 +117,7 @@
           </p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div
-              v-for="feat in extendFeatures"
+              v-for="feat in orderedExtendFeatures"
               :key="feat"
               class="flex items-center justify-between gap-3 px-6 py-2 rounded-lg border"
               :class="conditionalClass('border-gray-600 bg-[#2A3441]', 'border-slate-300 bg-white')"
@@ -230,6 +230,29 @@ const availableExtendFeatures = computed(() => {
   const allowed = props.getAllowedFeatureKeysByProfile(profile)
   return (props.baFeatures || []).filter((f) => allowed.includes(f.value))
 })
+
+const featureOrderIndex = computed(() => {
+  const map = new Map()
+  for (const [idx, feat] of (props.baFeatures || []).entries()) {
+    if (!feat?.value) continue
+    map.set(feat.value, idx)
+  }
+  return map
+})
+
+const orderFeatureKeys = (featureKeys) => {
+  const safe = Array.isArray(featureKeys) ? featureKeys : []
+  const order = featureOrderIndex.value
+  return [...safe].sort((a, b) => {
+    const aIdx = order.has(a) ? order.get(a) : Number.MAX_SAFE_INTEGER
+    const bIdx = order.has(b) ? order.get(b) : Number.MAX_SAFE_INTEGER
+    if (aIdx !== bIdx) return aIdx - bIdx
+    return String(a).localeCompare(String(b))
+  })
+}
+
+const orderedExistingFeatures = computed(() => orderFeatureKeys(props.existingFeatures))
+const orderedExtendFeatures = computed(() => orderFeatureKeys(extendFeatures.value))
 
 const isAlreadyLicensed = (featureKey) => {
   return (props.existingFeatures || []).includes(featureKey)
