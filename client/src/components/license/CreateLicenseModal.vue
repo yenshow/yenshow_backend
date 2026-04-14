@@ -2,7 +2,6 @@
   <div
     v-if="open"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
-    @click.self="handleClose"
   >
     <div
       role="dialog"
@@ -222,7 +221,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { buildLicenseQuotasPayload, getDefaultMaxDevicesByFeature } from '@/utils/licenseQuota'
+import { buildLicenseQuotasPayload, getDefaultMaxDevicesByFeature } from '@/enums/licenseQuota'
 
 const props = defineProps({
   open: { type: Boolean, default: false },

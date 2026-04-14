@@ -11,7 +11,6 @@ import {
 	reviewLicense,
 	extendLicense,
 	unbindLicense,
-	updateLicense,
 	deleteLicense
 } from "../controllers/user/admin.js";
 import { requireAuth } from "../middlewares/auth.js";
@@ -43,9 +42,8 @@ router.get("/licenses", checkRole([Permissions.ADMIN, Permissions.STAFF]), getLi
 router.get("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), getLicense);
 router.post("/licenses", checkRole([Permissions.ADMIN, Permissions.STAFF]), createLicense);
 router.post("/licenses/:id/review", checkRole([Permissions.ADMIN]), reviewLicense);
-router.post("/licenses/:id/extend", checkRole([Permissions.ADMIN]), extendLicense);
+router.post("/licenses/:id/extend", checkRole([Permissions.ADMIN, Permissions.STAFF]), extendLicense);
 router.post("/licenses/:id/unbind", checkRole([Permissions.ADMIN]), unbindLicense);
-router.put("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), updateLicense);
 router.delete("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), deleteLicense);
 
 export default router;

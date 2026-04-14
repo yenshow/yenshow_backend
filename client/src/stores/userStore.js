@@ -460,30 +460,6 @@ export const useUserStore = defineStore(
       )
     }
 
-    const updateLicense = async (licenseId, licenseData) => {
-      return await safeApiCall(
-        async () => {
-          const requestBody = {
-            notes: licenseData.notes || null,
-          }
-          if (licenseData.status !== undefined) requestBody.status = licenseData.status
-          if (Array.isArray(licenseData.features)) requestBody.features = licenseData.features
-          if (licenseData.deploymentProfile !== undefined)
-            requestBody.deploymentProfile = licenseData.deploymentProfile
-          if (licenseData.quotas !== undefined) requestBody.quotas = licenseData.quotas
-          const { data } = await apiAuth.put(`/api/users/licenses/${licenseId}`, requestBody)
-
-          if (!data || !data.success) {
-            throw new Error(data?.message || '更新授權失敗')
-          }
-          return { success: true, message: data.message || '更新授權成功' }
-        },
-        {
-          defaultMessage: '更新授權失敗',
-        },
-      )
-    }
-
     const reviewLicense = async (licenseId) => {
       return await safeApiCall(
         async () => {
@@ -613,7 +589,6 @@ export const useUserStore = defineStore(
       reviewLicense,
       extendLicense,
       unbindLicense,
-      updateLicense,
       deleteLicense,
 
       // 客戶端功能

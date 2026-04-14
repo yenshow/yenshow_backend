@@ -29,13 +29,60 @@
           <label for="password" class="text-white">密碼</label>
           <div class="relative">
             <input
-              type="password"
+              :type="showPassword ? 'text' : 'password'"
               id="password"
               v-model="password"
               required
               placeholder="請輸入密碼"
-              class="bg-white/10 text-white placeholder-white/50 w-full"
+              class="password-field-input bg-white/10 text-white placeholder-white/50 w-full"
+              autocomplete="current-password"
             />
+            <button
+              type="button"
+              class="password-toggle"
+              :aria-label="showPassword ? '隱藏密碼' : '顯示密碼'"
+              :aria-pressed="showPassword"
+              @click="handleTogglePasswordVisibility"
+            >
+              <svg
+                v-if="showPassword"
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                />
+              </svg>
+              <svg
+                v-else
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
+              </svg>
+            </button>
           </div>
         </div>
         <!-- 錯誤訊息 -->
@@ -84,8 +131,13 @@ const notify = useNotifications()
 // 表單狀態
 const account = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
+
+const handleTogglePasswordVisibility = () => {
+  showPassword.value = !showPassword.value
+}
 
 // 登入處理
 const handleLogin = async () => {
@@ -221,5 +273,38 @@ label {
   font-size: 24px;
   margin-bottom: 12px;
   opacity: 0.9;
+}
+
+.password-field-input {
+  padding-right: 44px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.2s ease, background-color 0.2s ease;
+  width: auto;
+  min-width: unset;
+}
+
+.password-toggle:hover {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
 }
 </style>

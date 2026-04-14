@@ -23,4 +23,3 @@ export const buildLicenseQuotasPayload = ({ featureKeys, quotaDraft, getFeatureL
 
   return { quotas: Object.keys(quotasPayload).length > 0 ? quotasPayload : null }
 }
-

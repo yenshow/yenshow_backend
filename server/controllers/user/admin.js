@@ -182,7 +182,7 @@ export const getLicenses = async (req, res, next) => {
 			if (licenseKeys.length > 0) {
 				const extensions = await License.collection
 					.find({ parentLicenseKey: { $in: licenseKeys } })
-					.sort({ createdAt: -1 })
+					.sort({ appliedAt: 1, createdAt: 1, _id: 1 })
 					.toArray();
 
 				for (const ext of extensions) {
@@ -219,7 +219,11 @@ export const getLicense = async (req, res, next) => {
 
 		let extensions = [];
 		if (license.licenseKey && !license.parentLicenseKey) {
-			extensions = await License.find({ parentLicenseKey: license.licenseKey }).sort("-createdAt");
+			extensions = await License.find({ parentLicenseKey: license.licenseKey }).sort({
+				appliedAt: 1,
+				createdAt: 1,
+				_id: 1
+			});
 		}
 
 		return successResponse(res, StatusCodes.OK, "獲取授權成功", { license, extensions });
@@ -496,108 +500,6 @@ const applyLicenseKeysForAvailable = async (license, mode) => {
 };
 
 /**
- * 更新授權
- *
- * 狀態變更約定：
- * - 不支援將授權設為「已停用」（inactive）；停用情境請以解除綁定或刪除處理
- * - 已停用（inactive）若要恢復為可啟用，可於此端點傳入 status: available（會清除綁定欄位並連動副 LK）
- */
-export const updateLicense = async (req, res, next) => {
-	try {
-		const { id } = req.params;
-		const { status, features, notes, quotas, deploymentProfile } = req.body;
-		const reviewer = getReviewer(req.user);
-
-		const license = await License.findById(id);
-
-		if (!license) {
-			throw ApiError.notFound("授權不存在");
-		}
-
-		// 更新部署樣貌（僅限未啟用前調整，避免不同平台樣貌混用）
-		if (deploymentProfile !== undefined) {
-			const normalizedProfile = normalizeDeploymentProfile(deploymentProfile);
-			if (!["central", "construction"].includes(normalizedProfile)) {
-				throw ApiError.badRequest("deploymentProfile 必須為 central 或 construction");
-			}
-			if (license.status === "active") {
-				throw ApiError.badRequest("授權已啟用，無法修改 deploymentProfile");
-			}
-			license.deploymentProfile = normalizedProfile;
-		}
-
-		// 更新 features（BA-system 專用）
-		if (features !== undefined) {
-			if (!Array.isArray(features) || features.length === 0) {
-				throw ApiError.badRequest("必須指定至少一個功能模組");
-			}
-			const allowed = getAllowedFeaturesByProfile(license.deploymentProfile || "central");
-			const invalidFeatures = features.filter((f) => !allowed.includes(f));
-			if (invalidFeatures.length > 0) {
-				throw ApiError.badRequest(`無效的功能模組：${invalidFeatures.join(", ")}`);
-			}
-			license.features = features;
-		}
-
-		// 更新 quotas（選配）
-		if (quotas !== undefined) {
-			const baseFeatures = features !== undefined ? features : license.features;
-			license.quotas = validateQuotas(quotas, baseFeatures);
-		}
-
-		if (status !== undefined) {
-			if (!["pending", "available", "active", "inactive"].includes(status)) {
-				throw ApiError.badRequest("無效的狀態值");
-			}
-
-			if (status === "inactive") {
-				throw ApiError.badRequest("不支援將授權設為已停用，請使用解除綁定或刪除授權");
-			}
-
-			if (status === "active") {
-				throw ApiError.badRequest("「使用中」狀態由客戶端啟用流程寫入，請勿以 PUT 指定 status: active");
-			}
-
-			if (status === "available" && license.status === "inactive") {
-				if (!license.parentLicenseKey && license.licenseKey) {
-					await License.updateMany(
-						{ parentLicenseKey: license.licenseKey },
-						{ $set: { status: "available", deviceFingerprint: null, activationMethod: null } }
-					);
-				}
-				license.deviceFingerprint = null;
-				license.activationMethod = null;
-			}
-
-			// 一旦離開 pending（已審核/可啟用/使用中/停用），不可再切回 pending，避免破壞審核語意
-			if (license.status !== "pending" && status === "pending") {
-				throw ApiError.badRequest("授權狀態已離開「審核中」，不可切回審核中");
-			}
-
-			if (status === "available") {
-				await applyLicenseKeysForAvailable(license, "fill");
-				if (!license.reviewer) {
-					license.reviewer = reviewer;
-					license.reviewedAt = new Date();
-				}
-			}
-
-			license.status = status;
-		}
-
-		if (notes !== undefined) {
-			license.notes = notes;
-		}
-
-		await license.save();
-
-		return successResponse(res, StatusCodes.OK, "授權更新成功", { license });
-	} catch (error) {
-		next(error);
-	}
-};
-
-/**
  * 追加授權 → 建立副授權申請（pending，尚無 licenseKey）
  * POST /api/users/licenses/:id/extend
  * 只能對已審核的主 LK 追加授權；須再呼叫 review 才產生副 LK
@@ -618,6 +520,10 @@ export const extendLicense = async (req, res, next) => {
 
 		if (!parentLicense.licenseKey) {
 			throw ApiError.badRequest("主授權尚未審核，請先完成審核");
+		}
+
+		if (!["available", "active"].includes(parentLicense.status)) {
+			throw ApiError.badRequest("僅能在主授權為「可啟用」或「使用中」時追加副授權");
 		}
 
 		if (!applicant) {
@@ -714,6 +620,15 @@ export const deleteLicense = async (req, res, next) => {
 
 		if (!license) {
 			throw ApiError.notFound("授權不存在");
+		}
+
+		const isStaff = req.user?.role === UserRole.STAFF;
+		const isAdmin = req.user?.role === UserRole.ADMIN;
+		if (isStaff && license.status !== "pending") {
+			throw ApiError.forbidden("員工僅能刪除「審核中」的授權");
+		}
+		if (isAdmin && license.status !== "available") {
+			throw ApiError.forbidden("管理員僅能刪除「可啟用」的授權");
 		}
 
 		const deletedExtensions =

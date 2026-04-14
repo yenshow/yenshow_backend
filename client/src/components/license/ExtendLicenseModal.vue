@@ -2,7 +2,6 @@
   <div
     v-if="open"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
-    @click.self="handleClose"
   >
     <div
       role="dialog"
@@ -49,7 +48,13 @@
             <span
               v-for="feat in orderedExistingFeatures"
               :key="feat"
-              class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300"
+              class="px-1.5 py-0.5 rounded"
+              :class="
+                conditionalClass(
+                  'bg-indigo-500/20 text-indigo-300',
+                  'bg-indigo-100 text-indigo-900',
+                )
+              "
             >
               {{ getFeatureLabel(feat) }}
             </span>
@@ -192,7 +197,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { buildLicenseQuotasPayload, getDefaultMaxDevicesByFeature } from '@/utils/licenseQuota'
+import { buildLicenseQuotasPayload, getDefaultMaxDevicesByFeature } from '@/enums/licenseQuota'
 
 const props = defineProps({
   open: { type: Boolean, default: false },

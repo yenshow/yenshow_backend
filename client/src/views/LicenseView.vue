@@ -10,10 +10,24 @@
     <!-- 錯誤提示 -->
     <div
       v-if="error"
-      class="bg-red-500/20 border border-red-500 text-red-100 px-4 py-3 rounded-lg mb-6"
+      class="border px-4 py-3 rounded-lg mb-6"
+      :class="
+        conditionalClass(
+          'bg-red-500/20 border-red-500 text-red-100',
+          'bg-red-50 border-red-200 text-red-800',
+        )
+      "
     >
       {{ error }}
-      <button @click="error = ''" class="float-right text-red-100 hover:text-white">&times;</button>
+      <button
+        type="button"
+        @click="error = ''"
+        class="float-right"
+        :class="conditionalClass('text-red-100 hover:text-white', 'text-red-700 hover:text-red-900')"
+        aria-label="關閉錯誤訊息"
+      >
+        &times;
+      </button>
     </div>
 
     <!-- 載入與內容切換過渡 -->
@@ -96,7 +110,7 @@
                       :class="getStatusClass(license.status)"
                       class="px-2 py-1 rounded-full text-sm"
                     >
-                      {{ getStatusText(license.status) }}
+                      {{ getLicenseStatusText(license.status) }}
                     </span>
                   </td>
                   <td class="py-3 px-4 theme-text text-sm">
@@ -127,18 +141,17 @@
                         審核
                       </button>
                       <button
-                        v-if="license.licenseKey && !license.parentLicenseKey && isAdmin"
+                        v-if="canExtendMainLicense(license)"
                         @click="handleOpenExtendModal(license)"
                         class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
                       >
                         追加授權
                       </button>
                       <button
-                        @click="handleEditLicense(license)"
-                        :disabled="!canEditLicense(license)"
-                        class="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-sm transition cursor-pointer"
+                        @click="handleViewLicense(license)"
+                        class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
                       >
-                        編輯
+                        檢視
                       </button>
                       <button
                         v-if="license.status === 'active' && isAdmin && !license.parentLicenseKey"
@@ -153,6 +166,7 @@
                         解除綁定
                       </button>
                       <button
+                        v-if="canDeleteLicense(license)"
                         @click="handleDeleteLicense(license)"
                         :disabled="deletingLicense === licenseRowId(license)"
                         class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
@@ -178,7 +192,10 @@
                   "
                 >
                   <td class="py-3 px-4 pl-8 theme-text">
-                    <span class="text-purple-200 mr-2 font-medium">
+                    <span
+                      class="mr-2 font-medium"
+                      :class="conditionalClass('text-purple-200', 'text-purple-800')"
+                    >
                       {{
                         extIdx === (license.extensions?.length || 0) - 1
                           ? `└ 副 LK ${extIdx + 1}`
@@ -214,7 +231,7 @@
                       :class="getStatusClass(ext.status)"
                       class="px-2 py-1 rounded-full text-sm"
                     >
-                      {{ getStatusText(ext.status) }}
+                      {{ getLicenseStatusText(ext.status) }}
                     </span>
                   </td>
                   <td class="py-3 px-4 theme-text text-sm">
@@ -245,10 +262,22 @@
                         審核
                       </button>
                       <button
+                        type="button"
+                        @click="handleViewLicense(ext)"
+                        class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
+                      >
+                        檢視
+                      </button>
+                      <button
+                        v-if="canDeleteLicense(ext)"
                         @click="handleDeleteLicense(ext)"
                         :disabled="deletingLicense === licenseRowId(ext)"
-                        class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
+                        class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
                       >
+                        <span
+                          v-if="deletingLicense === licenseRowId(ext)"
+                          class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
+                        ></span>
                         刪除
                       </button>
                     </div>
@@ -257,7 +286,7 @@
               </template>
               <tr v-if="licenses.length === 0">
                 <td
-                  colspan="10"
+                  colspan="9"
                   class="text-center py-6"
                   :class="conditionalClass('text-gray-400', 'text-slate-500')"
                 >
@@ -266,39 +295,37 @@
               </tr>
             </tbody>
           </table>
-          <!-- 分頁控制 -->
+          <!-- 分頁控制（以主 LK 筆數分頁；副 LK 列於各主列下方不計入筆數） -->
           <div
             v-if="licensePagination.totalPages > 1"
-            class="py-4 flex justify-center gap-2 border-t"
+            class="py-4 flex flex-col items-center gap-2 border-t"
             :class="conditionalClass('border-white/10', 'border-slate-200')"
           >
-            <button
-              @click="changeLicensePage(licensePagination.currentPage - 1)"
-              :disabled="licensePagination.currentPage === 1"
-              :class="
-                conditionalClass(
-                  'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                  'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-                )
-              "
+            <div class="flex justify-center gap-2 items-center">
+              <button
+                @click="changeLicensePage(licensePagination.currentPage - 1)"
+                :disabled="licensePagination.currentPage === 1"
+                :class="licensePageBtnClass"
+              >
+                上一頁
+              </button>
+              <span class="px-3 py-1 theme-text text-sm tabular-nums">
+                {{ licensePagination.currentPage }} / {{ licensePagination.totalPages }}
+              </span>
+              <button
+                @click="changeLicensePage(licensePagination.currentPage + 1)"
+                :disabled="licensePagination.currentPage === licensePagination.totalPages"
+                :class="licensePageBtnClass"
+              >
+                下一頁
+              </button>
+            </div>
+            <p
+              class="text-xs text-center max-w-md px-2"
+              :class="conditionalClass('text-slate-400', 'text-slate-500')"
             >
-              上一頁
-            </button>
-            <span class="px-3 py-1 theme-text">
-              {{ licensePagination.currentPage }} / {{ licensePagination.totalPages }}
-            </span>
-            <button
-              @click="changeLicensePage(licensePagination.currentPage + 1)"
-              :disabled="licensePagination.currentPage === licensePagination.totalPages"
-              :class="
-                conditionalClass(
-                  'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                  'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-                )
-              "
-            >
-              下一頁
-            </button>
+              每頁 {{ licensePagination.itemsPerPage }} 筆主授權；副 LK 顯示於所屬主授權列下方。
+            </p>
           </div>
         </div>
       </div>
@@ -332,17 +359,14 @@
       @submit="handleExtendSubmit"
     />
 
-    <EditLicenseModal
-      :open="showEditLicenseModal"
-      :submitting="updatingLicense"
+    <ViewLicenseModal
+      :open="showViewLicenseModal"
       :card-class="cardClass"
       :conditional-class="conditionalClass"
-      :license="editingLicense"
-      :is-admin="isAdmin"
+      :license="viewingLicense"
       :ba-features="BA_FEATURES"
       :get-feature-label="getFeatureLabel"
-      @close="showEditLicenseModal = false"
-      @submit="handleEditSubmit"
+      @close="handleCloseViewLicenseModal"
     />
   </div>
 </template>
@@ -356,11 +380,19 @@ import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { usePageInitialization } from '@/composables/usePageInitialization'
 import CreateLicenseModal from '@/components/license/CreateLicenseModal.vue'
 import ExtendLicenseModal from '@/components/license/ExtendLicenseModal.vue'
-import EditLicenseModal from '@/components/license/EditLicenseModal.vue'
+import ViewLicenseModal from '@/components/license/ViewLicenseModal.vue'
+import { getLicenseStatusText } from '@/utils/licenseLabels.js'
 
 const userStore = useUserStore()
 const notify = useNotifications()
 const { cardClass, conditionalClass } = useThemeClass()
+
+const licensePageBtnClass = computed(() =>
+  conditionalClass(
+    'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+    'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+  ),
+)
 
 const isAdmin = computed(() => userStore.isAdmin)
 const isStaff = computed(() => userStore.isStaff)
@@ -413,50 +445,17 @@ const getAllowedFeatureKeysByProfile = (deploymentProfile) => {
   ]
 }
 
-const safeTimeValue = (value) => {
-  if (!value) return 0
-  const date = new Date(value)
-  const time = date.getTime()
-  return Number.isFinite(time) ? time : 0
-}
-
-const sortExtensionsStable = (extensions) => {
-  const safe = Array.isArray(extensions) ? extensions : []
-  return [...safe].sort((a, b) => {
-    const aTime = safeTimeValue(a?.appliedAt) || safeTimeValue(a?.createdAt) || safeTimeValue(a?.updatedAt)
-    const bTime = safeTimeValue(b?.appliedAt) || safeTimeValue(b?.createdAt) || safeTimeValue(b?.updatedAt)
-
-    if (aTime !== bTime) return aTime - bTime
-
-    const aId = licenseRowId(a)
-    const bId = licenseRowId(b)
-    if (!aId && !bId) return 0
-    if (!aId) return 1
-    if (!bId) return -1
-    return String(aId).localeCompare(String(bId))
-  })
-}
-
 const licenses = computed(() => {
   const storeLicenses = userStore.licenses
-  const safe = Array.isArray(storeLicenses) ? storeLicenses : []
-  return safe.map((license) => {
-    const hasExtensions = Array.isArray(license?.extensions) && license.extensions.length > 0
-    if (!hasExtensions) return license
-    return {
-      ...license,
-      extensions: sortExtensionsStable(license.extensions),
-    }
-  })
+  return Array.isArray(storeLicenses) ? storeLicenses : []
 })
 
 const showCreateLicenseModal = ref(false)
-const showEditLicenseModal = ref(false)
+const showViewLicenseModal = ref(false)
 const showExtendModal = ref(false)
 const reviewingLicense = ref(null)
-const editingLicense = ref(null)
+const viewingLicense = ref(null)
 const creatingLicense = ref(false)
-const updatingLicense = ref(false)
 const deletingLicense = ref(null)
 const unbindingLicense = ref(null)
 const extendingLicense = ref(false)
@@ -520,11 +519,29 @@ const existingFeatures = computed(() => {
   return [...new Set([...main, ...exts])]
 })
 
-// 權限控制
-const canEditLicense = (license) => {
-  if (isAdmin.value) return true
+// 此頁僅 staff/admin（路由 requiresStaffOrAdmin）；追加僅主 LK 且已審核、狀態為可啟用／使用中
+const canExtendMainLicense = (license) =>
+  Boolean(
+    license?.licenseKey &&
+      !license.parentLicenseKey &&
+      (license.status === 'available' || license.status === 'active'),
+  )
+
+const canDeleteLicense = (license) => {
+  if (!license) return false
   if (isStaff.value) return license.status === 'pending'
+  if (isAdmin.value) return license.status === 'available'
   return false
+}
+
+const handleViewLicense = (license) => {
+  viewingLicense.value = license
+  showViewLicenseModal.value = true
+}
+
+const handleCloseViewLicenseModal = () => {
+  showViewLicenseModal.value = false
+  viewingLicense.value = null
 }
 
 // 狀態樣式
@@ -533,7 +550,6 @@ const getStatusClass = (status) => {
     pending: conditionalClass('bg-yellow-500/20 text-yellow-300', 'bg-yellow-100 text-yellow-700'),
     available: conditionalClass('bg-blue-500/20 text-blue-300', 'bg-blue-100 text-blue-700'),
     active: conditionalClass('bg-green-500/20 text-green-300', 'bg-green-100 text-green-700'),
-    inactive: conditionalClass('bg-slate-500/20 text-slate-300', 'bg-slate-200 text-slate-700'),
   }
   return classMap[status] || ''
 }
@@ -644,57 +660,6 @@ const handleExtendSubmit = async (result) => {
   }
 }
 
-const handleEditLicense = (license) => {
-  if (!canEditLicense(license)) {
-    if (isStaff.value && license.status !== 'pending') {
-      notify.notifyWarning('staff 只能編輯「審核中」狀態的授權')
-    }
-    return
-  }
-  editingLicense.value = {
-    ...license,
-    deploymentProfile: license.deploymentProfile || 'central',
-    features: [...(license.features || [])],
-    _originalStatus: license.status,
-    _originalFeatures: [...(license.features || [])],
-  }
-  showEditLicenseModal.value = true
-}
-
-const handleEditSubmit = async (result) => {
-  if (result?.error) {
-    notify.notifyWarning(result.error)
-    return
-  }
-  try {
-    updatingLicense.value = true
-    const { id, notes } = result
-    const notesPayload = notes ?? null
-
-    if (isAdmin.value && result.status !== undefined && result.previousStatus !== undefined) {
-      const { status, previousStatus } = result
-      const statusChanged = status !== previousStatus
-
-      if (statusChanged) {
-        await userStore.updateLicense(id, { notes: notesPayload, status })
-      } else {
-        await userStore.updateLicense(id, { notes: notesPayload })
-      }
-    } else {
-      await userStore.updateLicense(id, { notes: notesPayload })
-    }
-
-    showEditLicenseModal.value = false
-    editingLicense.value = null
-    await fetchLicenses()
-  } catch (err) {
-    console.error('更新授權失敗:', err)
-    notify.notifyError(err.response?.data?.message || '更新授權失敗，請稍後再試')
-  } finally {
-    updatingLicense.value = false
-  }
-}
-
 const handleDeleteLicense = async (license) => {
   const isExtension = !!license.parentLicenseKey
   const label = isExtension ? '副 LK' : '授權'
@@ -730,16 +695,6 @@ const changeLicensePage = (page) => {
   )
     return
   licensePagination.value.currentPage = page
-}
-
-const getStatusText = (status) => {
-  const statusMap = {
-    pending: '審核中',
-    available: '可啟用',
-    active: '使用中',
-    inactive: '已停用',
-  }
-  return statusMap[status] || status
 }
 
 const formatDate = (dateString) => {

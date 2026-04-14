@@ -78,10 +78,10 @@ const licenseSchema = new Schema(
 		},
 		status: {
 			type: String,
-			enum: ["pending", "available", "active", "inactive"],
+			enum: ["pending", "available", "active"],
 			default: "pending",
 			index: true,
-			comment: "授權狀態：pending=審核中, available=可啟用, active=使用中, inactive=已停用"
+			comment: "授權狀態（對應後台權限矩陣）：pending=審核中, available=未啟用/可啟用, active=使用中"
 		},
 		applicant: {
 			type: String,

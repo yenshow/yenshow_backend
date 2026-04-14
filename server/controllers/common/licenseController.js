@@ -6,8 +6,7 @@ import License from "../../models/License.js";
 const STATUS_MESSAGES = {
 	pending: "審核中",
 	available: "可啟用",
-	active: "使用中",
-	inactive: "已停用"
+	active: "使用中"
 };
 
 /**
@@ -92,6 +91,7 @@ const validateSubLicense = async (license, deviceFingerprint) => {
  *
  * 所有 API 統一以 licenseKey 為查詢鍵。
  * 支援主 LK 首次啟用、副 LK 功能追加、主 LK 換機啟用。
+ * 後台「管理員／員工」對授權的檢視、審核、刪除、追加、解綁等權限，請見 /api/users/licenses*（admin 控制器）。
  */
 class LicenseController {
 	/**
