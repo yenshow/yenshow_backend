@@ -412,6 +412,7 @@ const BA_FEATURES = [
   { value: 'environment', label: '環境品質' },
   { value: 'surveillance', label: '影像監控' },
   { value: 'vehicle_access', label: '車輛進出' },
+  { value: 'multimedia', label: '多媒體資訊' },
 ]
 
 const getFeatureLabel = (featureValue) => {
@@ -442,6 +443,7 @@ const getAllowedFeatureKeysByProfile = (deploymentProfile) => {
     'environment',
     'surveillance',
     'vehicle_access',
+    'multimedia',
   ]
 }
 

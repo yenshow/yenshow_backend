@@ -2,7 +2,8 @@
 
 > 最後更新：2026-04-08  
 > 本檔為 **唯一授權文件 SSOT**：涵蓋授權平台契約、BA 後端落地、前端使用方式，以及 Quota/Usage 計數口徑。  
-> 變更路由/回應時，需同步更新：`[api-surface.md](api-surface.md)`、`[openapi/openapi.yaml](openapi/openapi.yaml)`。
+> 變更路由/回應時，需同步更新：`[api-surface.md](api-surface.md)`。  
+> `openapi/openapi.yaml` 採骨架策略（不維護 `paths`），僅在需要機器可讀規格時再補齊。
 
 ---
 
@@ -29,10 +30,10 @@
 
 ### 2.1 `LICENSE_DEPLOYMENT_PROFILE`
 
-| 值                | 說明                                                                                                                                             |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `central`（預設） | 10 keys：`people_counting`、`lighting`、`hvac`、`drainage`、`power`、`fire`、`emergency_rescue`、`environment`、`surveillance`、`vehicle_access` |
-| `construction`    | 4 keys：`people_counting`、`environment`、`surveillance`、`vehicle_access`                                                                       |
+| 值                | 說明                                                                                                                                                           |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `central`（預設） | 11 keys：`people_counting`、`lighting`、`hvac`、`drainage`、`power`、`fire`、`emergency_rescue`、`environment`、`surveillance`、`vehicle_access`、`multimedia` |
+| `construction`    | 4 keys：`people_counting`、`environment`、`surveillance`、`vehicle_access`                                                                                     |
 
 程式：`ba-backend/src/services/licenseService.js` → `getActiveFeatureKeys()`。
 

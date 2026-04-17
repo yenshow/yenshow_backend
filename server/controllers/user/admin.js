@@ -249,7 +249,8 @@ const CENTRAL_FEATURES = [
 	"emergency_rescue",
 	"environment",
 	"surveillance",
-	"vehicle_access"
+	"vehicle_access",
+	"multimedia"
 ];
 const CONSTRUCTION_FEATURES = ["people_counting", "environment", "surveillance", "vehicle_access"];
 
