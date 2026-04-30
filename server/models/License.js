@@ -41,7 +41,9 @@ const licenseSchema = new Schema(
 				"environment",
 				"surveillance",
 				"vehicle_access",
-				"multimedia"
+				"multimedia",
+				"smoke_alarm",
+				"air_circulation"
 			],
 			default: [],
 			comment: "授權功能模組（僅 BA-system 使用）"

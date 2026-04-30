@@ -413,6 +413,8 @@ const BA_FEATURES = [
   { value: 'surveillance', label: '影像監控' },
   { value: 'vehicle_access', label: '車輛進出' },
   { value: 'multimedia', label: '多媒體資訊' },
+  { value: 'smoke_alarm', label: '煙霧警報' },
+  { value: 'air_circulation', label: '空氣循環' },
 ]
 
 const getFeatureLabel = (featureValue) => {
@@ -444,6 +446,8 @@ const getAllowedFeatureKeysByProfile = (deploymentProfile) => {
     'surveillance',
     'vehicle_access',
     'multimedia',
+    'smoke_alarm',
+    'air_circulation',
   ]
 }
 
