@@ -7,7 +7,12 @@ WORKDIR /app
 
 # 使用 package.json 作為緩存依據
 COPY package*.json ./
-RUN npm ci --only=production
+
+# postinstall 會用到 scripts/ 與 fonts/（下載/寫入授權 PDF 用字型）
+COPY scripts ./scripts
+COPY fonts ./fonts
+
+RUN npm ci --omit=dev
 
 # 複製應用代碼
 COPY . .
