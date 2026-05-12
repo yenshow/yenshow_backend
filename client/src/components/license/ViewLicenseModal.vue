@@ -54,19 +54,19 @@
           </div>
 
           <div>
-            <label class="block theme-text mb-2">狀態</label>
+            <label class="block theme-text mb-2">訂單編號</label>
             <div
-              class="w-full px-4 py-2 rounded-lg border opacity-90 theme-text"
+              class="w-full px-4 py-2 rounded-lg border opacity-90 theme-text font-mono"
               :class="readonlyBoxClass"
             >
-              {{ getLicenseStatusText(src.status) }}
+              {{ src.orderNumber || '—' }}
             </div>
           </div>
 
           <div>
             <label class="block theme-text mb-2">Serial Number</label>
             <div
-              class="w-full px-4 py-2 rounded-lg border opacity-90 font-mono theme-text text-sm"
+              class="w-full px-4 py-2 rounded-lg border opacity-90 font-mono theme-text"
               :class="readonlyBoxClass"
             >
               {{ src.serialNumber || '—' }}
@@ -76,10 +76,20 @@
           <div>
             <label class="block theme-text mb-2">License Key</label>
             <div
-              class="w-full px-4 py-2 rounded-lg border opacity-90 font-mono theme-text text-sm break-all"
+              class="w-full px-4 py-2 rounded-lg border opacity-90 font-mono theme-text break-all"
               :class="readonlyBoxClass"
             >
               {{ src.licenseKey || '—' }}
+            </div>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block theme-text mb-2">狀態</label>
+            <div
+              class="w-full px-4 py-2 rounded-lg border opacity-90 theme-text"
+              :class="readonlyBoxClass"
+            >
+              {{ getLicenseStatusText(src.status) }}
             </div>
           </div>
         </div>
@@ -112,21 +122,34 @@
 
         <div>
           <label class="block theme-text mb-2">授權功能模組</label>
-          <div class="flex flex-wrap gap-1">
-            <span
+          <div class="grid grid-cols-2 gap-2">
+            <div
               v-for="feat in orderedDisplayFeatures"
               :key="feat"
-              class="px-1.5 py-0.5 rounded"
+              class="flex items-center gap-2 px-3 py-2 rounded-lg border transition"
               :class="
                 conditionalClass(
-                  'bg-indigo-500/20 text-indigo-300',
-                  'bg-indigo-100 text-indigo-900',
+                  'border-indigo-500 bg-indigo-500/10',
+                  'border-indigo-300 bg-indigo-50',
                 )
               "
             >
-              {{ getFeatureLabel(feat) }}
-            </span>
-            <span v-if="orderedDisplayFeatures.length === 0" class="opacity-50 theme-text">—</span>
+              <input
+                type="checkbox"
+                class="accent-indigo-500"
+                :checked="true"
+                disabled
+                tabindex="-1"
+                aria-label="已授權功能模組"
+              />
+              <span class="theme-text">{{ getFeatureLabel(feat) }}</span>
+            </div>
+            <div
+              v-if="orderedDisplayFeatures.length === 0"
+              class="opacity-50 theme-text col-span-full"
+            >
+              —
+            </div>
           </div>
         </div>
 
@@ -136,11 +159,19 @@
             <div
               v-for="feat in orderedDisplayFeatures"
               :key="feat"
-              class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border"
+              class="flex items-center justify-between gap-3 px-6 py-2 rounded-lg border"
               :class="readonlyBoxClass"
             >
               <div class="theme-text text-sm">{{ getFeatureLabel(feat) }}</div>
-              <div class="theme-text text-sm font-mono">
+              <div
+                class="w-28 px-3 py-1.5 rounded-lg border text-center font-mono"
+                :class="
+                  conditionalClass(
+                    'bg-[#1f2732] border-gray-600 theme-text',
+                    'bg-white border-slate-300',
+                  )
+                "
+              >
                 {{
                   (displayQuotas?.[feat]?.maxDevices ?? null) === null
                     ? '不限'
@@ -155,6 +186,25 @@
               —
             </div>
           </div>
+        </div>
+
+        <div v-if="src.imageUrl">
+          <label class="block theme-text mb-2">附圖</label>
+          <a
+            :href="src.imageUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="block max-w-md rounded-lg border overflow-hidden outline-none transition ring-offset-2 ring-offset-transparent focus-visible:ring-2 focus-visible:ring-blue-500 hover:opacity-95"
+            :class="readonlyBoxClass"
+            title="點擊在新分頁開啟原圖"
+            aria-label="在新分頁開啟授權附圖完整大小"
+          >
+            <img
+              :src="src.imageUrl"
+              alt="授權申請附圖"
+              class="w-full h-auto max-h-64 object-contain bg-black/5 dark:bg-white/5 cursor-pointer"
+            />
+          </a>
         </div>
 
         <div>

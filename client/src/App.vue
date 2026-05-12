@@ -129,7 +129,7 @@
               <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
             </svg>
 
-            <!-- 權限管理圖標 (僅 admin) -->
+            <!-- 授權管理圖標 (僅 admin) -->
             <svg
               v-else-if="link.name === 'licenses'"
               class="w-[36px] lg:w-[48px] aspect-square"
@@ -371,9 +371,9 @@ const navLinks = computed(() => {
     links.push({ to: '/admin', name: 'admin', text: '用戶' })
   }
 
-  // staff 和 admin 都可以顯示權限管理
+  // staff 和 admin 都可以顯示授權管理
   if (isAdmin.value || isStaff.value) {
-    links.push({ to: '/licenses', name: 'licenses', text: '權限' })
+    links.push({ to: '/licenses', name: 'licenses', text: '授權' })
   }
 
   return links

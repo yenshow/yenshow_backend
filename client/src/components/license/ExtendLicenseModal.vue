@@ -62,11 +62,11 @@
         </div>
 
         <div>
-          <label class="block theme-text mb-2">申請人 *</label>
+          <label class="block theme-text mb-2">訂單編號 *</label>
           <input
-            v-model="extendApplicant"
+            v-model="extendOrderNumber"
             type="text"
-            placeholder="請輸入申請人"
+            placeholder="請輸入訂單編號"
             class="w-full px-4 py-2 rounded-lg border"
             :class="
               conditionalClass(
@@ -175,7 +175,7 @@
       <div class="flex gap-2 mt-6">
         <button
           @click="handleSubmit"
-          :disabled="submitting || extendFeatures.length === 0 || !extendApplicant?.trim()"
+          :disabled="submitting || extendFeatures.length === 0 || !extendOrderNumber.trim()"
           class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
         >
           <span
@@ -209,15 +209,14 @@ const props = defineProps({
   existingFeatures: { type: Array, default: () => [] },
   getAllowedFeatureKeysByProfile: { type: Function, required: true },
   getFeatureLabel: { type: Function, required: true },
-  defaultApplicant: { type: String, default: '' },
 })
 
 const emit = defineEmits(['close', 'submit'])
 
 const extendFeatures = ref([])
-const extendApplicant = ref('')
 const extendNotes = ref('')
 const extendQuotas = ref({})
+const extendOrderNumber = ref('')
 
 watch(
   () => props.open,
@@ -226,7 +225,7 @@ watch(
     extendFeatures.value = []
     extendNotes.value = ''
     extendQuotas.value = {}
-    extendApplicant.value = props.defaultApplicant || ''
+    extendOrderNumber.value = ''
   },
 )
 
@@ -285,7 +284,8 @@ watch(
 const handleSubmit = () => {
   if (!props.target) return
   if ((extendFeatures.value || []).length === 0) return
-  if (!extendApplicant.value?.trim()) return
+  const orderNo = extendOrderNumber.value.trim()
+  if (!orderNo) return
 
   const quotasResult = buildLicenseQuotasPayload({
     featureKeys: extendFeatures.value,
@@ -299,7 +299,7 @@ const handleSubmit = () => {
 
   emit('submit', {
     features: extendFeatures.value,
-    applicant: extendApplicant.value,
+    orderNumber: orderNo,
     notes: extendNotes.value || null,
     quotas: quotasResult.quotas,
   })

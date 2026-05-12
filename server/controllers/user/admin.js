@@ -4,6 +4,8 @@ import { StatusCodes } from "http-status-codes";
 import { ApiError, successResponse } from "../../utils/responseHandler.js";
 import UserRole from "../../enums/UserRole.js";
 import crypto from "crypto";
+import fileUpload from "../../utils/fileUpload.js";
+import { buildBaSystemLicensePdfBuffer } from "../../utils/baSystemLicensePdf.js";
 
 /**
  * 獲取用戶列表 (支援過濾)
@@ -156,6 +158,23 @@ export const deleteUser = async (req, res, next) => {
 
 // ==================== 授權管理功能 ====================
 
+const trimAccount = (value) => (typeof value === "string" ? value.trim() : "");
+
+/** 非員工：null；員工：登入帳號 trim 後字串（可能為空） */
+const getStaffApplicantAccount = (req) => {
+	if (req.user?.role !== UserRole.STAFF) return null;
+	return trimAccount(req.user.account);
+};
+
+/** 建立／追加授權：記錄建立者登入帳號（員工資料範圍用） */
+const applicantFromRequester = (req) => {
+	const a = trimAccount(req.user?.account);
+	if (!a) {
+		throw ApiError.badRequest("無法取得登入帳號");
+	}
+	return a;
+};
+
 /**
  * 獲取授權列表（預設僅回傳主 LK，附帶副 LK 資訊）
  */
@@ -168,7 +187,15 @@ export const getLicenses = async (req, res, next) => {
 		if (product) filter.product = product;
 		if (!includeExtensions) filter.parentLicenseKey = null;
 
-		const licenses = await License.find(filter).sort(sort).lean();
+		const staffAcc = getStaffApplicantAccount(req);
+		if (staffAcc !== null && !staffAcc) {
+			return successResponse(res, StatusCodes.OK, "獲取授權列表成功", { licenses: [] });
+		}
+		if (staffAcc) {
+			filter.applicant = staffAcc;
+		}
+
+		let licenses = await License.find(filter).sort(sort).lean();
 
 		if (!includeExtensions) {
 			// 注意：app.js 開了 mongoose.set("sanitizeFilter", true)
@@ -180,8 +207,12 @@ export const getLicenses = async (req, res, next) => {
 			const extensionMap = {};
 
 			if (licenseKeys.length > 0) {
+				const extQuery = { parentLicenseKey: { $in: licenseKeys } };
+				if (staffAcc) {
+					extQuery.applicant = staffAcc;
+				}
 				const extensions = await License.collection
-					.find({ parentLicenseKey: { $in: licenseKeys } })
+					.find(extQuery)
 					.sort({ appliedAt: 1, createdAt: 1, _id: 1 })
 					.toArray();
 
@@ -217,9 +248,23 @@ export const getLicense = async (req, res, next) => {
 			throw ApiError.notFound("授權不存在");
 		}
 
+		const staffAcc = getStaffApplicantAccount(req);
+		if (staffAcc !== null) {
+			if (!staffAcc) {
+				throw ApiError.forbidden("無法確認您的帳號");
+			}
+			if (trimAccount(license.applicant) !== staffAcc) {
+				throw ApiError.forbidden("您只能存取自己的授權");
+			}
+		}
+
 		let extensions = [];
 		if (license.licenseKey && !license.parentLicenseKey) {
-			extensions = await License.find({ parentLicenseKey: license.licenseKey }).sort({
+			const extQuery = { parentLicenseKey: license.licenseKey };
+			if (staffAcc) {
+				extQuery.applicant = staffAcc;
+			}
+			extensions = await License.find(extQuery).sort({
 				appliedAt: 1,
 				createdAt: 1,
 				_id: 1
@@ -233,8 +278,61 @@ export const getLicense = async (req, res, next) => {
 };
 
 /**
+ * 下載 BA System License PDF（須已產生 License Key）
+ */
+export const exportLicensePdf = async (req, res, next) => {
+	try {
+		const { id } = req.params;
+
+		const license = await License.findById(id);
+
+		if (!license) {
+			throw ApiError.notFound("授權不存在");
+		}
+
+		const staffAcc = getStaffApplicantAccount(req);
+		if (staffAcc !== null) {
+			if (!staffAcc) {
+				throw ApiError.forbidden("無法確認您的帳號");
+			}
+			if (trimAccount(license.applicant) !== staffAcc) {
+				throw ApiError.forbidden("您只能存取自己的授權");
+			}
+		}
+
+		const lk = trimAccount(license.licenseKey);
+		if (!lk) {
+			throw ApiError.badRequest("此授權尚未產生 License Key，無法輸出 PDF");
+		}
+
+		const licenseTypeLabel = license.parentLicenseKey ? "Expanded" : "Basal";
+		const features = Array.isArray(license.features) ? license.features : [];
+		const quotas =
+			license.quotas && typeof license.quotas === "object" && !Array.isArray(license.quotas) ? license.quotas : {};
+
+		const buffer = await buildBaSystemLicensePdfBuffer({
+			customerName: license.customerName || "",
+			orderNumber: license.orderNumber != null ? String(license.orderNumber) : "-",
+			licenseKey: lk,
+			licenseTypeLabel,
+			features,
+			quotas
+		});
+
+		const safeKey = lk.replace(/[^a-zA-Z0-9-_]/g, "_");
+		const filename = `BA-System-License-${safeKey}.pdf`;
+
+		res.setHeader("Content-Type", "application/pdf");
+		res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+		res.send(buffer);
+	} catch (error) {
+		next(error);
+	}
+};
+
+/**
  * 建立新授權
- * 必填：product、客戶名稱、申請人
+ * 必填：product、客戶名稱、訂單編號；建立者帳號由後端寫入 applicant
  * 選填：備註
  * status 自動設為 pending（審核中）
  * serialNumber 和 licenseKey 在審核時才生成
@@ -303,17 +401,32 @@ const validateQuotas = (quotas, features) => {
 	return Object.keys(normalized).length > 0 ? normalized : null;
 };
 
+const parseCreateLicenseBody = (req) => {
+	if (req.is("multipart/form-data") && req.body?.licenseDataPayload) {
+		try {
+			return JSON.parse(req.body.licenseDataPayload);
+		} catch {
+			throw ApiError.badRequest("無法解析 licenseDataPayload JSON 字串");
+		}
+	}
+	return { ...req.body };
+};
+
 export const createLicense = async (req, res, next) => {
 	try {
-		const { customerName, applicant, features, notes, deploymentProfile, quotas } = req.body;
+		const body = parseCreateLicenseBody(req);
+		const { customerName, features, notes, deploymentProfile, quotas, orderNumber } = body;
 
 		if (!customerName) {
 			throw ApiError.badRequest("需要提供客戶名稱");
 		}
 
-		if (!applicant) {
-			throw ApiError.badRequest("需要提供申請人");
+		const orderNo = trimAccount(orderNumber);
+		if (!orderNo) {
+			throw ApiError.badRequest("需要提供訂單編號");
 		}
+
+		const resolvedApplicant = applicantFromRequester(req);
 
 		const normalizedProfile = normalizeDeploymentProfile(deploymentProfile);
 		if (!["central", "construction"].includes(normalizedProfile)) {
@@ -337,11 +450,29 @@ export const createLicense = async (req, res, next) => {
 			features,
 			quotas: normalizedQuotas,
 			customerName,
-			applicant,
+			orderNumber: orderNo,
+			applicant: resolvedApplicant,
 			appliedAt: new Date(),
 			status: "pending",
 			notes: notes || null
 		});
+
+		const img = req.file;
+		if (img?.buffer) {
+			try {
+				newLicense.imageUrl = fileUpload.saveAsset(
+					img.buffer,
+					"licenses",
+					{ id: newLicense._id.toString() },
+					"images",
+					img.originalname,
+					"license_img"
+				);
+				await newLicense.save();
+			} catch (err) {
+				console.error("授權附圖儲存失敗:", err);
+			}
+		}
 
 		return successResponse(res, StatusCodes.CREATED, "授權建立成功", {
 			license: newLicense
@@ -381,6 +512,9 @@ export const reviewLicense = async (req, res, next) => {
 		}
 
 		await applyLicenseKeysForAvailable(license, "review");
+
+		const renamed = fileUpload.renameLicenseImageToSerialOrKey(license);
+		if (renamed) license.imageUrl = renamed;
 
 		license.status = "available";
 		license.reviewer = reviewer;
@@ -510,7 +644,7 @@ const applyLicenseKeysForAvailable = async (license, mode) => {
 export const extendLicense = async (req, res, next) => {
 	try {
 		const { id } = req.params;
-		const { features, notes, applicant, quotas } = req.body;
+		const { features, notes, quotas, orderNumber } = req.body;
 
 		const parentLicense = await License.findById(id);
 		if (!parentLicense) {
@@ -529,8 +663,21 @@ export const extendLicense = async (req, res, next) => {
 			throw ApiError.badRequest("僅能在主授權為「可啟用」或「使用中」時追加副授權");
 		}
 
-		if (!applicant) {
-			throw ApiError.badRequest("需要提供申請人（副 LK）");
+		const staffAcc = getStaffApplicantAccount(req);
+		if (staffAcc !== null) {
+			if (!staffAcc) {
+				throw ApiError.forbidden("無法確認您的帳號");
+			}
+			if (trimAccount(parentLicense.applicant) !== staffAcc) {
+				throw ApiError.forbidden("您只能對自己的主授權追加副授權");
+			}
+		}
+
+		const resolvedApplicant = applicantFromRequester(req);
+
+		const orderNo = trimAccount(orderNumber);
+		if (!orderNo) {
+			throw ApiError.badRequest("需要提供訂單編號");
 		}
 
 		if (!Array.isArray(features) || features.length === 0) {
@@ -550,9 +697,10 @@ export const extendLicense = async (req, res, next) => {
 			features,
 			quotas: normalizedQuotas,
 			customerName: parentLicense.customerName,
+			orderNumber: orderNo,
 			parentLicenseKey: parentLicense.licenseKey,
 			status: "pending",
-			applicant,
+			applicant: resolvedApplicant,
 			appliedAt: new Date(),
 			notes: notes || null
 		});
@@ -625,17 +773,43 @@ export const deleteLicense = async (req, res, next) => {
 			throw ApiError.notFound("授權不存在");
 		}
 
-		const isStaff = req.user?.role === UserRole.STAFF;
 		const isAdmin = req.user?.role === UserRole.ADMIN;
-		if (isStaff && license.status !== "pending") {
+		const staffAcc = getStaffApplicantAccount(req);
+		if (staffAcc !== null) {
+			if (!staffAcc) {
+				throw ApiError.forbidden("無法確認您的帳號");
+			}
+			if (trimAccount(license.applicant) !== staffAcc) {
+				throw ApiError.forbidden("您只能刪除自己的授權");
+			}
+		}
+		if (staffAcc !== null && license.status !== "pending") {
 			throw ApiError.forbidden("員工僅能刪除「審核中」的授權");
 		}
 		if (isAdmin && license.status !== "available") {
 			throw ApiError.forbidden("管理員僅能刪除「可啟用」的授權");
 		}
 
-		const deletedExtensions =
-			!license.parentLicenseKey && license.licenseKey ? ((await License.deleteMany({ parentLicenseKey: license.licenseKey }))?.deletedCount ?? 0) : 0;
+		let deletedExtensions = 0;
+		if (!license.parentLicenseKey && license.licenseKey) {
+			const childFilter = { parentLicenseKey: license.licenseKey };
+			if (staffAcc) {
+				childFilter.applicant = staffAcc;
+			}
+			const childLicenses = await License.find(childFilter).select("_id").lean();
+			for (const child of childLicenses) {
+				if (child?._id) {
+					fileUpload.deleteEntityDirectory("licenses", { id: child._id.toString() });
+				}
+			}
+			if (childLicenses.length > 0) {
+				const ids = childLicenses.map((c) => c._id).filter(Boolean);
+				const delMany = await License.deleteMany({ _id: { $in: ids } });
+				deletedExtensions = delMany?.deletedCount ?? 0;
+			}
+		}
+
+		fileUpload.deleteEntityDirectory("licenses", { id: license._id.toString() });
 
 		await License.findByIdAndDelete(id);
 

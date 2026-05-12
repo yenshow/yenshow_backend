@@ -86,11 +86,20 @@ const licenseSchema = new Schema(
 			index: true,
 			comment: "授權狀態（對應後台權限矩陣）：pending=審核中, available=未啟用/可啟用, active=使用中"
 		},
+		orderNumber: {
+			type: String,
+			default: null,
+			trim: true,
+			index: true,
+			comment: "訂單編號（對外業務欄位）"
+		},
 		applicant: {
 			type: String,
-			required: [true, "申請人必填"],
+			required: false,
+			default: null,
 			trim: true,
-			comment: "申請人"
+			index: true,
+			comment: "建立者登入帳號（內部用，員工僅能存取 applicant=自己帳號的資料）"
 		},
 		appliedAt: {
 			type: Date,
@@ -126,6 +135,12 @@ const licenseSchema = new Schema(
 			type: String,
 			default: null,
 			comment: "備註"
+		},
+		imageUrl: {
+			type: String,
+			default: null,
+			trim: true,
+			comment: "申請附圖（虛擬路徑，如 /storage/licenses/...）"
 		}
 	},
 	{
@@ -153,6 +168,7 @@ licenseSchema.index(
 licenseSchema.index({ status: 1 });
 licenseSchema.index({ parentLicenseKey: 1 });
 licenseSchema.index({ deploymentProfile: 1 });
+licenseSchema.index({ orderNumber: 1 });
 
 const transformOptions = {
 	virtuals: true,

@@ -7,6 +7,7 @@ import {
 	deleteUser,
 	getLicenses,
 	getLicense,
+	exportLicensePdf,
 	createLicense,
 	reviewLicense,
 	extendLicense,
@@ -16,8 +17,11 @@ import {
 import { requireAuth } from "../middlewares/auth.js";
 import { checkRole, Permissions } from "../middlewares/permission.js";
 import { login as loginMiddleware } from "../middlewares/auth.js";
+import fileUpload from "../utils/fileUpload.js";
 
 const router = Router();
+
+const uploadLicenseCreate = fileUpload.getSingleFileMiddleware("licenseImage");
 
 // 公開路由 - 不需要身份驗證
 router.post("/login", loginMiddleware, login);
@@ -39,8 +43,14 @@ router.delete("/users/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), d
 
 // 授權管理功能（需要 ADMIN 或 STAFF 權限）
 router.get("/licenses", checkRole([Permissions.ADMIN, Permissions.STAFF]), getLicenses);
+router.get("/licenses/:id/pdf", checkRole([Permissions.ADMIN, Permissions.STAFF]), exportLicensePdf);
 router.get("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), getLicense);
-router.post("/licenses", checkRole([Permissions.ADMIN, Permissions.STAFF]), createLicense);
+router.post(
+	"/licenses",
+	checkRole([Permissions.ADMIN, Permissions.STAFF]),
+	uploadLicenseCreate,
+	createLicense
+);
 router.post("/licenses/:id/review", checkRole([Permissions.ADMIN]), reviewLicense);
 router.post("/licenses/:id/extend", checkRole([Permissions.ADMIN, Permissions.STAFF]), extendLicense);
 router.post("/licenses/:id/unbind", checkRole([Permissions.ADMIN]), unbindLicense);

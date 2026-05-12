@@ -23,7 +23,9 @@
         type="button"
         @click="error = ''"
         class="float-right"
-        :class="conditionalClass('text-red-100 hover:text-white', 'text-red-700 hover:text-red-900')"
+        :class="
+          conditionalClass('text-red-100 hover:text-white', 'text-red-700 hover:text-red-900')
+        "
         aria-label="關閉錯誤訊息"
       >
         &times;
@@ -56,7 +58,7 @@
                 <th class="text-left py-3 px-4 theme-text">Serial Number</th>
                 <th class="text-left py-3 px-4 theme-text">License Key</th>
                 <th class="text-left py-3 px-4 theme-text">狀態</th>
-                <th class="text-left py-3 px-4 theme-text">申請人</th>
+                <th class="text-left py-3 px-4 theme-text">訂單編號</th>
                 <th class="text-left py-3 px-4 theme-text">審核人</th>
                 <th class="text-left py-3 px-4 theme-text">備註</th>
                 <th class="text-left py-3 px-4 theme-text">操作</th>
@@ -68,7 +70,46 @@
                 <tr
                   :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
                 >
-                  <td class="py-3 px-4 theme-text">{{ license.customerName || '-' }}</td>
+                  <td class="py-3 px-4 theme-text">
+                    <template v-if="(license.extensions || []).length > 0">
+                      <button
+                        type="button"
+                        class="inline-flex max-w-full items-center gap-1.5 rounded px-0.5 py-0.5 text-left -mx-0.5 cursor-pointer transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 theme-text"
+                        :class="
+                          conditionalClass(
+                            'focus-visible:ring-sky-400 focus-visible:ring-offset-[#0f172a]',
+                            'focus-visible:ring-blue-500 focus-visible:ring-offset-white',
+                          )
+                        "
+                        :aria-expanded="isLicenseExtensionsExpanded(license)"
+                        :aria-label="
+                          (isLicenseExtensionsExpanded(license) ? '收合' : '展開') +
+                          '副 LK，' +
+                          (license.customerName || '未命名客戶')
+                        "
+                        @click="handleToggleLicenseExtensions(license)"
+                      >
+                        <span class="min-w-0 break-words">{{ license.customerName || '-' }}</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          class="h-5 w-5 shrink-0 transition-transform duration-200"
+                          :class="isLicenseExtensionsExpanded(license) ? 'rotate-270' : 'rotate-90'"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    </template>
+                    <template v-else>
+                      {{ license.customerName || '-' }}
+                    </template>
+                  </td>
                   <td class="py-3 px-4 relative group">
                     <span
                       class="px-2 py-1 rounded-full text-xs leading-none"
@@ -114,7 +155,7 @@
                     </span>
                   </td>
                   <td class="py-3 px-4 theme-text text-sm">
-                    <div>{{ license.applicant || '-' }}</div>
+                    <div>{{ license.orderNumber || '-' }}</div>
                     <div class="text-xs opacity-70">
                       {{ license.appliedAt ? formatDate(license.appliedAt) : '-' }}
                     </div>
@@ -154,6 +195,19 @@
                         檢視
                       </button>
                       <button
+                        v-if="canExportLicensePdf(license)"
+                        type="button"
+                        @click="handleDownloadLicensePdf(license)"
+                        :disabled="pdfingLicense === licenseRowId(license)"
+                        class="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
+                      >
+                        <span
+                          v-if="pdfingLicense === licenseRowId(license)"
+                          class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
+                        ></span>
+                        產出 PDF
+                      </button>
+                      <button
                         v-if="license.status === 'active' && isAdmin && !license.parentLicenseKey"
                         @click="handleUnbindLicense(license)"
                         :disabled="unbindingLicense === licenseRowId(license)"
@@ -180,9 +234,10 @@
                     </div>
                   </td>
                 </tr>
-                <!-- 副 LK 列（展開在主 LK 下方） -->
+                <!-- 副 LK 列（預設收合，經主列客戶名稱展開） -->
                 <tr
                   v-for="(ext, extIdx) in license.extensions || []"
+                  v-show="isLicenseExtensionsExpanded(license)"
                   :key="licenseRowId(ext)"
                   :class="
                     conditionalClass(
@@ -235,7 +290,7 @@
                     </span>
                   </td>
                   <td class="py-3 px-4 theme-text text-sm">
-                    <div>{{ ext.applicant || '-' }}</div>
+                    <div>{{ ext.orderNumber || '-' }}</div>
                     <div class="text-xs opacity-70">
                       {{ ext.appliedAt ? formatDate(ext.appliedAt) : '-' }}
                     </div>
@@ -267,6 +322,19 @@
                         class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
                       >
                         檢視
+                      </button>
+                      <button
+                        v-if="canExportLicensePdf(ext)"
+                        type="button"
+                        @click="handleDownloadLicensePdf(ext)"
+                        :disabled="pdfingLicense === licenseRowId(ext)"
+                        class="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
+                      >
+                        <span
+                          v-if="pdfingLicense === licenseRowId(ext)"
+                          class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
+                        ></span>
+                        產出 PDF
                       </button>
                       <button
                         v-if="canDeleteLicense(ext)"
@@ -324,7 +392,8 @@
               class="text-xs text-center max-w-md px-2"
               :class="conditionalClass('text-slate-400', 'text-slate-500')"
             >
-              每頁 {{ licensePagination.itemsPerPage }} 筆主授權；副 LK 顯示於所屬主授權列下方。
+              每頁 {{ licensePagination.itemsPerPage }} 筆主授權；副 LK 預設收合，有副 LK
+              時可點客戶名稱展開／收合。
             </p>
           </div>
         </div>
@@ -339,7 +408,6 @@
       :ba-features="BA_FEATURES"
       :get-allowed-feature-keys-by-profile="getAllowedFeatureKeysByProfile"
       :get-feature-label="getFeatureLabel"
-      :default-applicant="userStore.account"
       @close="showCreateLicenseModal = false"
       @submit="handleCreateSubmit"
     />
@@ -354,7 +422,6 @@
       :existing-features="existingFeatures"
       :get-allowed-feature-keys-by-profile="getAllowedFeatureKeysByProfile"
       :get-feature-label="getFeatureLabel"
-      :default-applicant="userStore.account"
       @close="showExtendModal = false"
       @submit="handleExtendSubmit"
     />
@@ -430,6 +497,24 @@ const getFeatureTooltipText = (features) => {
 
 const licenseRowId = (row) => row?._id || row?.id
 
+/** 已展開副 LK 的主授權 id（預設皆收合，點客戶名稱後展開） */
+const expandedMainLicenseIds = ref(new Set())
+
+const isLicenseExtensionsExpanded = (license) => {
+  const id = licenseRowId(license)
+  if (!id) return false
+  return expandedMainLicenseIds.value.has(id)
+}
+
+const handleToggleLicenseExtensions = (license) => {
+  const id = licenseRowId(license)
+  if (!id) return
+  const next = new Set(expandedMainLicenseIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expandedMainLicenseIds.value = next
+}
+
 const getAllowedFeatureKeysByProfile = (deploymentProfile) => {
   if (deploymentProfile === 'construction') {
     return ['people_counting', 'environment', 'surveillance', 'vehicle_access']
@@ -460,6 +545,7 @@ const showCreateLicenseModal = ref(false)
 const showViewLicenseModal = ref(false)
 const showExtendModal = ref(false)
 const reviewingLicense = ref(null)
+const pdfingLicense = ref(null)
 const viewingLicense = ref(null)
 const creatingLicense = ref(false)
 const deletingLicense = ref(null)
@@ -540,6 +626,27 @@ const canDeleteLicense = (license) => {
   return false
 }
 
+/** 已產生 License Key 才可輸出 PDF（可啟用／使用中） */
+const canExportLicensePdf = (license) =>
+  Boolean(
+    license?.licenseKey &&
+      String(license.licenseKey).trim() &&
+      (license.status === 'available' || license.status === 'active'),
+  )
+
+const handleDownloadLicensePdf = async (license) => {
+  const id = licenseRowId(license)
+  if (!id) return
+  try {
+    pdfingLicense.value = id
+    await userStore.downloadLicensePdf(id, license.licenseKey || '')
+  } catch {
+    /* 錯誤提示已由 userStore 處理 */
+  } finally {
+    pdfingLicense.value = null
+  }
+}
+
 const handleViewLicense = (license) => {
   viewingLicense.value = license
   showViewLicenseModal.value = true
@@ -578,10 +685,11 @@ const handleCreateSubmit = async (result) => {
       product: 'BA-system',
       deploymentProfile: result.deploymentProfile,
       customerName: result.customerName,
-      applicant: result.applicant,
+      orderNumber: result.orderNumber,
       features: result.features,
       notes: result.notes || null,
       quotas: result.quotas || null,
+      imageFile: result.imageFile || null,
     })
     showCreateLicenseModal.value = false
     await fetchLicenses()
@@ -651,7 +759,7 @@ const handleExtendSubmit = async (result) => {
     extendingLicense.value = true
     await userStore.extendLicense(licenseRowId(extendTarget.value), {
       features: result.features,
-      applicant: result.applicant,
+      orderNumber: result.orderNumber,
       notes: result.notes || null,
       quotas: result.quotas || null,
     })

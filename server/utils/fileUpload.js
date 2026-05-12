@@ -59,7 +59,8 @@ class FileUpload {
 					"faqImages",
 					"coverImage",
 					"caseStudyImages",
-					"newsImages"
+					"newsImages",
+					"licenseImage"
 				],
 				// 文件欄位
 				documentFields: [
@@ -571,6 +572,36 @@ class FileUpload {
 			console.error(`儲存 ${entityType} 資產檔案過程失敗:`, error);
 			if (error instanceof ApiError) throw error;
 			throw new ApiError(500, `儲存 ${entityType} 資產檔案時發生錯誤: ${error.message}`);
+		}
+	}
+
+	/**
+	 * 審核通過後將授權附圖更名為 SerialNumber（主 LK）或 License Key（副 LK）。
+	 * @returns {string|null} 新虛擬路徑；無須變更或失敗為 null
+	 */
+	renameLicenseImageToSerialOrKey(license) {
+		const imageUrl = license?.imageUrl;
+		if (!imageUrl || typeof imageUrl !== "string") return null;
+
+		const namingSource = String(license.serialNumber || license.licenseKey || "").trim();
+		if (!namingSource) return null;
+
+		try {
+			const oldPhysical = this.webToPhysicalPath(imageUrl);
+			if (!fs.existsSync(oldPhysical)) return null;
+
+			const ext = path.extname(oldPhysical) || ".jpg";
+			const newFileName = `${this.sanitizeFileName(namingSource)}${ext}`;
+			const newPhysical = path.join(path.dirname(oldPhysical), newFileName);
+			if (path.normalize(oldPhysical) === path.normalize(newPhysical)) return null;
+			if (fs.existsSync(newPhysical)) fs.unlinkSync(newPhysical);
+			fs.renameSync(oldPhysical, newPhysical);
+
+			const dirWeb = imageUrl.slice(0, imageUrl.lastIndexOf("/"));
+			return `${dirWeb}/${newFileName}`;
+		} catch (error) {
+			console.error("renameLicenseImageToSerialOrKey 失敗:", error);
+			return null;
 		}
 	}
 

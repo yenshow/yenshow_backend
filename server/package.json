@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
+    "postinstall": "node scripts/fetch-license-font.js",
     "dev": "nodemon app.js",
     "init-database": "node scripts/mongoDB/init-database.js",
     "cleanup-orphans": "node scripts/mongoDB/cleanup-orphans.js",
@@ -40,6 +41,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
+    "pdfkit": "^0.18.0",
     "qrcode": "^1.5.4",
     "resend": "^4.5.1",
     "sharp": "^0.33.5",

@@ -1,8 +1,5 @@
 <template>
-  <div
-    v-if="open"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
-  >
+  <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
     <div
       role="dialog"
       aria-modal="true"
@@ -60,11 +57,11 @@
           </div>
 
           <div>
-            <label class="block theme-text mb-2">申請人 *</label>
+            <label class="block theme-text mb-2">訂單編號 *</label>
             <input
-              v-model="licenseDraft.applicant"
+              v-model="licenseDraft.orderNumber"
               type="text"
-              placeholder="請輸入申請人"
+              placeholder="請輸入訂單編號"
               class="w-full px-4 py-2 rounded-lg border"
               :class="
                 conditionalClass(
@@ -173,6 +170,68 @@
           </p>
         </div>
 
+        <div class="mb-6">
+          <label class="block theme-text mb-3">附圖（選填）</label>
+          <div
+            class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
+            :class="conditionalClass('border-gray-600', 'border-gray-300')"
+            role="button"
+            tabindex="0"
+            aria-label="上傳授權附圖"
+            @click="imageInputRef?.click()"
+            @keydown.enter.prevent="imageInputRef?.click()"
+            @keydown.space.prevent="imageInputRef?.click()"
+          >
+            <div class="space-y-1 text-center">
+              <svg
+                class="mx-auto h-12 w-12"
+                :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                stroke="currentColor"
+                fill="none"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                />
+              </svg>
+              <p class="pl-1 theme-text">點擊上傳圖片</p>
+            </div>
+            <input
+              ref="imageInputRef"
+              type="file"
+              accept="image/*"
+              class="hidden"
+              aria-label="選擇授權附圖檔案"
+              @change="handleLicenseImageChange"
+            />
+          </div>
+          <div v-if="imagePreview" class="mt-4 max-w-md">
+            <div class="relative group">
+              <img
+                :src="imagePreview"
+                alt="授權附圖預覽"
+                class="w-full max-h-72 object-contain rounded-md border"
+                :class="
+                  conditionalClass('border-gray-600 bg-[#1f2732]', 'border-slate-300 bg-slate-50')
+                "
+              />
+              <button
+                type="button"
+                class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-75 group-hover:opacity-100 cursor-pointer"
+                title="移除圖片"
+                aria-label="移除圖片"
+                @click.stop="clearLicenseImageSelection"
+              >
+                &#x2715;
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div>
           <label class="block theme-text mb-2">備註</label>
           <textarea
@@ -196,7 +255,7 @@
           :disabled="
             submitting ||
             !licenseDraft.customerName ||
-            !licenseDraft.applicant ||
+            !licenseDraft.orderNumber?.trim() ||
             licenseDraft.features.length === 0 ||
             !licenseDraft.deploymentProfile
           "
@@ -231,7 +290,6 @@ const props = defineProps({
   baFeatures: { type: Array, required: true },
   getAllowedFeatureKeysByProfile: { type: Function, required: true },
   getFeatureLabel: { type: Function, required: true },
-  defaultApplicant: { type: String, default: '' },
 })
 
 const emit = defineEmits(['close', 'submit'])
@@ -239,20 +297,35 @@ const emit = defineEmits(['close', 'submit'])
 const licenseDraft = ref({
   deploymentProfile: 'central',
   customerName: '',
-  applicant: '',
+  orderNumber: '',
   features: [],
   notes: '',
 })
 const quotaDraft = ref({})
+const imageInputRef = ref(null)
+const imageFile = ref(null)
+const imagePreview = ref('')
+
+const clearLicenseImageSelection = () => {
+  if (imagePreview.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(imagePreview.value)
+  }
+  imagePreview.value = ''
+  imageFile.value = null
+  if (imageInputRef.value) {
+    imageInputRef.value.value = ''
+  }
+}
 
 watch(
   () => props.open,
   (isOpen) => {
+    clearLicenseImageSelection()
     if (!isOpen) return
     licenseDraft.value = {
       deploymentProfile: 'central',
       customerName: '',
-      applicant: props.defaultApplicant || '',
+      orderNumber: '',
       features: [],
       notes: '',
     }
@@ -316,9 +389,24 @@ const orderedSelectedFeatures = computed(() => {
   })
 })
 
+const handleLicenseImageChange = (event) => {
+  const input = event.target
+  const file = input?.files?.[0]
+  if (!file || !file.type.startsWith('image/')) {
+    if (input) input.value = ''
+    return
+  }
+  if (imagePreview.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(imagePreview.value)
+  }
+  imageFile.value = file
+  imagePreview.value = URL.createObjectURL(file)
+}
+
 const handleSubmit = () => {
   if (!licenseDraft.value.customerName) return
-  if (!licenseDraft.value.applicant) return
+  const orderNo = (licenseDraft.value.orderNumber || '').trim()
+  if (!orderNo) return
   if ((licenseDraft.value.features || []).length === 0) return
 
   const quotasResult = buildLicenseQuotasPayload({
@@ -334,10 +422,11 @@ const handleSubmit = () => {
   emit('submit', {
     deploymentProfile: licenseDraft.value.deploymentProfile,
     customerName: licenseDraft.value.customerName,
-    applicant: licenseDraft.value.applicant,
+    orderNumber: orderNo,
     features: licenseDraft.value.features,
     notes: licenseDraft.value.notes || null,
     quotas: quotasResult.quotas,
+    imageFile: imageFile.value,
   })
 }
 

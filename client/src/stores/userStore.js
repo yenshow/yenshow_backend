@@ -423,7 +423,7 @@ export const useUserStore = defineStore(
             product: licenseData.product,
             deploymentProfile: licenseData.deploymentProfile,
             customerName: licenseData.customerName,
-            applicant: licenseData.applicant,
+            orderNumber: licenseData.orderNumber,
             notes: licenseData.notes || null,
           }
           if (licenseData.product === 'BA-system' && Array.isArray(licenseData.features)) {
@@ -432,7 +432,17 @@ export const useUserStore = defineStore(
           if (licenseData.product === 'BA-system') {
             requestBody.quotas = licenseData.quotas || null
           }
-          const { data } = await apiAuth.post('/api/users/licenses', requestBody)
+
+          const hasImage = licenseData.imageFile instanceof File
+          let requestPayload = requestBody
+          if (hasImage) {
+            const fd = new FormData()
+            fd.append('licenseDataPayload', JSON.stringify(requestBody))
+            fd.append('licenseImage', licenseData.imageFile)
+            requestPayload = fd
+          }
+
+          const { data } = await apiAuth.post('/api/users/licenses', requestPayload)
 
           if (!data || !data.success) {
             throw new Error(data?.message || '創建授權失敗')
@@ -483,7 +493,7 @@ export const useUserStore = defineStore(
         async () => {
           const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/extend`, {
             features: extensionData.features,
-            applicant: extensionData.applicant,
+            orderNumber: extensionData.orderNumber,
             notes: extensionData.notes || null,
             quotas: extensionData.quotas || null,
           })
@@ -550,6 +560,73 @@ export const useUserStore = defineStore(
       )
     }
 
+    const downloadLicensePdf = async (licenseId, licenseKeyFallback = '') => {
+      try {
+        const response = await apiAuth.get(`/api/users/licenses/${licenseId}/pdf`, {
+          responseType: 'blob',
+        })
+
+        const blob = response.data
+        const contentType = (response.headers['content-type'] || '').toLowerCase()
+
+        if (!(blob instanceof Blob) || !contentType.includes('application/pdf')) {
+          let message = '下載 PDF 失敗'
+          if (blob instanceof Blob) {
+            const text = await blob.text()
+            try {
+              const parsed = JSON.parse(text)
+              if (parsed?.message) message = parsed.message
+            } catch {
+              /* 非 JSON */
+            }
+          }
+          throw new Error(message)
+        }
+
+        const cd = response.headers['content-disposition'] || response.headers['Content-Disposition'] || ''
+        let filename = ''
+        const star = cd.match(/filename\*=UTF-8''([^;]+)/i)
+        if (star?.[1]) {
+          filename = decodeURIComponent(star[1].replace(/["']/g, '').trim())
+        } else {
+          const plain = cd.match(/filename="([^"]+)"/i) || cd.match(/filename=([^;\s]+)/i)
+          if (plain?.[1]) filename = plain[1].replace(/["']/g, '').trim()
+        }
+
+        if (!filename) {
+          const safe = String(licenseKeyFallback || 'license').replace(/[^a-zA-Z0-9-_]/g, '_')
+          filename = `BA-System-License-${safe}.pdf`
+        }
+
+        const url = window.URL.createObjectURL(blob)
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = filename
+        anchor.rel = 'noopener'
+        document.body.appendChild(anchor)
+        anchor.click()
+        anchor.remove()
+        window.URL.revokeObjectURL(url)
+
+        notify.notifySuccess('PDF 下載完成')
+        return { success: true, message: 'PDF 下載完成' }
+      } catch (error) {
+        if (error?.response?.data instanceof Blob) {
+          try {
+            const text = await error.response.data.text()
+            const parsed = JSON.parse(text)
+            if (parsed?.message) {
+              error.message = parsed.message
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        notify.handleApiError(error, { defaultMessage: '下載 PDF 失敗', showToast: true })
+        throw error
+      }
+    }
+
     // ===== 客戶端功能 =====
 
     return {
@@ -590,6 +667,7 @@ export const useUserStore = defineStore(
       extendLicense,
       unbindLicense,
       deleteLicense,
+      downloadLicensePdf,
 
       // 客戶端功能
     }
