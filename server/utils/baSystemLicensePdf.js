@@ -6,7 +6,7 @@ import { transliterate } from "transliteration";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NOTO_PATH = path.join(__dirname, "../fonts/NotoSansTC-Regular.otf");
-const YENSHOW_LOGO_PATH = path.join(__dirname, "../../client/public/YENSHOW LOGO.png");
+const YENSHOW_LOGO_PATH = path.join(__dirname, "../assets/yenshow-logo.png");
 
 const PAGE_W = 595.28;
 const PAGE_H = 841.89;
@@ -182,7 +182,7 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 
 			const tableTop = y;
 
-			const twoColRow = (label, value, valueRed = false) => {
+			const twoColRow = (label, value) => {
 				ensureSpace(ROW_H);
 				drawHLine(y);
 				doc.font("Helvetica-Bold").fontSize(11).fillColor(BLACK);
@@ -195,10 +195,10 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 				y += ROW_H;
 			};
 
-			twoColRow("Purchase Order", orderDisp, true);
-			twoColRow("Activation Code", licenseKey, true);
-			twoColRow("License Type", licenseTypeLabel, true);
-			twoColRow("Expiry Date", "2099-12-31", false);
+			twoColRow("Purchase Order", orderDisp);
+			twoColRow("Activation Code", licenseKey);
+			twoColRow("License Type", licenseTypeLabel);
+			twoColRow("Expiry Date", "2099-12-31");
 
 			ensureSpace(ROW_H);
 			const smTop = y;
