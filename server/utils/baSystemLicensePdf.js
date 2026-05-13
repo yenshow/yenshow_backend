@@ -173,14 +173,21 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 				doc.restore();
 			};
 
+			const tableTop = y;
+			/** 表格外框左／右線在目前頁的起點（換頁時會重設，避免跨頁單線座標錯亂） */
+			let outerTableSegmentTop = tableTop;
+
+			const PAGE_TABLE_BOTTOM = PAGE_H - M - FOOTER_RESERVE;
+
 			const ensureSpace = (need) => {
-				if (y + need <= PAGE_H - M - FOOTER_RESERVE) return;
+				if (y + need <= PAGE_TABLE_BOTTOM) return;
+				drawVLine(TABLE_LEFT, outerTableSegmentTop, PAGE_TABLE_BOTTOM);
+				drawVLine(TABLE_LEFT + TABLE_W, outerTableSegmentTop, PAGE_TABLE_BOTTOM);
 				doc.addPage();
 				drawGreenFrame();
 				y = M + 16;
+				outerTableSegmentTop = y;
 			};
-
-			const tableTop = y;
 
 			const twoColRow = (label, value) => {
 				ensureSpace(ROW_H);
@@ -278,8 +285,8 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 			renderThreeColSection("Application", appRows);
 
 			drawHLine(y);
-			drawVLine(TABLE_LEFT, tableTop, y);
-			drawVLine(TABLE_LEFT + TABLE_W, tableTop, y);
+			drawVLine(TABLE_LEFT, outerTableSegmentTop, y);
+			drawVLine(TABLE_LEFT + TABLE_W, outerTableSegmentTop, y);
 
 			y += 16;
 			doc.font("Helvetica").fontSize(11).fillColor("#333333");
