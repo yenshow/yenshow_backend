@@ -171,16 +171,16 @@
         </div>
 
         <div class="mb-6">
-          <label class="block theme-text mb-3">附圖（選填）</label>
+          <label class="block theme-text mb-3">附檔（選填，圖片或 PDF）</label>
           <div
             class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
             :class="conditionalClass('border-gray-600', 'border-gray-300')"
             role="button"
             tabindex="0"
-            aria-label="上傳授權附圖"
-            @click="imageInputRef?.click()"
-            @keydown.enter.prevent="imageInputRef?.click()"
-            @keydown.space.prevent="imageInputRef?.click()"
+            aria-label="上傳授權附檔，支援圖片或 PDF"
+            @click="attachmentInputRef?.click()"
+            @keydown.enter.prevent="attachmentInputRef?.click()"
+            @keydown.space.prevent="attachmentInputRef?.click()"
           >
             <div class="space-y-1 text-center">
               <svg
@@ -195,36 +195,56 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="1.5"
-                  d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
                 />
               </svg>
-              <p class="pl-1 theme-text">點擊上傳圖片</p>
+              <p class="pl-1 theme-text">點擊上傳圖片或 PDF</p>
             </div>
             <input
-              ref="imageInputRef"
+              ref="attachmentInputRef"
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf,.pdf"
               class="hidden"
-              aria-label="選擇授權附圖檔案"
-              @change="handleLicenseImageChange"
+              aria-label="選擇授權附檔（圖片或 PDF）"
+              @change="handleLicenseAttachmentChange"
             />
           </div>
-          <div v-if="imagePreview" class="mt-4 max-w-md">
+          <div v-if="attachmentPreview" class="mt-4 max-w-md">
             <div class="relative group">
               <img
-                :src="imagePreview"
-                alt="授權附圖預覽"
+                v-if="attachmentPreviewType === 'image'"
+                :src="attachmentPreview"
+                alt="授權附檔預覽"
                 class="w-full max-h-72 object-contain rounded-md border"
                 :class="
                   conditionalClass('border-gray-600 bg-[#1f2732]', 'border-slate-300 bg-slate-50')
                 "
               />
+              <div
+                v-else
+                class="flex items-center gap-3 px-4 py-3 rounded-md border"
+                :class="
+                  conditionalClass('border-gray-600 bg-[#1f2732]', 'border-slate-300 bg-slate-50')
+                "
+              >
+                <svg
+                  class="h-10 w-10 shrink-0 text-red-500"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM8 12h8v2H8v-2zm0 4h5v2H8v-2z"
+                  />
+                </svg>
+                <p class="theme-text text-sm break-all">{{ attachmentFileName }}</p>
+              </div>
               <button
                 type="button"
                 class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-75 group-hover:opacity-100 cursor-pointer"
-                title="移除圖片"
-                aria-label="移除圖片"
-                @click.stop="clearLicenseImageSelection"
+                title="移除附檔"
+                aria-label="移除附檔"
+                @click.stop="clearLicenseAttachmentSelection"
               >
                 &#x2715;
               </button>
@@ -302,25 +322,35 @@ const licenseDraft = ref({
   notes: '',
 })
 const quotaDraft = ref({})
-const imageInputRef = ref(null)
+const attachmentInputRef = ref(null)
 const imageFile = ref(null)
-const imagePreview = ref('')
+const attachmentPreview = ref('')
+const attachmentPreviewType = ref('')
+const attachmentFileName = ref('')
 
-const clearLicenseImageSelection = () => {
-  if (imagePreview.value?.startsWith('blob:')) {
-    URL.revokeObjectURL(imagePreview.value)
+const isLicenseAttachmentFile = (file) => {
+  if (!file) return false
+  if (file.type.startsWith('image/')) return true
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '')
+}
+
+const clearLicenseAttachmentSelection = () => {
+  if (attachmentPreview.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(attachmentPreview.value)
   }
-  imagePreview.value = ''
+  attachmentPreview.value = ''
+  attachmentPreviewType.value = ''
+  attachmentFileName.value = ''
   imageFile.value = null
-  if (imageInputRef.value) {
-    imageInputRef.value.value = ''
+  if (attachmentInputRef.value) {
+    attachmentInputRef.value.value = ''
   }
 }
 
 watch(
   () => props.open,
   (isOpen) => {
-    clearLicenseImageSelection()
+    clearLicenseAttachmentSelection()
     if (!isOpen) return
     licenseDraft.value = {
       deploymentProfile: 'central',
@@ -389,18 +419,25 @@ const orderedSelectedFeatures = computed(() => {
   })
 })
 
-const handleLicenseImageChange = (event) => {
+const handleLicenseAttachmentChange = (event) => {
   const input = event.target
   const file = input?.files?.[0]
-  if (!file || !file.type.startsWith('image/')) {
+  if (!file || !isLicenseAttachmentFile(file)) {
     if (input) input.value = ''
     return
   }
-  if (imagePreview.value?.startsWith('blob:')) {
-    URL.revokeObjectURL(imagePreview.value)
+  if (attachmentPreview.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(attachmentPreview.value)
   }
   imageFile.value = file
-  imagePreview.value = URL.createObjectURL(file)
+  attachmentFileName.value = file.name
+  if (file.type.startsWith('image/')) {
+    attachmentPreviewType.value = 'image'
+    attachmentPreview.value = URL.createObjectURL(file)
+    return
+  }
+  attachmentPreviewType.value = 'pdf'
+  attachmentPreview.value = 'pdf'
 }
 
 const handleSubmit = () => {

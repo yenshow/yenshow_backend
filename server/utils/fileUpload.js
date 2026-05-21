@@ -59,8 +59,7 @@ class FileUpload {
 					"faqImages",
 					"coverImage",
 					"caseStudyImages",
-					"newsImages",
-					"licenseImage"
+					"newsImages"
 				],
 				// 文件欄位
 				documentFields: [
@@ -75,6 +74,16 @@ class FileUpload {
 				// 影片欄位
 				videoFields: ["contentVideos", "videos", "faqVideos", "caseStudyVideos", "newsVideos"]
 			};
+
+			// 授權申請附件：圖片或 PDF
+			if (file.fieldname === "licenseImage") {
+				const isImage = file.mimetype.startsWith("image/");
+				const isPdf = file.mimetype === "application/pdf";
+				if (!isImage && !isPdf) {
+					return cb(new ApiError(400, "licenseImage 只允許上傳圖片或 PDF 檔案"), false);
+				}
+				return cb(null, true);
+			}
 
 			// 檢查檔案類型
 			if (fileTypeRules.imageFields.includes(file.fieldname)) {

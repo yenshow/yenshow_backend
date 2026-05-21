@@ -457,20 +457,25 @@ export const createLicense = async (req, res, next) => {
 			notes: notes || null
 		});
 
-		const img = req.file;
-		if (img?.buffer) {
+		const attachment = req.file;
+		if (attachment?.buffer) {
 			try {
+				const isPdf =
+					attachment.mimetype === "application/pdf" ||
+					/\.pdf$/i.test(attachment.originalname || "");
+				const assetCategory = isPdf ? "documents" : "images";
+				const assetPrefix = isPdf ? "license_doc" : "license_img";
 				newLicense.imageUrl = fileUpload.saveAsset(
-					img.buffer,
+					attachment.buffer,
 					"licenses",
 					{ id: newLicense._id.toString() },
-					"images",
-					img.originalname,
-					"license_img"
+					assetCategory,
+					attachment.originalname,
+					assetPrefix
 				);
 				await newLicense.save();
 			} catch (err) {
-				console.error("授權附圖儲存失敗:", err);
+				console.error("授權附件儲存失敗:", err);
 			}
 		}
 

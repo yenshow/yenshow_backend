@@ -224,19 +224,19 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 
 			const renderThreeColSection = (sectionLabel, rows) => {
 				const safeRows = Array.isArray(rows) && rows.length > 0 ? rows : [{ mid: "-", right: "-" }];
-				const blockH = (safeRows.length + 1) * ROW_H;
-				ensureSpace(blockH);
 
-				const top = y;
-				drawHLine(top);
-
-				// 表頭列：同 Purchase/Expiry 的排版（左 label + 右空白，只有一條分隔線）
+				// 逐列換頁：避免整段 blockH 放不下時整塊推到下一頁、上一頁留下大片空白
+				ensureSpace(ROW_H);
+				const headerTop = y;
+				drawHLine(headerTop);
 				doc.font("Helvetica-Bold").fontSize(11).fillColor(BLACK);
-				doc.text(sectionLabel, TABLE_LEFT + cellPad, top + cellPad, { width: LABEL_W - 2 * cellPad });
-				drawVLine(TABLE_LEFT + LABEL_W, top, top + ROW_H);
+				doc.text(sectionLabel, TABLE_LEFT + cellPad, headerTop + cellPad, { width: LABEL_W - 2 * cellPad });
+				drawVLine(TABLE_LEFT + LABEL_W, headerTop, headerTop + ROW_H);
+				y += ROW_H;
 
-				let rowY = top + ROW_H;
 				for (let i = 0; i < safeRows.length; i++) {
+					ensureSpace(ROW_H);
+					const rowY = y;
 					drawHLine(rowY);
 					drawVLine(TABLE_LEFT + LABEL_W, rowY, rowY + ROW_H);
 					drawVLine(TABLE_LEFT + LABEL_W + MID_W, rowY, rowY + ROW_H);
@@ -256,9 +256,8 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 							width: TABLE_W - LABEL_W - MID_W - 2 * cellPad
 						});
 
-					rowY += ROW_H;
+					y += ROW_H;
 				}
-				y = top + blockH;
 			};
 
 			renderThreeColSection("Addition", [

@@ -189,8 +189,34 @@
         </div>
 
         <div v-if="src.imageUrl">
-          <label class="block theme-text mb-2">附圖</label>
+          <label class="block theme-text mb-2">附檔</label>
           <a
+            v-if="isAttachmentPdf"
+            :href="src.imageUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 px-4 py-3 rounded-lg border transition outline-none ring-offset-2 ring-offset-transparent focus-visible:ring-2 focus-visible:ring-blue-500 hover:opacity-95 theme-text"
+            :class="readonlyBoxClass"
+            :title="`在新分頁開啟 PDF：${attachmentDisplayName}`"
+            :aria-label="`在新分頁開啟 PDF：${attachmentDisplayName}`"
+          >
+            <svg
+              class="h-8 w-8 shrink-0 text-red-500"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM8 12h8v2H8v-2zm0 4h5v2H8v-2z"
+              />
+            </svg>
+            <span class="text-sm break-all underline-offset-2 hover:underline">
+              {{ attachmentDisplayName }}
+            </span>
+            <span class="text-xs opacity-70 shrink-0">（新分頁開啟）</span>
+          </a>
+          <a
+            v-else
             :href="src.imageUrl"
             target="_blank"
             rel="noopener noreferrer"
@@ -247,6 +273,28 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const src = computed(() => (props.open ? props.license : null))
+
+const isAttachmentPdf = computed(() => {
+  const url = src.value?.imageUrl
+  if (!url || typeof url !== 'string') return false
+  try {
+    const pathname = new URL(url, window.location.origin).pathname
+    return /\.pdf$/i.test(pathname) || pathname.includes('/documents/')
+  } catch {
+    return /\.pdf$/i.test(url) || url.includes('/documents/')
+  }
+})
+
+const attachmentDisplayName = computed(() => {
+  const url = src.value?.imageUrl
+  if (!url || typeof url !== 'string') return '附件'
+  const segment = url.split('/').filter(Boolean).pop() || '附件'
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
+})
 
 const readonlyBoxClass = computed(() =>
   props.conditionalClass('bg-[#2A3441] border-gray-600', 'bg-white border-slate-300'),
