@@ -585,33 +585,17 @@ class FileUpload {
 	}
 
 	/**
-	 * 審核通過後將授權附圖更名為 SerialNumber（主 LK）或 License Key（副 LK）。
-	 * @returns {string|null} 新虛擬路徑；無須變更或失敗為 null
+	 * 授權附檔儲存檔名與分類（license_訂單編號_YYYYMMDD.ext）
 	 */
-	renameLicenseImageToSerialOrKey(license) {
-		const imageUrl = license?.imageUrl;
-		if (!imageUrl || typeof imageUrl !== "string") return null;
-
-		const namingSource = String(license.serialNumber || license.licenseKey || "").trim();
-		if (!namingSource) return null;
-
-		try {
-			const oldPhysical = this.webToPhysicalPath(imageUrl);
-			if (!fs.existsSync(oldPhysical)) return null;
-
-			const ext = path.extname(oldPhysical) || ".jpg";
-			const newFileName = `${this.sanitizeFileName(namingSource)}${ext}`;
-			const newPhysical = path.join(path.dirname(oldPhysical), newFileName);
-			if (path.normalize(oldPhysical) === path.normalize(newPhysical)) return null;
-			if (fs.existsSync(newPhysical)) fs.unlinkSync(newPhysical);
-			fs.renameSync(oldPhysical, newPhysical);
-
-			const dirWeb = imageUrl.slice(0, imageUrl.lastIndexOf("/"));
-			return `${dirWeb}/${newFileName}`;
-		} catch (error) {
-			console.error("renameLicenseImageToSerialOrKey 失敗:", error);
-			return null;
-		}
+	resolveLicenseAttachmentMeta(orderNumber, originalName, mimetype) {
+		const isPdf = mimetype === "application/pdf" || /\.pdf$/i.test(originalName || "");
+		const ext = path.extname(originalName || "") || (isPdf ? ".pdf" : ".jpg");
+		const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+		const safeOrder = this.sanitizeFileName(String(orderNumber || "").trim()) || "order";
+		return {
+			fileName: `license_${safeOrder}_${dateStr}${ext.toLowerCase()}`,
+			assetCategory: isPdf ? "documents" : "images"
+		};
 	}
 
 	/**

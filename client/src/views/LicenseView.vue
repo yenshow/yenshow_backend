@@ -611,12 +611,14 @@ const existingFeatures = computed(() => {
   return [...new Set([...main, ...exts])]
 })
 
-// 此頁僅 staff/admin（路由 requiresStaffOrAdmin）；追加僅主 LK 且已審核、狀態為可啟用／使用中
+// 追加僅主 LK；審核中／可啟用／使用中皆可
 const canExtendMainLicense = (license) =>
   Boolean(
-    license?.licenseKey &&
+    license &&
       !license.parentLicenseKey &&
-      (license.status === 'available' || license.status === 'active'),
+      (license.status === 'pending' ||
+        license.status === 'available' ||
+        license.status === 'active'),
   )
 
 const canDeleteLicense = (license) => {

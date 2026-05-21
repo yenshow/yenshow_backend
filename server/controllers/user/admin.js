@@ -7,6 +7,84 @@ import crypto from "crypto";
 import fileUpload from "../../utils/fileUpload.js";
 import { buildBaSystemLicensePdfBuffer } from "../../utils/baSystemLicensePdf.js";
 
+const LICENSE_EXT_SORT = { appliedAt: 1, createdAt: 1, _id: 1 };
+
+const applyStaffApplicantFilter = (query, staffAcc) => {
+	if (staffAcc) query.applicant = staffAcc;
+	return query;
+};
+
+/** 查詢主 LK 底下副授權（含審核前以 parentLicenseId 暫掛者） */
+const buildMainLicenseChildrenFilter = (mainLicense) => {
+	const parentId = mainLicense._id?.toString();
+	const or = parentId ? [{ parentLicenseId: parentId }] : [];
+	if (mainLicense.licenseKey) or.push({ parentLicenseKey: mainLicense.licenseKey });
+	return or.length === 1 ? or[0] : { $or: or };
+};
+
+const groupExtensionsBy = (extensions, field) => {
+	const map = {};
+	for (const ext of extensions) {
+		const key = ext[field];
+		if (!key) continue;
+		if (!map[key]) map[key] = [];
+		map[key].push(ext);
+	}
+	return map;
+};
+
+const attachExtensionsToMainLicenses = async (licenses, staffAcc) => {
+	const licenseKeys = licenses.map((l) => l.licenseKey).filter((k) => typeof k === "string" && k.length > 0);
+	const pendingParentIds = licenses
+		.filter((l) => !l.parentLicenseKey && !l.licenseKey)
+		.map((l) => (l._id != null ? String(l._id) : null))
+		.filter(Boolean);
+
+	const fetches = [];
+	if (licenseKeys.length > 0) {
+		fetches.push(
+			License.collection
+				.find(applyStaffApplicantFilter({ parentLicenseKey: { $in: licenseKeys } }, staffAcc))
+				.sort(LICENSE_EXT_SORT)
+				.toArray()
+		);
+	}
+	if (pendingParentIds.length > 0) {
+		fetches.push(
+			License.collection
+				.find(applyStaffApplicantFilter({ parentLicenseId: { $in: pendingParentIds } }, staffAcc))
+				.sort(LICENSE_EXT_SORT)
+				.toArray()
+		);
+	}
+
+	const fetchResults = await Promise.all(fetches);
+	let ri = 0;
+	const byKeyExts = licenseKeys.length > 0 ? fetchResults[ri++] : [];
+	const byIdExts = pendingParentIds.length > 0 ? fetchResults[ri++] : [];
+	const extensionMap = groupExtensionsBy(byKeyExts, "parentLicenseKey");
+	const extensionMapByParentId = groupExtensionsBy(byIdExts, "parentLicenseId");
+
+	for (const license of licenses) {
+		const parentId = license._id != null ? String(license._id) : null;
+		const byKey = license.licenseKey ? extensionMap[license.licenseKey] || [] : [];
+		const byId = parentId ? extensionMapByParentId[parentId] || [] : [];
+		license.extensions = [...byKey, ...byId];
+	}
+};
+
+/** 主 LK 審核通過後，將以 parentLicenseId 暫掛的副授權改為 parentLicenseKey */
+const linkPendingExtensionsToMainLicenseKey = async (mainLicense) => {
+	if (!mainLicense?.licenseKey || mainLicense.parentLicenseKey) return;
+	const parentId = mainLicense._id?.toString();
+	if (!parentId) return;
+
+	await License.updateMany(
+		{ parentLicenseId: parentId },
+		{ $set: { parentLicenseKey: mainLicense.licenseKey }, $unset: { parentLicenseId: "" } }
+	);
+};
+
 /**
  * 獲取用戶列表 (支援過濾)
  */
@@ -198,35 +276,8 @@ export const getLicenses = async (req, res, next) => {
 		let licenses = await License.find(filter).sort(sort).lean();
 
 		if (!includeExtensions) {
-			// 注意：app.js 開了 mongoose.set("sanitizeFilter", true)
-			// 這會影響 $in 等 operator 在 Mongoose filter 的使用，因此這裡改用 native driver 一次抓回所有副 LK，避免 N+1 查詢。
-			const licenseKeys = licenses
-				.map((l) => l.licenseKey)
-				.filter((k) => typeof k === "string" && k.length > 0);
-
-			const extensionMap = {};
-
-			if (licenseKeys.length > 0) {
-				const extQuery = { parentLicenseKey: { $in: licenseKeys } };
-				if (staffAcc) {
-					extQuery.applicant = staffAcc;
-				}
-				const extensions = await License.collection
-					.find(extQuery)
-					.sort({ appliedAt: 1, createdAt: 1, _id: 1 })
-					.toArray();
-
-				for (const ext of extensions) {
-					const parentKey = ext.parentLicenseKey;
-					if (!parentKey) continue;
-					if (!extensionMap[parentKey]) extensionMap[parentKey] = [];
-					extensionMap[parentKey].push(ext);
-				}
-			}
-
-			for (const license of licenses) {
-				license.extensions = license.licenseKey ? extensionMap[license.licenseKey] || [] : [];
-			}
+			// sanitizeFilter 下 $in 需用 native driver，一次載入副 LK 避免 N+1
+			await attachExtensionsToMainLicenses(licenses, staffAcc);
 		}
 
 		return successResponse(res, StatusCodes.OK, "獲取授權列表成功", { licenses });
@@ -259,16 +310,10 @@ export const getLicense = async (req, res, next) => {
 		}
 
 		let extensions = [];
-		if (license.licenseKey && !license.parentLicenseKey) {
-			const extQuery = { parentLicenseKey: license.licenseKey };
-			if (staffAcc) {
-				extQuery.applicant = staffAcc;
-			}
-			extensions = await License.find(extQuery).sort({
-				appliedAt: 1,
-				createdAt: 1,
-				_id: 1
-			});
+		if (!license.parentLicenseKey) {
+			extensions = await License.find(
+				applyStaffApplicantFilter(buildMainLicenseChildrenFilter(license), staffAcc)
+			).sort(LICENSE_EXT_SORT);
 		}
 
 		return successResponse(res, StatusCodes.OK, "獲取授權成功", { license, extensions });
@@ -460,18 +505,18 @@ export const createLicense = async (req, res, next) => {
 		const attachment = req.file;
 		if (attachment?.buffer) {
 			try {
-				const isPdf =
-					attachment.mimetype === "application/pdf" ||
-					/\.pdf$/i.test(attachment.originalname || "");
-				const assetCategory = isPdf ? "documents" : "images";
-				const assetPrefix = isPdf ? "license_doc" : "license_img";
+				const { fileName, assetCategory } = fileUpload.resolveLicenseAttachmentMeta(
+					orderNo,
+					attachment.originalname,
+					attachment.mimetype
+				);
 				newLicense.imageUrl = fileUpload.saveAsset(
 					attachment.buffer,
 					"licenses",
 					{ id: newLicense._id.toString() },
 					assetCategory,
-					attachment.originalname,
-					assetPrefix
+					fileName,
+					""
 				);
 				await newLicense.save();
 			} catch (err) {
@@ -516,16 +561,26 @@ export const reviewLicense = async (req, res, next) => {
 			throw ApiError.badRequest("此授權已經審核過，無法再次審核");
 		}
 
-		await applyLicenseKeysForAvailable(license, "review");
+		if (license.parentLicenseId && !license.parentLicenseKey) {
+			const parent = await License.findById(license.parentLicenseId);
+			if (!parent?.licenseKey) {
+				throw ApiError.badRequest("請先審核主授權後，再審核副授權");
+			}
+			license.parentLicenseKey = parent.licenseKey;
+			license.parentLicenseId = null;
+		}
 
-		const renamed = fileUpload.renameLicenseImageToSerialOrKey(license);
-		if (renamed) license.imageUrl = renamed;
+		await applyLicenseKeysForAvailable(license, "review");
 
 		license.status = "available";
 		license.reviewer = reviewer;
 		license.reviewedAt = new Date();
 
 		await license.save();
+
+		if (!license.parentLicenseKey) {
+			await linkPendingExtensionsToMainLicenseKey(license);
+		}
 
 		return successResponse(res, StatusCodes.OK, "授權審核成功", { license });
 	} catch (error) {
@@ -644,7 +699,8 @@ const applyLicenseKeysForAvailable = async (license, mode) => {
 /**
  * 追加授權 → 建立副授權申請（pending，尚無 licenseKey）
  * POST /api/users/licenses/:id/extend
- * 只能對已審核的主 LK 追加授權；須再呼叫 review 才產生副 LK
+ * 主 LK 為審核中時以 parentLicenseId 暫掛；主 LK 審核通過後改寫為 parentLicenseKey。
+ * 須再呼叫 review 才產生副 LK 的 licenseKey。
  */
 export const extendLicense = async (req, res, next) => {
 	try {
@@ -660,12 +716,13 @@ export const extendLicense = async (req, res, next) => {
 			throw ApiError.badRequest("無法對副 LK 追加授權，請選擇主授權");
 		}
 
-		if (!parentLicense.licenseKey) {
-			throw ApiError.badRequest("主授權尚未審核，請先完成審核");
-		}
-
-		if (!["available", "active"].includes(parentLicense.status)) {
-			throw ApiError.badRequest("僅能在主授權為「可啟用」或「使用中」時追加副授權");
+		const isParentPending = parentLicense.status === "pending";
+		if (isParentPending) {
+			if (parentLicense.licenseKey) {
+				throw ApiError.badRequest("主授權狀態異常，請聯絡管理員");
+			}
+		} else if (!["available", "active"].includes(parentLicense.status)) {
+			throw ApiError.badRequest("僅能在主授權為「審核中」、「可啟用」或「使用中」時追加副授權");
 		}
 
 		const staffAcc = getStaffApplicantAccount(req);
@@ -703,7 +760,8 @@ export const extendLicense = async (req, res, next) => {
 			quotas: normalizedQuotas,
 			customerName: parentLicense.customerName,
 			orderNumber: orderNo,
-			parentLicenseKey: parentLicense.licenseKey,
+			parentLicenseKey: parentLicense.licenseKey || null,
+			parentLicenseId: parentLicense.licenseKey ? null : parentLicense._id.toString(),
 			status: "pending",
 			applicant: resolvedApplicant,
 			appliedAt: new Date(),
@@ -796,12 +854,12 @@ export const deleteLicense = async (req, res, next) => {
 		}
 
 		let deletedExtensions = 0;
-		if (!license.parentLicenseKey && license.licenseKey) {
-			const childFilter = { parentLicenseKey: license.licenseKey };
-			if (staffAcc) {
-				childFilter.applicant = staffAcc;
-			}
-			const childLicenses = await License.find(childFilter).select("_id").lean();
+		if (!license.parentLicenseKey) {
+			const childLicenses = await License.find(
+				applyStaffApplicantFilter(buildMainLicenseChildrenFilter(license), staffAcc)
+			)
+				.select("_id")
+				.lean();
 			for (const child of childLicenses) {
 				if (child?._id) {
 					fileUpload.deleteEntityDirectory("licenses", { id: child._id.toString() });

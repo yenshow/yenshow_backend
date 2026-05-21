@@ -1,8 +1,5 @@
 <template>
-  <div
-    v-if="open"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
-  >
+  <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
     <div
       role="dialog"
       aria-modal="true"
@@ -111,7 +108,10 @@
               class="px-3 py-2 rounded-lg border text-center theme-text"
               :class="
                 src.deploymentProfile === 'construction'
-                  ? conditionalClass('border-emerald-500/50 bg-emerald-500/10', 'border-emerald-300 bg-emerald-50')
+                  ? conditionalClass(
+                      'border-emerald-500/50 bg-emerald-500/10',
+                      'border-emerald-300 bg-emerald-50',
+                    )
                   : conditionalClass('border-gray-600 bg-[#2A3441]', 'border-slate-300 bg-white')
               "
             >
@@ -189,16 +189,16 @@
         </div>
 
         <div v-if="src.imageUrl">
-          <label class="block theme-text mb-2">附檔</label>
+          <label class="block theme-text mb-2">已簽核報價單</label>
           <a
-            v-if="isAttachmentPdf"
+            v-if="attachmentMeta.isPdf"
             :href="src.imageUrl"
             target="_blank"
             rel="noopener noreferrer"
             class="inline-flex items-center gap-2 px-4 py-3 rounded-lg border transition outline-none ring-offset-2 ring-offset-transparent focus-visible:ring-2 focus-visible:ring-blue-500 hover:opacity-95 theme-text"
             :class="readonlyBoxClass"
-            :title="`在新分頁開啟 PDF：${attachmentDisplayName}`"
-            :aria-label="`在新分頁開啟 PDF：${attachmentDisplayName}`"
+            :title="`在新分頁開啟 PDF：${attachmentMeta.name}`"
+            :aria-label="`在新分頁開啟 PDF：${attachmentMeta.name}`"
           >
             <svg
               class="h-8 w-8 shrink-0 text-red-500"
@@ -211,7 +211,7 @@
               />
             </svg>
             <span class="text-sm break-all underline-offset-2 hover:underline">
-              {{ attachmentDisplayName }}
+              {{ attachmentMeta.name }}
             </span>
             <span class="text-xs opacity-70 shrink-0">（新分頁開啟）</span>
           </a>
@@ -259,6 +259,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { getLicenseAttachmentUrlMeta } from '@/utils/licenseAttachment.js'
 import { getLicenseStatusText } from '@/utils/licenseLabels.js'
 
 const props = defineProps({
@@ -274,27 +275,7 @@ const emit = defineEmits(['close'])
 
 const src = computed(() => (props.open ? props.license : null))
 
-const isAttachmentPdf = computed(() => {
-  const url = src.value?.imageUrl
-  if (!url || typeof url !== 'string') return false
-  try {
-    const pathname = new URL(url, window.location.origin).pathname
-    return /\.pdf$/i.test(pathname) || pathname.includes('/documents/')
-  } catch {
-    return /\.pdf$/i.test(url) || url.includes('/documents/')
-  }
-})
-
-const attachmentDisplayName = computed(() => {
-  const url = src.value?.imageUrl
-  if (!url || typeof url !== 'string') return '附件'
-  const segment = url.split('/').filter(Boolean).pop() || '附件'
-  try {
-    return decodeURIComponent(segment)
-  } catch {
-    return segment
-  }
-})
+const attachmentMeta = computed(() => getLicenseAttachmentUrlMeta(src.value?.imageUrl))
 
 const readonlyBoxClass = computed(() =>
   props.conditionalClass('bg-[#2A3441] border-gray-600', 'bg-white border-slate-300'),

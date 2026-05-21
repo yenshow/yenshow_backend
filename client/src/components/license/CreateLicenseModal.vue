@@ -171,7 +171,7 @@
         </div>
 
         <div class="mb-6">
-          <label class="block theme-text mb-3">附檔（選填，圖片或 PDF）</label>
+          <label class="block theme-text mb-3">已簽核報價單（選填，圖片或 PDF）</label>
           <div
             class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
             :class="conditionalClass('border-gray-600', 'border-gray-300')"
@@ -209,11 +209,11 @@
               @change="handleLicenseAttachmentChange"
             />
           </div>
-          <div v-if="attachmentPreview" class="mt-4 max-w-md">
+          <div v-if="attachmentFile" class="mt-4 max-w-md">
             <div class="relative group">
               <img
-                v-if="attachmentPreviewType === 'image'"
-                :src="attachmentPreview"
+                v-if="attachmentPreviewIsImage"
+                :src="attachmentPreviewUrl"
                 alt="授權附檔預覽"
                 class="w-full max-h-72 object-contain rounded-md border"
                 :class="
@@ -237,7 +237,7 @@
                     d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM8 12h8v2H8v-2zm0 4h5v2H8v-2z"
                   />
                 </svg>
-                <p class="theme-text text-sm break-all">{{ attachmentFileName }}</p>
+                <p class="theme-text text-sm break-all">{{ attachmentFile.name }}</p>
               </div>
               <button
                 type="button"
@@ -301,6 +301,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { buildLicenseQuotasPayload, getDefaultMaxDevicesByFeature } from '@/enums/licenseQuota'
+import { isLicenseAttachmentFile } from '@/utils/licenseAttachment.js'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -323,25 +324,17 @@ const licenseDraft = ref({
 })
 const quotaDraft = ref({})
 const attachmentInputRef = ref(null)
-const imageFile = ref(null)
-const attachmentPreview = ref('')
-const attachmentPreviewType = ref('')
-const attachmentFileName = ref('')
+const attachmentFile = ref(null)
+const attachmentPreviewUrl = ref('')
 
-const isLicenseAttachmentFile = (file) => {
-  if (!file) return false
-  if (file.type.startsWith('image/')) return true
-  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '')
-}
+const attachmentPreviewIsImage = computed(() => attachmentFile.value?.type?.startsWith('image/'))
 
 const clearLicenseAttachmentSelection = () => {
-  if (attachmentPreview.value?.startsWith('blob:')) {
-    URL.revokeObjectURL(attachmentPreview.value)
+  if (attachmentPreviewUrl.value) {
+    URL.revokeObjectURL(attachmentPreviewUrl.value)
   }
-  attachmentPreview.value = ''
-  attachmentPreviewType.value = ''
-  attachmentFileName.value = ''
-  imageFile.value = null
+  attachmentPreviewUrl.value = ''
+  attachmentFile.value = null
   if (attachmentInputRef.value) {
     attachmentInputRef.value.value = ''
   }
@@ -426,18 +419,11 @@ const handleLicenseAttachmentChange = (event) => {
     if (input) input.value = ''
     return
   }
-  if (attachmentPreview.value?.startsWith('blob:')) {
-    URL.revokeObjectURL(attachmentPreview.value)
+  if (attachmentPreviewUrl.value) {
+    URL.revokeObjectURL(attachmentPreviewUrl.value)
   }
-  imageFile.value = file
-  attachmentFileName.value = file.name
-  if (file.type.startsWith('image/')) {
-    attachmentPreviewType.value = 'image'
-    attachmentPreview.value = URL.createObjectURL(file)
-    return
-  }
-  attachmentPreviewType.value = 'pdf'
-  attachmentPreview.value = 'pdf'
+  attachmentFile.value = file
+  attachmentPreviewUrl.value = file.type.startsWith('image/') ? URL.createObjectURL(file) : ''
 }
 
 const handleSubmit = () => {
@@ -463,7 +449,7 @@ const handleSubmit = () => {
     features: licenseDraft.value.features,
     notes: licenseDraft.value.notes || null,
     quotas: quotasResult.quotas,
-    imageFile: imageFile.value,
+    imageFile: attachmentFile.value,
   })
 }
 

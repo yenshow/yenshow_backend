@@ -79,6 +79,13 @@ const licenseSchema = new Schema(
 			index: true,
 			comment: "所屬主 LK（null 為主 LK，有值為副 LK）"
 		},
+		parentLicenseId: {
+			type: String,
+			default: null,
+			trim: true,
+			index: true,
+			comment: "所屬主 LK 的 MongoDB id（主 LK 審核前追加副授權時使用，審核主 LK 後會寫入 parentLicenseKey 並清除）"
+		},
 		status: {
 			type: String,
 			enum: ["pending", "available", "active"],
@@ -140,7 +147,7 @@ const licenseSchema = new Schema(
 			type: String,
 			default: null,
 			trim: true,
-			comment: "申請附圖（虛擬路徑，如 /storage/licenses/...）"
+			comment: "申請附檔（虛擬路徑，檔名 license_訂單編號_日期.ext）"
 		}
 	},
 	{
