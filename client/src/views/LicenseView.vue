@@ -125,7 +125,11 @@
                             )
                       "
                     >
-                      {{ license.deploymentProfile === 'construction' ? '工地管理' : '中央監控' }}
+                      {{
+                        license.deploymentProfile === 'construction'
+                          ? 'YSOS 工地管理平台'
+                          : 'YSOP 中央管理平台'
+                      }}
                     </span>
 
                     <div
@@ -166,7 +170,12 @@
                       {{ license.reviewedAt ? formatDate(license.reviewedAt) : '-' }}
                     </div>
                   </td>
-                  <td class="py-3 px-4 theme-text text-sm">{{ license.notes || '-' }}</td>
+                  <td
+                    class="py-3 px-4 theme-text text-sm whitespace-nowrap"
+                    :title="getNotesTitle(license.notes)"
+                  >
+                    {{ formatNotesDisplay(license.notes) }}
+                  </td>
                   <td class="py-3 px-4">
                     <div class="flex gap-2 flex-wrap">
                       <button
@@ -301,7 +310,12 @@
                       {{ ext.reviewedAt ? formatDate(ext.reviewedAt) : '-' }}
                     </div>
                   </td>
-                  <td class="py-3 px-4 theme-text text-sm">{{ ext.notes || '-' }}</td>
+                  <td
+                    class="py-3 px-4 theme-text text-sm whitespace-nowrap"
+                    :title="getNotesTitle(ext.notes)"
+                  >
+                    {{ formatNotesDisplay(ext.notes) }}
+                  </td>
                   <td class="py-3 px-4">
                     <div class="flex gap-2 flex-wrap">
                       <button
@@ -496,6 +510,21 @@ const getFeatureTooltipText = (features) => {
 }
 
 const licenseRowId = (row) => row?._id || row?.id
+
+const NOTES_DISPLAY_MAX_LEN = 10
+
+const formatNotesDisplay = (notes) => {
+  const text = String(notes ?? '').trim()
+  if (!text) return '-'
+  if (text.length <= NOTES_DISPLAY_MAX_LEN) return text
+  return text.slice(0, NOTES_DISPLAY_MAX_LEN)
+}
+
+const getNotesTitle = (notes) => {
+  const text = String(notes ?? '').trim()
+  if (!text || text.length <= NOTES_DISPLAY_MAX_LEN) return undefined
+  return text
+}
 
 /** 已展開副 LK 的主授權 id（預設皆收合，點客戶名稱後展開） */
 const expandedMainLicenseIds = ref(new Set())

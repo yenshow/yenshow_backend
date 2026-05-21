@@ -360,6 +360,7 @@ export const exportLicensePdf = async (req, res, next) => {
 			orderNumber: license.orderNumber != null ? String(license.orderNumber) : "-",
 			licenseKey: lk,
 			licenseTypeLabel,
+			deploymentProfile: normalizeDeploymentProfile(license.deploymentProfile),
 			features,
 			quotas
 		});

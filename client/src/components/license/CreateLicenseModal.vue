@@ -89,7 +89,7 @@
                     )
               "
             >
-              中央監控
+              YSOP 中央管理平台
             </button>
             <button
               type="button"
@@ -104,7 +104,7 @@
                     )
               "
             >
-              工地管理
+              YSOS 工地管理平台
             </button>
           </div>
         </div>

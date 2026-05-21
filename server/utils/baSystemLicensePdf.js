@@ -53,6 +53,12 @@ const resolveBodyFontName = (doc) => {
 	return "Helvetica";
 };
 
+/** 中央監控 → YS One Platform；工地管理 → YS One Site */
+export const getLicensePdfProductTitle = (deploymentProfile) => {
+	if (deploymentProfile === "construction") return "YS One Site";
+	return "YS One Platform";
+};
+
 const safeCustomerNameForPdf = (name, bodyFont) => {
 	const raw = name == null || String(name).trim() === "" ? "-" : String(name);
 	if (bodyFont === "Body") return raw;
@@ -68,6 +74,7 @@ const safeCustomerNameForPdf = (name, bodyFont) => {
  * @param {string} payload.orderNumber
  * @param {string} payload.licenseKey
  * @param {"Basal"|"Expanded"} payload.licenseTypeLabel
+ * @param {"central"|"construction"} [payload.deploymentProfile]
  * @param {string[]} payload.features
  * @param {Record<string, { maxDevices?: number|null }>|null|undefined} payload.quotas
  * @returns {Promise<Buffer>}
@@ -84,7 +91,9 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 		doc.on("error", reject);
 
 		try {
-			const { customerName, orderNumber, licenseKey, licenseTypeLabel, features, quotas } = payload;
+			const { customerName, orderNumber, licenseKey, licenseTypeLabel, deploymentProfile, features, quotas } =
+				payload;
+			const productTitle = getLicensePdfProductTitle(deploymentProfile);
 
 			const bodyFont = resolveBodyFontName(doc);
 			const displayName = safeCustomerNameForPdf(customerName, bodyFont);
@@ -115,7 +124,7 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 			y += GAP;
 			doc.font("Helvetica-Bold").fontSize(18).fillColor(BLACK);
 			const titleH = doc.currentLineHeight(true);
-			doc.text("BA System License", 0, y, { align: "center", width: PAGE_W });
+			doc.text(productTitle, 0, y, { align: "center", width: PAGE_W });
 			y += titleH + GAP;
 
 			{
@@ -127,7 +136,11 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 				// 粗體效果用「重複描字」模擬，避免中英字型 metrics 不同造成上下偏移。
 				const fauxBoldText = (text, x, yy) => {
 					doc.font(bodyFont).fontSize(fontSize).fillColor(BLACK).text(text, x, yy, { lineBreak: false });
-					doc.font(bodyFont).fontSize(fontSize).fillColor(BLACK).text(text, x + 0.4, yy, { lineBreak: false });
+					doc
+						.font(bodyFont)
+						.fontSize(fontSize)
+						.fillColor(BLACK)
+						.text(text, x + 0.4, yy, { lineBreak: false });
 				};
 
 				doc.font(bodyFont).fontSize(fontSize).fillColor(BLACK);
@@ -143,7 +156,11 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 
 				const lineY = y;
 				fauxBoldText(label, startX, lineY);
-				doc.font(bodyFont).fontSize(fontSize).fillColor(BLACK).text(displayName, startX + labelW + gapW, lineY, { lineBreak: false });
+				doc
+					.font(bodyFont)
+					.fontSize(fontSize)
+					.fillColor(BLACK)
+					.text(displayName, startX + labelW + gapW, lineY, { lineBreak: false });
 				y += lineH + GAP;
 			}
 
@@ -179,10 +196,23 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 
 			const PAGE_TABLE_BOTTOM = PAGE_H - M - FOOTER_RESERVE;
 
+			/** 關閉目前頁的表格區段（底線 + 左右外框到最後一列） */
+			const closeTablePageSegment = () => {
+				const segmentBottom = y;
+				if (segmentBottom <= outerTableSegmentTop) return;
+				drawHLine(segmentBottom);
+				drawVLine(TABLE_LEFT, outerTableSegmentTop, segmentBottom);
+				drawVLine(TABLE_LEFT + TABLE_W, outerTableSegmentTop, segmentBottom);
+			};
+
+			const drawRowOuterVLines = (rowY) => {
+				drawVLine(TABLE_LEFT, rowY, rowY + ROW_H);
+				drawVLine(TABLE_LEFT + TABLE_W, rowY, rowY + ROW_H);
+			};
+
 			const ensureSpace = (need) => {
 				if (y + need <= PAGE_TABLE_BOTTOM) return;
-				drawVLine(TABLE_LEFT, outerTableSegmentTop, PAGE_TABLE_BOTTOM);
-				drawVLine(TABLE_LEFT + TABLE_W, outerTableSegmentTop, PAGE_TABLE_BOTTOM);
+				closeTablePageSegment();
 				doc.addPage();
 				drawGreenFrame();
 				y = M + 16;
@@ -191,14 +221,16 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 
 			const twoColRow = (label, value) => {
 				ensureSpace(ROW_H);
-				drawHLine(y);
+				const rowY = y;
+				drawHLine(rowY);
+				drawRowOuterVLines(rowY);
 				doc.font("Helvetica-Bold").fontSize(11).fillColor(BLACK);
-				doc.text(label, TABLE_LEFT + cellPad, y + cellPad, { width: LABEL_W - 2 * cellPad });
+				doc.text(label, TABLE_LEFT + cellPad, rowY + cellPad, { width: LABEL_W - 2 * cellPad });
 				doc.font(bodyFont).fontSize(11).fillColor(BLACK);
-				doc.text(String(value), TABLE_LEFT + LABEL_W + cellPad, y + cellPad, {
+				doc.text(String(value), TABLE_LEFT + LABEL_W + cellPad, rowY + cellPad, {
 					width: TABLE_W - LABEL_W - 2 * cellPad
 				});
-				drawVLine(TABLE_LEFT + LABEL_W, y, y + ROW_H);
+				drawVLine(TABLE_LEFT + LABEL_W, rowY, rowY + ROW_H);
 				y += ROW_H;
 			};
 
@@ -220,6 +252,7 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 			});
 			drawVLine(TABLE_LEFT + LABEL_W, smTop, smTop + ROW_H);
 			drawVLine(TABLE_LEFT + LABEL_W + MID_W, smTop, smTop + ROW_H);
+			drawRowOuterVLines(smTop);
 			y += ROW_H;
 
 			const renderThreeColSection = (sectionLabel, rows) => {
@@ -229,6 +262,7 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 				ensureSpace(ROW_H);
 				const headerTop = y;
 				drawHLine(headerTop);
+				drawRowOuterVLines(headerTop);
 				doc.font("Helvetica-Bold").fontSize(11).fillColor(BLACK);
 				doc.text(sectionLabel, TABLE_LEFT + cellPad, headerTop + cellPad, { width: LABEL_W - 2 * cellPad });
 				drawVLine(TABLE_LEFT + LABEL_W, headerTop, headerTop + ROW_H);
@@ -238,6 +272,7 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 					ensureSpace(ROW_H);
 					const rowY = y;
 					drawHLine(rowY);
+					drawRowOuterVLines(rowY);
 					drawVLine(TABLE_LEFT + LABEL_W, rowY, rowY + ROW_H);
 					drawVLine(TABLE_LEFT + LABEL_W + MID_W, rowY, rowY + ROW_H);
 
@@ -283,9 +318,7 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 						}));
 			renderThreeColSection("Application", appRows);
 
-			drawHLine(y);
-			drawVLine(TABLE_LEFT, outerTableSegmentTop, y);
-			drawVLine(TABLE_LEFT + TABLE_W, outerTableSegmentTop, y);
+			closeTablePageSegment();
 
 			y += 16;
 			doc.font("Helvetica").fontSize(11).fillColor("#333333");

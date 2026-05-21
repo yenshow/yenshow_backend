@@ -102,7 +102,7 @@
                   : conditionalClass('border-sky-500/50 bg-sky-500/10', 'border-sky-300 bg-sky-50')
               "
             >
-              中央監控
+              YSOP 中央管理平台
             </div>
             <div
               class="px-3 py-2 rounded-lg border text-center theme-text"
@@ -115,7 +115,7 @@
                   : conditionalClass('border-gray-600 bg-[#2A3441]', 'border-slate-300 bg-white')
               "
             >
-              工地管理
+              YSOS 工地管理平台
             </div>
           </div>
         </div>
