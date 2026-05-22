@@ -1,11 +1,18 @@
 import User from "../../models/user.js";
 import License from "../../models/License.js";
+import News from "../../models/News.js";
+import Faq from "../../models/Faq.js";
+import CaseStudy from "../../models/caseStudy.js";
 import { StatusCodes } from "http-status-codes";
 import { ApiError, successResponse } from "../../utils/responseHandler.js";
 import UserRole from "../../enums/UserRole.js";
 import crypto from "crypto";
 import fileUpload from "../../utils/fileUpload.js";
 import { buildBaSystemLicensePdfBuffer } from "../../utils/baSystemLicensePdf.js";
+import {
+	sendLicenseApprovedEmail,
+	sendLicensePendingReviewEmail
+} from "../../services/emailService.js";
 
 const LICENSE_EXT_SORT = { appliedAt: 1, createdAt: 1, _id: 1 };
 
@@ -263,7 +270,11 @@ export const getLicenses = async (req, res, next) => {
 
 		if (status) filter.status = status;
 		if (product) filter.product = product;
-		if (!includeExtensions) filter.parentLicenseKey = null;
+		// 僅主 LK：排除副 LK（含審核前以 parentLicenseId 暫掛、尚無 parentLicenseKey 者）
+		if (!includeExtensions) {
+			filter.parentLicenseKey = null;
+			filter.parentLicenseId = null;
+		}
 
 		const staffAcc = getStaffApplicantAccount(req);
 		if (staffAcc !== null && !staffAcc) {
@@ -525,6 +536,10 @@ export const createLicense = async (req, res, next) => {
 			}
 		}
 
+		void sendLicensePendingReviewEmail(newLicense, { isExtension: false }).catch((err) =>
+			console.error("授權待審核通知失敗:", err)
+		);
+
 		return successResponse(res, StatusCodes.CREATED, "授權建立成功", {
 			license: newLicense
 		});
@@ -582,6 +597,10 @@ export const reviewLicense = async (req, res, next) => {
 		if (!license.parentLicenseKey) {
 			await linkPendingExtensionsToMainLicenseKey(license);
 		}
+
+		void sendLicenseApprovedEmail(license, reviewer).catch((err) =>
+			console.error("授權審核通過通知失敗:", err)
+		);
 
 		return successResponse(res, StatusCodes.OK, "授權審核成功", { license });
 	} catch (error) {
@@ -769,6 +788,10 @@ export const extendLicense = async (req, res, next) => {
 			notes: notes || null
 		});
 
+		void sendLicensePendingReviewEmail(extension, { isExtension: true }).catch((err) =>
+			console.error("副授權待審核通知失敗:", err)
+		);
+
 		return successResponse(res, StatusCodes.CREATED, "副授權申請已建立，待審核通過後將產生 License Key", {
 			license: extension
 		});
@@ -850,8 +873,8 @@ export const deleteLicense = async (req, res, next) => {
 		if (staffAcc !== null && license.status !== "pending") {
 			throw ApiError.forbidden("員工僅能刪除「審核中」的授權");
 		}
-		if (isAdmin && license.status !== "available") {
-			throw ApiError.forbidden("管理員僅能刪除「可啟用」的授權");
+		if (staffAcc === null && isAdmin && !["pending", "available"].includes(license.status)) {
+			throw ApiError.forbidden("管理員僅能刪除「審核中」或「可啟用」的授權");
 		}
 
 		let deletedExtensions = 0;
@@ -880,6 +903,37 @@ export const deleteLicense = async (req, res, next) => {
 		const message = deletedExtensions > 0 ? `授權刪除成功，已一併刪除 ${deletedExtensions} 組副授權` : "授權刪除成功";
 
 		return successResponse(res, StatusCodes.OK, message, { deletedExtensions });
+	} catch (error) {
+		next(error);
+	}
+};
+
+/** 導覽列「審核中」數量（專欄／授權／案例） */
+export const getPendingReviewCounts = async (req, res, next) => {
+	try {
+		const isAdminUser = req.user?.role === UserRole.ADMIN;
+		const staffAcc = getStaffApplicantAccount(req);
+		const counts = { contentManagement: 0, licenses: 0, comeo: 0 };
+
+		if (isAdminUser) {
+			const [newsCount, faqCount, comeoCount] = await Promise.all([
+				News.countDocuments({ isActive: false }),
+				Faq.countDocuments({ isActive: false }),
+				CaseStudy.countDocuments({ isActive: false })
+			]);
+			counts.contentManagement = newsCount + faqCount;
+			counts.comeo = comeoCount;
+		}
+
+		if (staffAcc !== null && !staffAcc) {
+			return successResponse(res, StatusCodes.OK, "獲取審核中數量成功", { counts });
+		}
+
+		counts.licenses = await License.countDocuments(
+			applyStaffApplicantFilter({ status: "pending" }, staffAcc)
+		);
+
+		return successResponse(res, StatusCodes.OK, "獲取審核中數量成功", { counts });
 	} catch (error) {
 		next(error);
 	}

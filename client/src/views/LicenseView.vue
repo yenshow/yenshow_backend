@@ -125,11 +125,7 @@
                             )
                       "
                     >
-                      {{
-                        license.deploymentProfile === 'construction'
-                          ? 'YSOS 工地管理平台'
-                          : 'YSOP 中央管理平台'
-                      }}
+                      {{ license.deploymentProfile === 'construction' ? 'YSOS' : 'YSOP' }}
                     </span>
 
                     <div
@@ -596,7 +592,6 @@ const handleReviewLicense = async (license) => {
     await fetchLicenses()
   } catch (err) {
     console.error('審核授權失敗:', err)
-    notify.notifyError(err.response?.data?.message || '審核授權失敗，請稍後再試')
   } finally {
     reviewingLicense.value = null
   }
@@ -653,7 +648,7 @@ const canExtendMainLicense = (license) =>
 const canDeleteLicense = (license) => {
   if (!license) return false
   if (isStaff.value) return license.status === 'pending'
-  if (isAdmin.value) return license.status === 'available'
+  if (isAdmin.value) return license.status === 'pending' || license.status === 'available'
   return false
 }
 
@@ -726,7 +721,6 @@ const handleCreateSubmit = async (result) => {
     await fetchLicenses()
   } catch (err) {
     console.error('建立授權失敗:', err)
-    notify.notifyError(err.response?.data?.message || '建立授權失敗，請稍後再試')
   } finally {
     creatingLicense.value = false
   }
@@ -769,7 +763,6 @@ const handleUnbindLicense = async (license) => {
     await fetchLicenses()
   } catch (err) {
     console.error('解除綁定失敗:', err)
-    notify.notifyError(err.response?.data?.message || '解除綁定失敗，請稍後再試')
   } finally {
     unbindingLicense.value = null
   }
@@ -799,14 +792,13 @@ const handleExtendSubmit = async (result) => {
     await fetchLicenses()
   } catch (err) {
     console.error('追加授權失敗:', err)
-    notify.notifyError(err.response?.data?.message || '追加授權失敗，請稍後再試')
   } finally {
     extendingLicense.value = false
   }
 }
 
 const handleDeleteLicense = async (license) => {
-  const isExtension = !!license.parentLicenseKey
+  const isExtension = !!(license.parentLicenseKey || license.parentLicenseId)
   const label = isExtension ? '副 LK' : '授權'
   const extCount = (license.extensions || []).length
   const cascadeNote =
@@ -826,7 +818,6 @@ const handleDeleteLicense = async (license) => {
     await fetchLicenses()
   } catch (err) {
     console.error('刪除授權失敗:', err)
-    notify.notifyError(err.response?.data?.message || '刪除授權失敗，請稍後再試')
   } finally {
     deletingLicense.value = null
   }

@@ -1,6 +1,7 @@
 import { Resend } from "resend"; // 引入 Resend SDK
 import { ApiError } from "../utils/responseHandler.js";
 import fs from "fs/promises"; // 需要讀取檔案內容
+import User from "../models/user.js";
 
 // --- Resend 設定 ---
 const YENSHOW_RESEND_API_KEY = process.env.YENSHOW_RESEND_API_KEY;
@@ -24,6 +25,136 @@ if (COMEO_RESEND_API_KEY) {
 	console.warn("警告：未設定 Comeo Resend API 金鑰，Comeo 郵件功能將無法使用。");
 }
 // --- Resend 設定結束 ---
+
+// --- 授權審核 Email ---
+const LICENSE_FROM_NAME = "Yenshow 授權系統";
+
+const trim = (v) => (typeof v === "string" ? v.trim() : "");
+const dash = (v) => v || "—";
+
+const toLicenseDoc = (license) =>
+	license && typeof license.toObject === "function" ? license.toObject() : license;
+
+const formatLicenseDate = (value) => {
+	if (!value) return "—";
+	const d = value instanceof Date ? value : new Date(value);
+	return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("zh-TW", { timeZone: "Asia/Taipei" });
+};
+
+const formatQuotas = (quotas) => {
+	if (!quotas || typeof quotas !== "object") return "未設定";
+	const parts = Object.entries(quotas).map(([k, v]) => {
+		const max = v?.maxDevices;
+		return `${k}: ${max == null ? "不限" : max}`;
+	});
+	return parts.length ? parts.join(", ") : "未設定";
+};
+
+const licenseAdminLink = () => {
+	const base = trim(process.env.YENSHOW_ADMIN_APP_URL);
+	const url = base ? `${base.replace(/\/$/, "")}/licenses` : null;
+	return url
+		? { html: `<p><a href="${url}">前往授權管理</a></p>`, text: `\n${url}\n` }
+		: { html: "", text: "\n/licenses\n" };
+};
+
+const getLicenseNotifyEmails = () =>
+	trim(process.env.YENSHOW_LICENSE_NOTIFY_EMAILS)
+		.split(",")
+		.map((e) => e.trim())
+		.filter(Boolean);
+
+const getLicenseFromAddress = () => {
+	if (!yenshowResend) {
+		console.warn("授權郵件：Resend 未設定，略過寄信");
+		return null;
+	}
+	const addr = process.env.YENSHOW_EMAIL_FROM_ADDRESS_RESEND;
+	if (!addr) {
+		console.warn("授權郵件：缺少 YENSHOW_EMAIL_FROM_ADDRESS_RESEND，略過寄信");
+		return null;
+	}
+	return `"${LICENSE_FROM_NAME}" <${addr}>`;
+};
+
+const sendLicenseEmail = async ({ to, subject, html, text }) => {
+	const from = getLicenseFromAddress();
+	if (!from || !to?.length) return null;
+
+	const { data, error } = await yenshowResend.emails.send({ from, to, subject, html, text });
+	if (error) {
+		console.error("授權郵件 Resend 錯誤:", error);
+		throw new Error(error.message || "Resend 寄送失敗");
+	}
+	return data;
+};
+
+const resolveApplicantEmail = async (license) => {
+	const account = trim(license?.applicant);
+	if (!account) return null;
+	const user = await User.findOne({ account, isActive: true }).select("email").lean();
+	const email = trim(user?.email);
+	if (!email) console.warn(`授權審核通過通知：${account} 無 email，略過寄信`);
+	return email || null;
+};
+
+/** 待審核：通知 YENSHOW_LICENSE_NOTIFY_EMAILS */
+export const sendLicensePendingReviewEmail = async (license, { isExtension = false } = {}) => {
+	const to = getLicenseNotifyEmails();
+	if (!to.length) {
+		console.warn("授權郵件：未設定 YENSHOW_LICENSE_NOTIFY_EMAILS，略過");
+		return null;
+	}
+
+	const doc = toLicenseDoc(license);
+	const ext = isExtension ? "（副授權）" : "";
+	const prefix = isExtension ? "[副授權] " : "";
+	const features = Array.isArray(doc.features) ? doc.features.join(", ") : "—";
+	const quotas = formatQuotas(doc.quotas);
+	const link = licenseAdminLink();
+
+	const body = `客戶：${dash(doc.customerName)}
+訂單：${dash(doc.orderNumber)}
+申請人：${dash(doc.applicant)}
+部署：${doc.deploymentProfile || "central"}
+模組：${features}
+配額：${quotas}
+備註：${dash(doc.notes)}
+申請時間：${formatLicenseDate(doc.appliedAt)}`;
+
+	return sendLicenseEmail({
+		to,
+		subject: `${prefix}[待審核] 授權申請 - ${dash(doc.customerName)} (${dash(doc.orderNumber)})`,
+		text: `有新的授權申請待審核${ext}。\n\n${body}${link.text}`,
+		html: `<h2>授權待審核${ext}</h2><pre style="white-space:pre-wrap;font-family:inherit">${body}</pre>${link.html}`
+	});
+};
+
+/** 審核通過：通知建立者（依 applicant 查 User.email） */
+export const sendLicenseApprovedEmail = async (license, reviewerAccount) => {
+	const to = await resolveApplicantEmail(license);
+	if (!to) return null;
+
+	const doc = toLicenseDoc(license);
+	const isExt = Boolean(doc.parentLicenseKey || doc.parentLicenseId);
+	const ext = isExt ? "（副授權）" : "";
+	const link = licenseAdminLink();
+	const sn = doc.serialNumber ? `Serial Number：${doc.serialNumber}\n` : "";
+
+	const body = `客戶：${dash(doc.customerName)}
+訂單：${dash(doc.orderNumber)}
+類型：${isExt ? "副授權" : "主授權"}
+審核人：${dash(reviewerAccount)}
+審核時間：${formatLicenseDate(doc.reviewedAt)}
+${sn}License Key：${dash(doc.licenseKey)}`;
+
+	return sendLicenseEmail({
+		to: [to],
+		subject: `[已審核] 授權可啟用${ext} - ${dash(doc.customerName)}`,
+		text: `您的授權已審核通過，狀態為「可啟用」。\n\n${body}${link.text}`,
+		html: `<h2>授權已審核通過${ext}</h2><p>狀態：可啟用</p><pre style="white-space:pre-wrap;font-family:inherit">${body}</pre>${link.html}`
+	});
+};
 
 /**
  * 使用 Resend 寄送聯絡表單 Email

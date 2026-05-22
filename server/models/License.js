@@ -3,8 +3,8 @@ import { Schema, model } from "mongoose";
 /**
  * 授權資料模型（主 LK / 副 LK 共用同一張集合）
  *
- * parentLicenseKey = null → 主 LK
- * parentLicenseKey = "XXXX-..." → 副 LK（隸屬於該主 LK）
+ * parentLicenseKey = null 且 parentLicenseId = null → 主 LK
+ * parentLicenseKey 或 parentLicenseId 有值 → 副 LK（隸屬於該主 LK）
  *
  * License Key 生成方式：
  * 1. 組合：SerialNumber + 時間戳 + 隨機數

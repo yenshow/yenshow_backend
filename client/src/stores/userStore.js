@@ -40,6 +40,28 @@ export const useUserStore = defineStore(
     const loadingLicenses = ref(false)
     const errorLicenses = ref('')
 
+    const EMPTY_PENDING_COUNTS = { contentManagement: 0, licenses: 0, comeo: 0 }
+    const pendingReviewCounts = ref({ ...EMPTY_PENDING_COUNTS })
+
+    const fetchPendingReviewCounts = async () => {
+      if (!isAdmin.value && !isStaff.value) {
+        pendingReviewCounts.value = { ...EMPTY_PENDING_COUNTS }
+        return
+      }
+      try {
+        const { data } = await apiAuth.get('/api/users/pending-review-counts')
+        if (data?.success && data.counts) {
+          pendingReviewCounts.value = { ...EMPTY_PENDING_COUNTS, ...data.counts }
+        }
+      } catch (error) {
+        console.error('獲取審核中數量失敗:', error)
+      }
+    }
+
+    const refreshPendingReviewCounts = () => {
+      fetchPendingReviewCounts().catch(() => {})
+    }
+
     // ===== 用戶認證功能 =====
     const login = async (values) => {
       try {
@@ -102,6 +124,7 @@ export const useUserStore = defineStore(
         email.value = userData.email || ''
         role.value = userData.role || UserRole.USER
 
+        refreshPendingReviewCounts()
         return true
       } catch (error) {
         console.error('獲取個人資料錯誤:', error)
@@ -137,6 +160,7 @@ export const useUserStore = defineStore(
         account.value = ''
         role.value = UserRole.USER
         email.value = ''
+        pendingReviewCounts.value = { ...EMPTY_PENDING_COUNTS }
       }
     }
 
@@ -452,17 +476,18 @@ export const useUserStore = defineStore(
           const newLicense = data.result?.license || data.license || data.result
           if (newLicense) {
             licenses.value.push(newLicense)
-            const msg = data.message || '授權建立成功'
-            notify.notifySuccess(msg)
-            return { success: true, message: msg }
           } else {
             console.error('回應中找不到授權數據:', data)
-            // 如果找不到新授權，重新載入列表（但不設置 loading，避免卡住）
             getAllLicenses().catch((err) => {
               console.error('重新載入授權列表失敗:', err)
             })
-            return { success: true, message: data.message || '授權建立成功，但無法獲取新授權詳情' }
           }
+          const msg =
+            data.message ||
+            (newLicense ? '授權建立成功' : '授權建立成功，但無法獲取新授權詳情')
+          notify.notifySuccess(msg)
+          refreshPendingReviewCounts()
+          return { success: true, message: msg }
         },
         {
           defaultMessage: '創建授權失敗',
@@ -480,6 +505,7 @@ export const useUserStore = defineStore(
           }
           const message = data.message || '審核授權成功'
           notify.notifySuccess(message)
+          refreshPendingReviewCounts()
           return { success: true, message }
         },
         {
@@ -505,6 +531,7 @@ export const useUserStore = defineStore(
           const message =
             data.message || '副授權申請已建立，待審核通過後將產生 License Key'
           notify.notifySuccess(message)
+          refreshPendingReviewCounts()
           return { success: true, message }
         },
         {
@@ -552,6 +579,7 @@ export const useUserStore = defineStore(
           })
 
           notify.notifySuccess(data.message || '授權刪除成功')
+          refreshPendingReviewCounts()
           return { success: true, message: data.message || '授權刪除成功' }
         },
         {
@@ -646,6 +674,8 @@ export const useUserStore = defineStore(
       licenses,
       loadingLicenses,
       errorLicenses,
+      pendingReviewCounts,
+      refreshPendingReviewCounts,
 
       // 用戶認證功能
       login,

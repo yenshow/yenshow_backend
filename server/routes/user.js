@@ -12,7 +12,8 @@ import {
 	reviewLicense,
 	extendLicense,
 	unbindLicense,
-	deleteLicense
+	deleteLicense,
+	getPendingReviewCounts
 } from "../controllers/user/admin.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { checkRole, Permissions } from "../middlewares/permission.js";
@@ -42,6 +43,11 @@ router.put("/users/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), upda
 router.delete("/users/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), deleteUser);
 
 // 授權管理功能（需要 ADMIN 或 STAFF 權限）
+router.get(
+	"/pending-review-counts",
+	checkRole([Permissions.ADMIN, Permissions.STAFF]),
+	getPendingReviewCounts
+);
 router.get("/licenses", checkRole([Permissions.ADMIN, Permissions.STAFF]), getLicenses);
 router.get("/licenses/:id/pdf", checkRole([Permissions.ADMIN, Permissions.STAFF]), exportLicensePdf);
 router.get("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), getLicense);

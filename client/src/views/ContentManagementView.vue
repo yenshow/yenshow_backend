@@ -630,6 +630,7 @@
 import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
 import { useNewsStore } from '@/stores/newsStore'
 import { useFaqStore } from '@/stores/faqStore'
+import { useUserStore } from '@/stores/userStore'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { useNotifications } from '@/composables/notificationCenter'
 import { useLanguageStore } from '@/stores/core/languageStore'
@@ -641,6 +642,7 @@ import { usePageInitialization } from '@/composables/usePageInitialization'
 
 const newsStore = useNewsStore()
 const faqStore = useFaqStore()
+const userStore = useUserStore()
 const languageStore = useLanguageStore()
 const notify = useNotifications()
 const { cardClass, conditionalClass } = useThemeClass()
@@ -976,7 +978,7 @@ const formatDate = (dateString) => {
 // Helper function to get status label
 const getStatusLabel = (statusKey, isActive, type) => {
   if (type === 'faq' || type === 'news') {
-    return isActive ? '已發布' : '待審查'
+    return isActive ? '已發布' : '審核中'
   }
   // Fallback or other types (if any)
   const statusMap = {
@@ -1032,6 +1034,7 @@ const handleDeleteItem = async (item) => {
   try {
     await store.delete(item._id)
     notify.notifySuccess(`成功刪除${entityName}`)
+    userStore.refreshPendingReviewCounts()
 
     // 本地刪除
     if (activeTab.value === 'faq') {
@@ -1066,6 +1069,7 @@ const handleNewsUpdate = (payload) => {
   }
   showModal.value = false
   notify.notifySuccess(`消息已成功${isNew ? '新增' : '更新'}`)
+  userStore.refreshPendingReviewCounts()
 }
 
 // 新增：處理 FAQ 更新
@@ -1081,6 +1085,7 @@ const handleFaqUpdate = (payload) => {
   }
   showModal.value = false
   notify.notifySuccess(`問題已成功${isNew ? '新增' : '更新'}`)
+  userStore.refreshPendingReviewCounts()
 }
 
 const newsCategoryLabel = (item) => {

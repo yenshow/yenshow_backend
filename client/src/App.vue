@@ -145,7 +145,23 @@
               <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
 
-            <span>{{ link.text }}</span>
+            <span class="flex items-center gap-[8px]">
+              <span>{{ link.text }}</span>
+              <span
+                v-if="link.pendingCount > 0"
+                class="inline-flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full px-[6px] text-[12px] lg:text-[14px] font-semibold leading-none"
+                :class="
+                  conditionalClass(
+                    'bg-yellow-500/30 text-yellow-200',
+                    'bg-yellow-100 text-yellow-800',
+                  )
+                "
+                :aria-label="`審核中 ${link.pendingCount}`"
+                :title="`審核中 ${link.pendingCount}`"
+              >
+                {{ link.pendingCount }}
+              </span>
+            </span>
           </router-link>
         </nav>
 
@@ -322,7 +338,7 @@ const { toggleSearch } = useGlobalSearch()
 const { conditionalClass } = useThemeClass()
 
 // 使用 storeToRefs 獲取響應式的用戶狀態
-const { isLogin, isAdmin, isStaff, account } = storeToRefs(userStore)
+const { isLogin, isAdmin, isStaff, account, pendingReviewCounts } = storeToRefs(userStore)
 
 // 網站配置
 const { currentSite, currentSiteConfig, availableSites } = storeToRefs(siteStore)
@@ -354,29 +370,31 @@ const toggleTheme = themeStore.toggleTheme
 
 // 導航連結配置 - 根據當前網站顯示不同連結
 const navLinks = computed(() => {
+  const counts = pendingReviewCounts.value
+  const withPendingCount = (link) => ({
+    ...link,
+    pendingCount: link.countKey ? counts[link.countKey] || 0 : 0,
+  })
   const links = []
 
-  // 根據網站顯示不同的導航項目
   if (currentSite.value === 'yenshow') {
-    // 遠岫：產品 / 專欄 / 用戶
     links.push({ to: '/', name: 'home', text: '產品' })
-    links.push({ to: '/contentManagement', name: 'contentManagement', text: '專欄' })
+    links.push({
+      to: '/contentManagement',
+      name: 'contentManagement',
+      text: '專欄',
+      countKey: 'contentManagement',
+    })
   } else if (currentSite.value === 'comeo') {
-    // 蝶蛹：案例 / 用戶
-    links.push({ to: '/comeo', name: 'comeo', text: '案例' })
+    links.push({ to: '/comeo', name: 'comeo', text: '案例', countKey: 'comeo' })
   }
 
-  // 兩個網站都顯示用戶管理（如果有權限）
   if (isAdmin.value || isStaff.value) {
     links.push({ to: '/admin', name: 'admin', text: '用戶' })
+    links.push({ to: '/licenses', name: 'licenses', text: '授權', countKey: 'licenses' })
   }
 
-  // staff 和 admin 都可以顯示授權管理
-  if (isAdmin.value || isStaff.value) {
-    links.push({ to: '/licenses', name: 'licenses', text: '授權' })
-  }
-
-  return links
+  return links.map(withPendingCount)
 })
 
 // 控制狀態
@@ -442,7 +460,6 @@ onMounted(() => {
 
   if (isLogin.value) {
     checkUserStatus()
-    // 每 5 分鐘檢查一次
     const statusCheck = setInterval(checkUserStatus, 300000)
     onUnmounted(() => clearInterval(statusCheck))
   }

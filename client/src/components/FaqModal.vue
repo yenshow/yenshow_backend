@@ -133,18 +133,18 @@
                     v-model="form.isActive"
                     :class="[inputClass]"
                   >
-                    <option :value="false" class="text-black/70">待審查</option>
+                    <option :value="false" class="text-black/70">審核中</option>
                     <option :value="true" class="text-black/70">已發布</option>
                   </select>
                 </div>
                 <div v-else-if="isEditing && !isAdmin">
                   <p :class="[inputClass, 'bg-opacity-50 cursor-not-allowed']">
-                    {{ form.isActive ? '已發布' : '待審查' }}
+                    {{ form.isActive ? '已發布' : '審核中' }}
                   </p>
                 </div>
                 <div v-else>
                   <p :class="[inputClass, 'bg-opacity-50 cursor-not-allowed']">
-                    待審查 (提交後將由管理員審核)
+                    審核中 (提交後將由管理員審核)
                   </p>
                 </div>
               </div>
