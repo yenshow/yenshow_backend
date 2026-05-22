@@ -79,6 +79,7 @@
           {{ activeTab === 'all' ? '用戶管理' : activeTab === 'clients' ? '客戶管理' : '員工管理' }}
         </h2>
         <button
+          v-if="showCreateButton"
           @click="showCreateUserModal = true"
           class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
         >
@@ -143,26 +144,13 @@
                   {{ user.isActive ? '啟用' : '停用' }}
                 </span>
               </td>
-              <td class="py-3 px-4">
-                <div class="flex gap-2">
-                  <button
-                    v-if="user.role !== 'admin'"
-                    @click="handleEditUser(user)"
-                    class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
-                  >
-                    編輯
-                  </button>
-                  <button
-                    v-if="user.role !== 'admin'"
-                    @click="handleDeleteUser(user)"
-                    :disabled="deletingUser === user._id"
-                    class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                  >
-                    <span v-if="deletingUser === user._id" class="mr-1 opacity-70">處理中...</span>
-                    <span v-else>刪除</span>
-                  </button>
-                </div>
-              </td>
+              <AdminUserRowActions
+                :user="user"
+                :can-manage="canManageTarget(user)"
+                :deleting-id="deletingUser"
+                @edit="handleEditUser"
+                @delete="handleDeleteUser"
+              />
             </tr>
             <tr v-if="filteredUsers.length === 0">
               <td
@@ -245,28 +233,13 @@
                   {{ user.isActive ? '啟用' : '停用' }}
                 </span>
               </td>
-              <td class="py-3 px-4">
-                <div class="flex gap-2">
-                  <button
-                    v-if="user.role !== 'admin'"
-                    @click="handleEditUser(user)"
-                    class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
-                  >
-                    編輯
-                  </button>
-                  <button
-                    @click="handleDeleteUser(user)"
-                    :disabled="deletingUser === user._id"
-                    class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                  >
-                    <span
-                      v-if="deletingUser === user._id"
-                      class="animate-spin h-3 w-3 border-b-2 border-white rounded-full"
-                    ></span>
-                    刪除
-                  </button>
-                </div>
-              </td>
+              <AdminUserRowActions
+                :user="user"
+                :can-manage="canManageTarget(user)"
+                :deleting-id="deletingUser"
+                @edit="handleEditUser"
+                @delete="handleDeleteUser"
+              />
             </tr>
             <tr v-if="filteredUsers.length === 0">
               <td
@@ -373,26 +346,13 @@
                   {{ user.isActive ? '啟用' : '停用' }}
                 </span>
               </td>
-              <td class="py-3 px-4">
-                <div class="flex gap-2">
-                  <button
-                    v-if="user.role !== 'admin'"
-                    @click="handleEditUser(user)"
-                    class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm transition cursor-pointer"
-                  >
-                    編輯
-                  </button>
-                  <button
-                    v-if="user.role !== 'admin'"
-                    @click="handleDeleteUser(user)"
-                    :disabled="deletingUser === user._id"
-                    class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-sm transition cursor-pointer flex items-center gap-1"
-                  >
-                    <span v-if="deletingUser === user._id" class="mr-1 opacity-70">處理中...</span>
-                    <span v-else>刪除</span>
-                  </button>
-                </div>
-              </td>
+              <AdminUserRowActions
+                :user="user"
+                :can-manage="canManageTarget(user)"
+                :deleting-id="deletingUser"
+                @edit="handleEditUser"
+                @delete="handleDeleteUser"
+              />
             </tr>
             <tr v-if="filteredUsers.length === 0">
               <td
@@ -445,6 +405,8 @@
       :default-role="defaultRoleByTab"
       :is-editing="isEditing"
       :edit-user-data="editingUser"
+      :available-roles="modalAvailableRoles"
+      :role-readonly="isRoleReadonly"
       @user-created="handleUserUpdate"
       @update:show="handleModalClose"
     />
@@ -456,13 +418,22 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { useThemeClass } from '@/composables/useThemeClass'
 import CreateUserModal from '@/components/CreateUserModal.vue'
+import AdminUserRowActions from '@/components/admin/AdminUserRowActions.vue'
 import { useNotifications } from '@/composables/notificationCenter'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { usePageInitialization } from '@/composables/usePageInitialization'
+import { useUserManagementPolicy } from '@/composables/useUserManagementPolicy'
 
 const userStore = useUserStore()
 const notify = useNotifications()
 const { cardClass, conditionalClass } = useThemeClass()
+const {
+  canManageTarget,
+  creatableRoles,
+  canChangeRoleOnEdit,
+  editableRolesForEdit,
+  canShowCreateUserButton,
+} = useUserManagementPolicy()
 
 // 使用統一的頁面初始化管理
 const { loading, initialize } = usePageInitialization()
@@ -540,6 +511,19 @@ const defaultRoleByTab = computed(() => {
   return 'client'
 })
 
+const showCreateButton = computed(() => canShowCreateUserButton(activeTab.value))
+
+const modalAvailableRoles = computed(() => {
+  if (isEditing.value && editingUser.value) {
+    return editableRolesForEdit(editingUser.value)
+  }
+  return creatableRoles()
+})
+
+const isRoleReadonly = computed(
+  () => isEditing.value && editingUser.value && !canChangeRoleOnEdit(editingUser.value),
+)
+
 // 初始化載入
 onMounted(async () => {
   await initialize(async () => {
@@ -558,12 +542,7 @@ const fetchUsers = async () => {
   }
 }
 
-const handleEditUser = async (user) => {
-  if (user.role === 'admin') {
-    notify.notifyWarning('無法編輯管理員帳號')
-    return
-  }
-
+const handleEditUser = (user) => {
   editingUser.value = user
   isEditing.value = true
   showCreateUserModal.value = true
@@ -577,11 +556,6 @@ const handleModalClose = (show) => {
 }
 
 const handleDeleteUser = async (user) => {
-  if (user.role === 'admin') {
-    notify.notifyWarning('不能刪除管理員帳號')
-    return
-  }
-
   if (!confirm(`確定要刪除用戶 "${user.account}" 嗎？此操作不可恢復！`)) {
     return
   }

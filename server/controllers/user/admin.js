@@ -7,6 +7,11 @@ import { StatusCodes } from "http-status-codes";
 import { ApiError, successResponse } from "../../utils/responseHandler.js";
 import UserRole from "../../enums/UserRole.js";
 import crypto from "crypto";
+import {
+	assertCanManageUser,
+	assertCanAssignRoleOnCreate,
+	assertCanAssignRoleOnUpdate
+} from "../../utils/userManagementPolicy.js";
 import fileUpload from "../../utils/fileUpload.js";
 import { buildBaSystemLicensePdfBuffer } from "../../utils/baSystemLicensePdf.js";
 import {
@@ -112,6 +117,24 @@ export const getUsers = async (req, res, next) => {
 	}
 };
 
+const loadTargetUser = async (id) => {
+	const user = await User.findById(id);
+	if (!user) {
+		throw ApiError.notFound("用戶不存在");
+	}
+	return user;
+};
+
+const generateTemporaryPassword = () => {
+	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+	let result = "";
+	const bytes = crypto.randomBytes(12);
+	for (let i = 0; i < 12; i++) {
+		result += chars[bytes[i] % chars.length];
+	}
+	return result;
+};
+
 /**
  * 創建用戶 (通用方法)
  */
@@ -124,10 +147,7 @@ export const createUser = async (req, res, next) => {
 			throw ApiError.badRequest("帳號、密碼和角色為必填欄位");
 		}
 
-		// 角色驗證
-		if (!Object.values(UserRole).includes(role)) {
-			throw ApiError.badRequest("無效的用戶角色");
-		}
+		assertCanAssignRoleOnCreate(req.user, role);
 
 		// 建立用戶資料
 		const userData = {
@@ -171,10 +191,8 @@ export const updateUser = async (req, res, next) => {
 		const { id } = req.params;
 		const { email, role, isActive, clientInfo, staffInfo } = req.body;
 
-		// 檢查是否嘗試更新自己
-		if (id === req.user.id) {
-			throw ApiError.badRequest("不能更新自己的帳號");
-		}
+		const targetUser = await loadTargetUser(id);
+		assertCanManageUser(req.user, targetUser);
 
 		// 基本更新數據
 		const updateData = {};
@@ -182,18 +200,17 @@ export const updateUser = async (req, res, next) => {
 		// 只更新提供的欄位
 		if (email !== undefined) updateData.email = email;
 		if (role !== undefined) {
-			// 角色驗證
-			if (!Object.values(UserRole).includes(role)) {
-				throw ApiError.badRequest("無效的用戶角色");
-			}
+			assertCanAssignRoleOnUpdate(req.user, targetUser, role);
 			updateData.role = role;
 		}
 		if (isActive !== undefined) updateData.isActive = isActive;
 
+		const effectiveRole = role !== undefined ? role : targetUser.role;
+
 		// 根據角色添加特定資訊
-		if (role === UserRole.CLIENT && clientInfo) {
+		if (effectiveRole === UserRole.CLIENT && clientInfo) {
 			updateData.clientInfo = clientInfo;
-		} else if ((role === UserRole.STAFF || role === UserRole.ADMIN) && staffInfo) {
+		} else if ((effectiveRole === UserRole.STAFF || effectiveRole === UserRole.ADMIN) && staffInfo) {
 			updateData.staffInfo = staffInfo;
 		}
 
@@ -216,27 +233,53 @@ export const deleteUser = async (req, res, next) => {
 	try {
 		const { id } = req.params;
 
-		// 檢查是否嘗試刪除自己
-		if (id === req.user.id) {
-			throw ApiError.badRequest("不能刪除自己的帳號");
-		}
+		const targetUser = await loadTargetUser(id);
+		assertCanManageUser(req.user, targetUser);
+		await targetUser.deleteOne();
 
-		// 查找並刪除用戶
-		const user = await User.findByIdAndDelete(id);
-
-		if (!user) {
-			throw ApiError.notFound("用戶不存在");
-		}
-
-		// 返回成功響應
 		return successResponse(res, StatusCodes.OK, "用戶刪除成功", {
 			result: {
-				id: user._id,
-				account: user.account
+				id: targetUser._id,
+				account: targetUser.account
 			}
 		});
 	} catch (error) {
 		console.error("刪除用戶失敗:", error);
+		next(error);
+	}
+};
+
+/**
+ * 重設他人密碼（管理員：員工/客戶；員工：客戶）
+ * 回傳一次性暫時密碼，並要求對方下次登入時變更密碼
+ */
+export const resetUserPassword = async (req, res, next) => {
+	try {
+		const { id } = req.params;
+		let { password: newPassword } = req.body;
+
+		const targetUser = await loadTargetUser(id);
+		assertCanManageUser(req.user, targetUser);
+
+		if (!newPassword) {
+			newPassword = generateTemporaryPassword();
+		}
+
+		if (typeof newPassword !== "string" || newPassword.length < 4 || newPassword.length > 20) {
+			throw ApiError.badRequest("密碼長度必須在 4-20 個字元之間");
+		}
+
+		targetUser.password = newPassword;
+		targetUser.isFirstLogin = true;
+		await targetUser.save();
+
+		return successResponse(res, StatusCodes.OK, "密碼已重設，請將暫時密碼提供給對方", {
+			result: {
+				account: targetUser.account,
+				temporaryPassword: newPassword
+			}
+		});
+	} catch (error) {
 		next(error);
 	}
 };

@@ -48,7 +48,7 @@
             v-for="link in navLinks"
             :key="link.to"
             :to="link.to"
-            class="flex items-center gap-[12px] px-[12px] py-[6px] text-[16px] lg:text-[24px] rounded-[10px] transition-all duration-200"
+            class="relative flex items-center gap-[12px] px-[12px] py-[6px] text-[16px] lg:text-[24px] rounded-[10px] transition-all duration-200"
             :class="[
               isActiveRoute(link.name)
                 ? isDarkTheme
@@ -59,7 +59,7 @@
                   : 'text-slate-600 hover:text-slate-700 hover:bg-slate-50',
             ]"
           >
-            <span class="relative inline-flex shrink-0">
+            <span class="inline-flex shrink-0">
               <!-- 產品圖標 (遠岫) -->
               <svg
                 v-if="link.name === 'home'"
@@ -150,18 +150,18 @@
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
               </svg>
-
-              <span
-                v-if="link.pendingCount > 0"
-                class="pointer-events-none absolute top-0 right-0 z-10 flex h-[18px] min-w-[18px] translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-[#f46b6b] px-[4px] text-[11px] font-semibold leading-none text-white shadow-sm lg:h-[20px] lg:min-w-[20px] lg:translate-x-[2px] lg:-translate-y-[2px] lg:text-[12px]"
-                :aria-label="`審核中 ${link.pendingCount}`"
-                :title="`審核中 ${link.pendingCount}`"
-              >
-                {{ formatPendingCount(link.pendingCount) }}
-              </span>
             </span>
 
             <span>{{ link.text }}</span>
+
+            <span
+              v-if="link.pendingCount > 0"
+              class="pointer-events-none absolute top-0 right-0 z-10 flex h-[18px] min-w-[18px] translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-[#f46b6b] px-[4px] text-[11px] font-semibold leading-none text-white shadow-sm lg:h-[20px] lg:min-w-[20px] lg:translate-x-[2px] lg:-translate-y-[2px] lg:text-[12px]"
+              :aria-label="`審核中 ${link.pendingCount}`"
+              :title="`審核中 ${link.pendingCount}`"
+            >
+              {{ formatPendingCount(link.pendingCount) }}
+            </span>
           </router-link>
         </nav>
 
@@ -239,12 +239,12 @@
               </div>
 
               <router-link
-                to="/change-password"
+                to="/profile"
                 class="block px-[12px] py-[6px] text-[16px] transition-colors w-full text-left"
                 :class="conditionalClass('hover:bg-gray-700', 'hover:bg-slate-100')"
                 @click="closeUserMenu"
               >
-                修改密碼
+                個人設定
               </router-link>
 
               <button

@@ -35,11 +35,13 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: '/change-password',
-      name: 'changePassword',
-      component: () => import('@/views/ChangePasswordView.vue'),
+      path: '/profile',
+      name: 'profile',
+      component: () => import('@/views/ProfileView.vue'),
       meta: { requiresAuth: true },
     },
+    { path: '/account-settings', redirect: '/profile' },
+    { path: '/change-password', redirect: '/profile' },
     {
       path: '/admin',
       name: 'admin',
@@ -98,9 +100,9 @@ router.beforeEach((to, from, next) => {
     return
   }
 
-  // 處理首次登入強制修改密碼
-  if (userStore.isFirstLogin && to.name !== 'changePassword') {
-    next({ name: 'changePassword' })
+  // 處理首次登入強制前往個人設定（變更密碼）
+  if (userStore.isFirstLogin && to.name !== 'profile') {
+    next({ name: 'profile' })
     return
   }
 

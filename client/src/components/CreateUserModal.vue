@@ -25,14 +25,21 @@
                 <select
                   id="role"
                   v-model="formData.role"
+                  :disabled="roleReadonly"
                   :class="[
                     inputClass,
                     'w-full px-4 h-[40px] rounded-lg focus:outline-none focus:border-blue-500',
+                    roleReadonly ? 'opacity-60 cursor-not-allowed' : '',
                   ]"
                 >
-                  <option value="client" class="text-black/70">客戶</option>
-                  <option value="staff" class="text-black/70">員工</option>
-                  <option value="admin" class="text-black/70">管理員</option>
+                  <option
+                    v-for="roleOption in availableRoles"
+                    :key="roleOption"
+                    :value="roleOption"
+                    class="text-black/70"
+                  >
+                    {{ ROLE_LABELS[roleOption] || roleOption }}
+                  </option>
                 </select>
               </div>
 
@@ -73,64 +80,15 @@
 
               <!-- 密碼 -->
               <div>
-                <label for="password" class="block text-sm font-medium mb-2 theme-text"
-                  >密碼 {{ isEditing ? '' : '*' }}</label
-                >
-                <div class="relative">
-                  <input
-                    id="password"
-                    v-model="formData.password"
-                    :required="!isEditing"
-                    :type="showPassword ? 'text' : 'password'"
-                    :class="[
-                      inputClass,
-                      'w-full px-4 py-2 rounded-lg focus:outline-none focus:border-blue-500',
-                    ]"
-                    :placeholder="isEditing ? '留空表示不修改密碼' : '請輸入密碼（4-20個字元）'"
-                  />
-                  <button
-                    type="button"
-                    @click="showPassword = !showPassword"
-                    :class="
-                      conditionalClass(
-                        'text-white/50 hover:text-white/90',
-                        'text-slate-400 hover:text-slate-600',
-                      )
-                    "
-                    class="absolute right-4 top-1/2 -translate-y-1/2 transition-colors p-1"
-                  >
-                    <svg
-                      v-if="showPassword"
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-5 w-5"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                      <path
-                        fill-rule="evenodd"
-                        d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
-                    <svg
-                      v-else
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-5 w-5"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z"
-                        clip-rule="evenodd"
-                      />
-                      <path
-                        d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z"
-                      />
-                    </svg>
-                  </button>
-                </div>
+                <PasswordInput
+                  id="userPassword"
+                  v-model="formData.password"
+                  :label="isEditing ? '新密碼' : '密碼'"
+                  :placeholder="
+                    isEditing ? '留空表示不變更（4-20 字元）' : '請輸入密碼（4-20 字元）'
+                  "
+                  :required="!isEditing"
+                />
               </div>
             </div>
           </div>
@@ -251,9 +209,7 @@
               v-model="formData.isActive"
               class="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
             />
-            <label for="isActive" class="theme-text">
-              {{ formData.isActive ? '啟用' : '停用' }}
-            </label>
+            <label for="isActive" class="theme-text">啟用</label>
           </div>
 
           <!-- 錯誤訊息 -->
@@ -297,6 +253,9 @@ import { ref, reactive, toRefs, watch } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import validator from 'validator'
 import { useThemeClass } from '@/composables/useThemeClass'
+import { ROLE_LABELS } from '@/constants/userLabels'
+import PasswordInput from '@/components/common/PasswordInput.vue'
+import { useNotifications } from '@/composables/notificationCenter'
 
 // 獲取主題相關工具
 const { cardClass, inputClass, conditionalClass } = useThemeClass()
@@ -318,6 +277,14 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  availableRoles: {
+    type: Array,
+    default: () => ['client', 'staff', 'admin'],
+  },
+  roleReadonly: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // 使用 toRefs 來解構 props
@@ -325,6 +292,7 @@ const { show, defaultRole, isEditing } = toRefs(props)
 
 const emit = defineEmits(['update:show', 'user-created'])
 const userStore = useUserStore()
+const notify = useNotifications()
 
 const formData = reactive({
   account: '',
@@ -343,9 +311,6 @@ const formData = reactive({
     position: '',
   },
 })
-
-// 密碼顯示控制
-const showPassword = ref(false)
 
 // 監聽 defaultRole 變化，更新表單角色
 watch(
@@ -402,21 +367,12 @@ const validateForm = () => {
     return false
   }
 
-  // 密碼長度檢查（僅在新增模式或編輯模式有輸入密碼時檢查）
-  if (
-    !isEditing.value &&
-    (!formData.password || formData.password.length < 4 || formData.password.length > 20)
-  ) {
-    error.value = '密碼長度必須在 4-20 個字元之間'
-    return false
-  }
-
-  // 編輯模式下，如果輸入密碼，則檢查長度
-  if (
-    isEditing.value &&
-    formData.password &&
-    (formData.password.length < 4 || formData.password.length > 20)
-  ) {
+  if (!isEditing.value) {
+    if (!formData.password || formData.password.length < 4 || formData.password.length > 20) {
+      error.value = '密碼長度必須在 4-20 個字元之間'
+      return false
+    }
+  } else if (formData.password && (formData.password.length < 4 || formData.password.length > 20)) {
     error.value = '密碼長度必須在 4-20 個字元之間'
     return false
   }
@@ -466,8 +422,7 @@ const handleSubmit = async () => {
       isActive: formData.isActive,
     }
 
-    // 只有在新增模式或編輯模式有輸入新密碼時，才加入密碼欄位
-    if (!isEditing.value || (isEditing.value && formData.password)) {
+    if (!isEditing.value) {
       userData.password = formData.password
     }
 
@@ -480,15 +435,25 @@ const handleSubmit = async () => {
 
     let result
     if (props.isEditing) {
-      // 編輯模式：更新用戶
       result = await userStore.updateUser(props.editUserData._id, userData)
+
+      if (result?.success && formData.password) {
+        const resetResult = await userStore.resetUserPassword(
+          props.editUserData._id,
+          formData.password,
+        )
+        if (!resetResult?.success) {
+          throw new Error(resetResult?.message || '資料已更新，但密碼變更失敗')
+        }
+        notify.notifySuccess('用戶資料與密碼已更新')
+      } else if (result?.success) {
+        notify.notifySuccess(result.message || '更新用戶成功')
+      }
     } else {
-      // 新增模式：創建用戶
       result = await userStore.createUser(userData)
     }
 
-    if (result && result.success) {
-      console.log(`${props.isEditing ? '更新' : '創建'}用戶成功:`, result.message)
+    if (result?.success) {
       emit('user-created', result.data || {})
       close()
     } else {
@@ -506,6 +471,7 @@ const initializeForm = () => {
   if (props.isEditing && props.editUserData) {
     formData.account = props.editUserData.account || ''
     formData.email = props.editUserData.email || ''
+    formData.password = ''
     formData.role = props.editUserData.role || 'client'
     formData.isActive = props.editUserData.isActive ?? true
     formData.clientInfo = props.editUserData.clientInfo ? { ...props.editUserData.clientInfo } : {}
@@ -523,5 +489,15 @@ watch(
       initializeForm()
     }
   },
+)
+
+watch(
+  () => props.availableRoles,
+  (roles) => {
+    if (roles?.length && !roles.includes(formData.role)) {
+      formData.role = roles[0]
+    }
+  },
+  { immediate: true },
 )
 </script>

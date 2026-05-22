@@ -1,10 +1,18 @@
 import { Router } from "express";
-import { login, logout, getProfile, changePassword, extendToken } from "../controllers/common/authController.js";
+import {
+	login,
+	logout,
+	getProfile,
+	updateProfile,
+	changePassword,
+	extendToken
+} from "../controllers/common/authController.js";
 import {
 	getUsers,
 	createUser,
 	updateUser,
 	deleteUser,
+	resetUserPassword,
 	getLicenses,
 	getLicense,
 	exportLicensePdf,
@@ -30,6 +38,7 @@ router.post("/login", loginMiddleware, login);
 // 受保護的基本路由 - 所有已認證用戶皆可使用
 router.use(requireAuth);
 router.get("/profile", getProfile);
+router.patch("/profile", updateProfile);
 router.delete("/logout", logout);
 router.post("/change-password", changePassword);
 router.patch("/extend", extendToken);
@@ -41,6 +50,7 @@ router.get("/users", checkRole([Permissions.ADMIN, Permissions.STAFF]), getUsers
 router.post("/users", checkRole([Permissions.ADMIN, Permissions.STAFF]), createUser);
 router.put("/users/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), updateUser);
 router.delete("/users/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), deleteUser);
+router.post("/users/:id/reset-password", checkRole([Permissions.ADMIN, Permissions.STAFF]), resetUserPassword);
 
 // 授權管理功能（需要 ADMIN 或 STAFF 權限）
 router.get(

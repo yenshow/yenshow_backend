@@ -2,6 +2,7 @@
 import { StatusCodes } from "http-status-codes";
 import { ApiError, successResponse } from "../../utils/responseHandler.js";
 import { handleLogin, handleLogout, getUserProfile, handleTokenExtension } from "../../services/authService.js";
+import validator from "validator";
 import User from "../../models/user.js";
 
 /**
@@ -51,26 +52,25 @@ export const extendToken = async (req, res, next) => {
 export const changePassword = async (req, res, next) => {
 	try {
 		const { currentPassword, newPassword } = req.body;
-		const userId = req.user._id;
 
-		// 驗證密碼等邏輯...
+		if (
+			typeof newPassword !== "string" ||
+			newPassword.length < 4 ||
+			newPassword.length > 20
+		) {
+			throw ApiError.badRequest("密碼長度必須在 4-20 個字元之間");
+		}
 
-		// 獲取用戶並包含密碼字段
-		const user = await User.findById(userId).select("+password");
+		const user = await User.findById(req.user._id).select("+password");
 		if (!user) {
 			throw ApiError.notFound("用戶不存在");
 		}
 
-		// 驗證當前密碼
-		const isMatch = await user.comparePassword(currentPassword);
-		if (!isMatch) {
+		if (!(await user.comparePassword(currentPassword))) {
 			throw ApiError.badRequest("當前密碼不正確");
 		}
 
-		// 更新密碼
 		user.password = newPassword;
-
-		// 如果是首次登入，更新標記
 		if (user.isFirstLogin) {
 			user.isFirstLogin = false;
 		}
@@ -85,6 +85,35 @@ export const changePassword = async (req, res, next) => {
 };
 
 /**
+ * 更新自己的個人資料（目前支援 email）
+ */
+export const updateProfile = async (req, res, next) => {
+	try {
+		const { email } = req.body;
+
+		if (email === undefined) {
+			throw ApiError.badRequest("請提供要更新的欄位");
+		}
+
+		const trimmedEmail = typeof email === "string" ? email.trim() : "";
+
+		if (trimmedEmail && !validator.isEmail(trimmedEmail)) {
+			throw ApiError.badRequest("信箱格式錯誤");
+		}
+
+		req.user.email = trimmedEmail || undefined;
+		await req.user.save();
+
+		const userData = getUserProfile(req.user);
+
+		return successResponse(res, StatusCodes.OK, "個人資料已更新", { result: userData });
+	} catch (error) {
+		console.error("更新個人資料失敗:", error);
+		next(error);
+	}
+};
+
+/**
  * 獲取用戶個人資料 - 整合所有角色
  */
 export const getProfile = (req, res, next) => {
@@ -92,17 +121,7 @@ export const getProfile = (req, res, next) => {
 		// 使用服務方法獲取用戶資料
 		const userData = getUserProfile(req.user);
 
-		// 根據角色設置不同提示訊息
-		let message = "獲取用戶資料成功";
-		if (req.user.role === "client") {
-			message = "獲取客戶資料成功";
-		} else if (req.user.role === "staff") {
-			message = "獲取員工資料成功";
-		} else if (req.user.role === "admin") {
-			message = "獲取管理員資料成功";
-		}
-
-		return successResponse(res, StatusCodes.OK, message, { result: userData });
+		return successResponse(res, StatusCodes.OK, "獲取個人資料成功", { result: userData });
 	} catch (error) {
 		console.error("獲取用戶資料失敗:", error);
 		next(error);
