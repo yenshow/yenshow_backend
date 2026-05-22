@@ -171,7 +171,7 @@
         </div>
 
         <div class="mb-6">
-          <label class="block theme-text mb-3">已簽核報價單（選填，圖片或 PDF）</label>
+          <label class="block theme-text mb-3">已簽核報價單 *（圖片或 PDF）</label>
           <div
             class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-blue-400"
             :class="conditionalClass('border-gray-600', 'border-gray-300')"
@@ -277,7 +277,8 @@
             !licenseDraft.customerName ||
             !licenseDraft.orderNumber?.trim() ||
             licenseDraft.features.length === 0 ||
-            !licenseDraft.deploymentProfile
+            !licenseDraft.deploymentProfile ||
+            !attachmentFile
           "
           class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
         >
@@ -431,6 +432,10 @@ const handleSubmit = () => {
   const orderNo = (licenseDraft.value.orderNumber || '').trim()
   if (!orderNo) return
   if ((licenseDraft.value.features || []).length === 0) return
+  if (!attachmentFile.value || !isLicenseAttachmentFile(attachmentFile.value)) {
+    emit('submit', { error: '請上傳已簽核報價單（圖片或 PDF）' })
+    return
+  }
 
   const quotasResult = buildLicenseQuotasPayload({
     featureKeys: licenseDraft.value.features,

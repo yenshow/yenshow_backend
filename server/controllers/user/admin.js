@@ -13,7 +13,7 @@ import {
 	assertCanAssignRoleOnUpdate
 } from "../../utils/userManagementPolicy.js";
 import fileUpload from "../../utils/fileUpload.js";
-import { buildBaSystemLicensePdfBuffer } from "../../utils/baSystemLicensePdf.js";
+import { buildBaSystemLicensePdfBuffer, getLicensePdfFilename } from "../../utils/baSystemLicensePdf.js";
 import {
 	sendLicenseApprovedEmail,
 	sendLicensePendingReviewEmail
@@ -419,8 +419,8 @@ export const exportLicensePdf = async (req, res, next) => {
 			quotas
 		});
 
-		const safeKey = lk.replace(/[^a-zA-Z0-9-_]/g, "_");
-		const filename = `BA-System-License-${safeKey}.pdf`;
+		const profile = normalizeDeploymentProfile(license.deploymentProfile);
+		const filename = getLicensePdfFilename(profile, license.orderNumber);
 
 		res.setHeader("Content-Type", "application/pdf");
 		res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -544,6 +544,11 @@ export const createLicense = async (req, res, next) => {
 
 		const normalizedQuotas = validateQuotas(quotas, features);
 
+		const attachment = req.file;
+		if (!attachment?.buffer) {
+			throw ApiError.badRequest("請上傳已簽核報價單（圖片或 PDF）");
+		}
+
 		const newLicense = await License.create({
 			product: "BA-system",
 			deploymentProfile: normalizedProfile,
@@ -557,26 +562,25 @@ export const createLicense = async (req, res, next) => {
 			notes: notes || null
 		});
 
-		const attachment = req.file;
-		if (attachment?.buffer) {
-			try {
-				const { fileName, assetCategory } = fileUpload.resolveLicenseAttachmentMeta(
-					orderNo,
-					attachment.originalname,
-					attachment.mimetype
-				);
-				newLicense.imageUrl = fileUpload.saveAsset(
-					attachment.buffer,
-					"licenses",
-					{ id: newLicense._id.toString() },
-					assetCategory,
-					fileName,
-					""
-				);
-				await newLicense.save();
-			} catch (err) {
-				console.error("授權附件儲存失敗:", err);
-			}
+		try {
+			const { fileName, assetCategory } = fileUpload.resolveLicenseAttachmentMeta(
+				orderNo,
+				attachment.originalname,
+				attachment.mimetype
+			);
+			newLicense.imageUrl = fileUpload.saveAsset(
+				attachment.buffer,
+				"licenses",
+				{ id: newLicense._id.toString() },
+				assetCategory,
+				fileName,
+				""
+			);
+			await newLicense.save();
+		} catch (err) {
+			await License.findByIdAndDelete(newLicense._id);
+			console.error("授權附件儲存失敗:", err);
+			throw ApiError.internal("已簽核報價單儲存失敗，請稍後再試");
 		}
 
 		void sendLicensePendingReviewEmail(newLicense, { isExtension: false }).catch((err) =>

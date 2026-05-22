@@ -7,6 +7,7 @@ import UserRole from '@/enums/UserRole.js'
 import { useApi } from '@/composables/axios'
 import { useNotifications } from '@/composables/notificationCenter'
 import { buildManagedUserPayload, extractUserFromResponse } from '@/utils/userPayload'
+import { getLicensePdfFilename } from '@/utils/licenseLabels.js'
 
 export const useUserStore = defineStore(
   'user',
@@ -453,14 +454,13 @@ export const useUserStore = defineStore(
             requestBody.quotas = licenseData.quotas || null
           }
 
-          const hasImage = licenseData.imageFile instanceof File
-          let requestPayload = requestBody
-          if (hasImage) {
-            const fd = new FormData()
-            fd.append('licenseDataPayload', JSON.stringify(requestBody))
-            fd.append('licenseImage', licenseData.imageFile)
-            requestPayload = fd
+          if (!(licenseData.imageFile instanceof File)) {
+            throw new Error('請上傳已簽核報價單（圖片或 PDF）')
           }
+          const fd = new FormData()
+          fd.append('licenseDataPayload', JSON.stringify(requestBody))
+          fd.append('licenseImage', licenseData.imageFile)
+          const requestPayload = fd
 
           const { data } = await apiAuth.post('/api/users/licenses', requestPayload)
 
@@ -584,7 +584,7 @@ export const useUserStore = defineStore(
       )
     }
 
-    const downloadLicensePdf = async (licenseId, licenseKeyFallback = '') => {
+    const downloadLicensePdf = async (licenseId, orderNumberFallback = '', deploymentProfile = 'central') => {
       try {
         const response = await apiAuth.get(`/api/users/licenses/${licenseId}/pdf`, {
           responseType: 'blob',
@@ -618,8 +618,7 @@ export const useUserStore = defineStore(
         }
 
         if (!filename) {
-          const safe = String(licenseKeyFallback || 'license').replace(/[^a-zA-Z0-9-_]/g, '_')
-          filename = `BA-System-License-${safe}.pdf`
+          filename = getLicensePdfFilename(deploymentProfile, orderNumberFallback)
         }
 
         const url = window.URL.createObjectURL(blob)

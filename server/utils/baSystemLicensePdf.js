@@ -59,6 +59,14 @@ export const getLicensePdfProductTitle = (deploymentProfile) => {
 	return "YS One Platform";
 };
 
+/** 下載檔名：YSOP/YSOS-訂單編號.pdf（不含 LK、SN） */
+export const getLicensePdfFilename = (deploymentProfile, orderNumber) => {
+	const prefix = deploymentProfile === "construction" ? "YSOS" : "YSOP";
+	const raw = orderNumber != null ? String(orderNumber).trim() : "";
+	const safeOrder = raw ? raw.replace(/[^a-zA-Z0-9-_]/g, "_") : "no-order";
+	return `${prefix}-${safeOrder}.pdf`;
+};
+
 const safeCustomerNameForPdf = (name, bodyFont) => {
 	const raw = name == null || String(name).trim() === "" ? "-" : String(name);
 	if (bodyFont === "Body") return raw;

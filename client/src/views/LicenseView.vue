@@ -665,7 +665,7 @@ const handleDownloadLicensePdf = async (license) => {
   if (!id) return
   try {
     pdfingLicense.value = id
-    await userStore.downloadLicensePdf(id, license.licenseKey || '')
+    await userStore.downloadLicensePdf(id, license.orderNumber || '', license.deploymentProfile)
   } catch {
     /* 錯誤提示已由 userStore 處理 */
   } finally {
