@@ -891,7 +891,8 @@ export const deleteLicense = async (req, res, next) => {
 			}
 			if (childLicenses.length > 0) {
 				const ids = childLicenses.map((c) => c._id).filter(Boolean);
-				const delMany = await License.deleteMany({ _id: { $in: ids } });
+				// sanitizeFilter 下 Model.deleteMany + $in 會 CastError，改用 native driver
+				const delMany = await License.collection.deleteMany({ _id: { $in: ids } });
 				deletedExtensions = delMany?.deletedCount ?? 0;
 			}
 		}

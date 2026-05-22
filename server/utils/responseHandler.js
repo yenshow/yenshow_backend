@@ -47,21 +47,21 @@ export class ApiError extends Error {
 export const handleMongooseError = (err) => {
 	// 處理 CastError (無效的 ObjectId)
 	if (err.name === "CastError") {
-		// 檢查是否為 JSON 物件形式的 ID
-		let value = err.value;
+		const value = err.value;
 		if (typeof value === "object" && value !== null) {
-			// 嘗試提取實際 ID 值
+			if (value.$in) {
+				return ApiError.badRequest("資料查詢條件錯誤，請重新操作或聯絡管理員");
+			}
 			if (value.$ne) {
 				try {
-					// 使用 $ne 中的值嘗試建立有效的 ObjectId
 					new mongoose.Types.ObjectId(value.$ne);
 					return ApiError.badRequest(`請使用有效的 ID 格式 (${value.$ne})`);
-				} catch (e) {
-					// 即使 $ne 的值也不是有效 ID
+				} catch {
+					/* fall through */
 				}
 			}
 		}
-		return ApiError.badRequest(`無效的 ${err.path}: ${err.value}`);
+		return ApiError.badRequest(`無效的 ${err.path}`);
 	}
 
 	// 處理 Mongoose 唯一性錯誤 (11000)

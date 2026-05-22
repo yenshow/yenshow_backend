@@ -29,11 +29,31 @@ if (COMEO_RESEND_API_KEY) {
 // --- 授權審核 Email ---
 const LICENSE_FROM_NAME = "Yenshow 授權系統";
 
+const DEPLOYMENT_PROFILE_LABELS = {
+	central: "YSOP 中央管理平台",
+	construction: "YSOS 工地管理平台"
+};
+
+const FEATURE_LABELS = {
+	people_counting: "人流統計",
+	lighting: "照明系統",
+	hvac: "空調系統",
+	drainage: "排水系統",
+	power: "電力系統",
+	fire: "消防系統",
+	emergency_rescue: "緊急求救",
+	environment: "環境品質",
+	surveillance: "影像監控",
+	vehicle_access: "車輛進出",
+	multimedia: "多媒體資訊",
+	smoke_alarm: "煙霧警報",
+	air_circulation: "空氣循環"
+};
+
 const trim = (v) => (typeof v === "string" ? v.trim() : "");
 const dash = (v) => v || "—";
 
-const toLicenseDoc = (license) =>
-	license && typeof license.toObject === "function" ? license.toObject() : license;
+const toLicenseDoc = (license) => (license && typeof license.toObject === "function" ? license.toObject() : license);
 
 const formatLicenseDate = (value) => {
 	if (!value) return "—";
@@ -41,21 +61,41 @@ const formatLicenseDate = (value) => {
 	return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("zh-TW", { timeZone: "Asia/Taipei" });
 };
 
-const formatQuotas = (quotas) => {
-	if (!quotas || typeof quotas !== "object") return "未設定";
-	const parts = Object.entries(quotas).map(([k, v]) => {
-		const max = v?.maxDevices;
-		return `${k}: ${max == null ? "不限" : max}`;
-	});
-	return parts.length ? parts.join(", ") : "未設定";
+const formatDeploymentProfile = (profile) =>
+	DEPLOYMENT_PROFILE_LABELS[profile] || DEPLOYMENT_PROFILE_LABELS.central;
+
+const formatFeatureLabel = (key) => FEATURE_LABELS[key] || key;
+
+const formatQuotaCell = (maxDevices) => {
+	if (maxDevices === undefined || maxDevices === null || maxDevices === "") return "不限";
+	return String(maxDevices);
+};
+
+/** 依 features[] 列模組，配額取自 quotas[featureKey].maxDevices */
+const buildFeatureQuotaRows = (features, quotas) => {
+	const list = Array.isArray(features) ? features : [];
+	const quotaMap = quotas && typeof quotas === "object" ? quotas : {};
+	return list.map((key) => ({
+		module: formatFeatureLabel(key),
+		quota: formatQuotaCell(quotaMap[key]?.maxDevices)
+	}));
+};
+
+const buildFeatureQuotaTableHtml = (rows) => {
+	if (!rows.length) return "<p><strong>模組與配額：</strong>—</p>";
+	const trs = rows.map((r) => `<tr><td>${r.module}</td><td>${r.quota}</td></tr>`).join("");
+	return `<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;margin:12px 0"><thead><tr><th align="left">模組</th><th align="left">配額</th></tr></thead><tbody>${trs}</tbody></table>`;
+};
+
+const buildFeatureQuotaTableText = (rows) => {
+	if (!rows.length) return "模組與配額：—\n";
+	return ["模組 | 配額", ...rows.map((r) => `${r.module} | ${r.quota}`)].join("\n") + "\n";
 };
 
 const licenseAdminLink = () => {
 	const base = trim(process.env.YENSHOW_ADMIN_APP_URL);
 	const url = base ? `${base.replace(/\/$/, "")}/licenses` : null;
-	return url
-		? { html: `<p><a href="${url}">前往授權管理</a></p>`, text: `\n${url}\n` }
-		: { html: "", text: "\n/licenses\n" };
+	return url ? { html: `<p><a href="${url}">前往授權管理</a></p>`, text: `\n${url}\n` } : { html: "", text: "\n/licenses\n" };
 };
 
 const getLicenseNotifyEmails = () =>
@@ -109,24 +149,30 @@ export const sendLicensePendingReviewEmail = async (license, { isExtension = fal
 	const doc = toLicenseDoc(license);
 	const ext = isExtension ? "（副授權）" : "";
 	const prefix = isExtension ? "[副授權] " : "";
-	const features = Array.isArray(doc.features) ? doc.features.join(", ") : "—";
-	const quotas = formatQuotas(doc.quotas);
+	const quotaRows = buildFeatureQuotaRows(doc.features, doc.quotas);
 	const link = licenseAdminLink();
 
-	const body = `客戶：${dash(doc.customerName)}
-訂單：${dash(doc.orderNumber)}
+	const textMeta = `客戶名稱：${dash(doc.customerName)}
+訂單編號：${dash(doc.orderNumber)}
 申請人：${dash(doc.applicant)}
-部署：${doc.deploymentProfile || "central"}
-模組：${features}
-配額：${quotas}
-備註：${dash(doc.notes)}
+方案：${formatDeploymentProfile(doc.deploymentProfile)}
+${buildFeatureQuotaTableText(quotaRows)}備註：${dash(doc.notes)}
 申請時間：${formatLicenseDate(doc.appliedAt)}`;
+
+	const htmlMeta = `<p><strong>客戶名稱：</strong>${dash(doc.customerName)}</p>
+<p><strong>訂單編號：</strong>${dash(doc.orderNumber)}</p>
+<p><strong>申請人：</strong>${dash(doc.applicant)}</p>
+<p><strong>方案：</strong>${formatDeploymentProfile(doc.deploymentProfile)}</p>
+${buildFeatureQuotaTableHtml(quotaRows)}
+<p><strong>備註：</strong></p>
+<p style="white-space:pre-wrap">${dash(doc.notes)}</p>
+<p><strong>申請時間：</strong>${formatLicenseDate(doc.appliedAt)}</p>`;
 
 	return sendLicenseEmail({
 		to,
 		subject: `${prefix}[待審核] 授權申請 - ${dash(doc.customerName)} (${dash(doc.orderNumber)})`,
-		text: `有新的授權申請待審核${ext}。\n\n${body}${link.text}`,
-		html: `<h2>授權待審核${ext}</h2><pre style="white-space:pre-wrap;font-family:inherit">${body}</pre>${link.html}`
+		text: `有新的授權申請待審核${ext}。\n\n${textMeta}${link.text}`,
+		html: `<h2>授權待審核${ext}</h2>${htmlMeta}${link.html}`
 	});
 };
 
@@ -138,21 +184,37 @@ export const sendLicenseApprovedEmail = async (license, reviewerAccount) => {
 	const doc = toLicenseDoc(license);
 	const isExt = Boolean(doc.parentLicenseKey || doc.parentLicenseId);
 	const ext = isExt ? "（副授權）" : "";
+	const quotaRows = buildFeatureQuotaRows(doc.features, doc.quotas);
 	const link = licenseAdminLink();
-	const sn = doc.serialNumber ? `Serial Number：${doc.serialNumber}\n` : "";
+	const snText = doc.serialNumber ? `Serial Number：${doc.serialNumber}\n` : "";
+	const snHtml = doc.serialNumber ? `<p><strong>Serial Number：</strong>${doc.serialNumber}</p>` : "";
 
-	const body = `客戶：${dash(doc.customerName)}
-訂單：${dash(doc.orderNumber)}
+	const textMeta = `客戶名稱：${dash(doc.customerName)}
+訂單編號：${dash(doc.orderNumber)}
 類型：${isExt ? "副授權" : "主授權"}
+方案：${formatDeploymentProfile(doc.deploymentProfile)}
+${buildFeatureQuotaTableText(quotaRows)}備註：${dash(doc.notes)}
+${snText}License Key：${dash(doc.licenseKey)}
 審核人：${dash(reviewerAccount)}
-審核時間：${formatLicenseDate(doc.reviewedAt)}
-${sn}License Key：${dash(doc.licenseKey)}`;
+審核時間：${formatLicenseDate(doc.reviewedAt)}`;
+
+	const htmlMeta = `<p><strong>客戶名稱：</strong>${dash(doc.customerName)}</p>
+<p><strong>訂單編號：</strong>${dash(doc.orderNumber)}</p>
+<p><strong>類型：</strong>${isExt ? "副授權" : "主授權"}</p>
+<p><strong>方案：</strong>${formatDeploymentProfile(doc.deploymentProfile)}</p>
+${buildFeatureQuotaTableHtml(quotaRows)}
+<p><strong>備註：</strong></p>
+<p style="white-space:pre-wrap">${dash(doc.notes)}</p>
+${snHtml}
+<p><strong>License Key：</strong><code>${dash(doc.licenseKey)}</code></p>
+<p><strong>審核人：</strong>${dash(reviewerAccount)}</p>
+<p><strong>審核時間：</strong>${formatLicenseDate(doc.reviewedAt)}</p>`;
 
 	return sendLicenseEmail({
 		to: [to],
 		subject: `[已審核] 授權可啟用${ext} - ${dash(doc.customerName)}`,
-		text: `您的授權已審核通過，狀態為「可啟用」。\n\n${body}${link.text}`,
-		html: `<h2>授權已審核通過${ext}</h2><p>狀態：可啟用</p><pre style="white-space:pre-wrap;font-family:inherit">${body}</pre>${link.html}`
+		text: `您的授權已審核通過，狀態為「可啟用」。\n\n${textMeta}${link.text}`,
+		html: `<h2>授權已審核通過${ext}</h2><p>狀態：可啟用</p>${htmlMeta}${link.html}`
 	});
 };
 

@@ -59,109 +59,109 @@
                   : 'text-slate-600 hover:text-slate-700 hover:bg-slate-50',
             ]"
           >
-            <!-- 產品圖標 (遠岫) -->
-            <svg
-              v-if="link.name === 'home'"
-              class="w-[36px] lg:w-[48px] aspect-square"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <path d="M16 10a4 4 0 0 1-8 0"></path>
-            </svg>
+            <span class="relative inline-flex shrink-0">
+              <!-- 產品圖標 (遠岫) -->
+              <svg
+                v-if="link.name === 'home'"
+                class="w-[36px] lg:w-[48px] aspect-square"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <path d="M16 10a4 4 0 0 1-8 0"></path>
+              </svg>
 
-            <!-- 專欄圖標 (遠岫) -->
-            <svg
-              v-else-if="link.name === 'contentManagement'"
-              class="w-[36px] lg:w-[48px] aspect-square"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
+              <!-- 專欄圖標 (遠岫) -->
+              <svg
+                v-else-if="link.name === 'contentManagement'"
+                class="w-[36px] lg:w-[48px] aspect-square"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
 
-            <!-- 案例圖標 (蝶蛹) -->
-            <svg
-              v-else-if="link.name === 'comeo'"
-              class="w-[36px] lg:w-[48px] aspect-square"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-            </svg>
+              <!-- 案例圖標 (蝶蛹) -->
+              <svg
+                v-else-if="link.name === 'comeo'"
+                class="w-[36px] lg:w-[48px] aspect-square"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+              </svg>
 
-            <!-- 用戶管理圖標 (兩者共用) -->
-            <svg
-              v-else-if="link.name === 'admin'"
-              class="w-[36px] lg:w-[48px] aspect-square"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-            </svg>
+              <!-- 用戶管理圖標 (兩者共用) -->
+              <svg
+                v-else-if="link.name === 'admin'"
+                class="w-[36px] lg:w-[48px] aspect-square"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
 
-            <!-- 授權管理圖標 (僅 admin) -->
-            <svg
-              v-else-if="link.name === 'licenses'"
-              class="w-[36px] lg:w-[48px] aspect-square"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
+              <!-- 授權管理圖標 -->
+              <svg
+                v-else-if="link.name === 'licenses'"
+                class="w-[36px] lg:w-[48px] aspect-square"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
 
-            <span class="flex items-center gap-[8px]">
-              <span>{{ link.text }}</span>
               <span
                 v-if="link.pendingCount > 0"
-                class="inline-flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full px-[6px] text-[12px] lg:text-[14px] font-semibold leading-none"
-                :class="
-                  conditionalClass(
-                    'bg-yellow-500/30 text-yellow-200',
-                    'bg-yellow-100 text-yellow-800',
-                  )
-                "
+                class="pointer-events-none absolute top-0 right-0 z-10 flex h-[18px] min-w-[18px] translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-[#f46b6b] px-[4px] text-[11px] font-semibold leading-none text-white shadow-sm lg:h-[20px] lg:min-w-[20px] lg:translate-x-[2px] lg:-translate-y-[2px] lg:text-[12px]"
                 :aria-label="`審核中 ${link.pendingCount}`"
                 :title="`審核中 ${link.pendingCount}`"
               >
-                {{ link.pendingCount }}
+                {{ formatPendingCount(link.pendingCount) }}
               </span>
             </span>
+
+            <span>{{ link.text }}</span>
           </router-link>
         </nav>
 
@@ -396,6 +396,8 @@ const navLinks = computed(() => {
 
   return links.map(withPendingCount)
 })
+
+const formatPendingCount = (count) => (count > 99 ? '99+' : String(count))
 
 // 控制狀態
 const showUserMenu = ref(false)
