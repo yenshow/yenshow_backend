@@ -841,6 +841,7 @@ import { useUserStore } from '@/stores/userStore'
 import { useApi } from '@/composables/axios'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import LanguageSwitcher from '@/components/common/languageSwitcher.vue'
+import { emptyTiptapDoc, isTiptapDocEmpty } from '@/composables/tiptapDoc'
 
 const RichTextBlockEditor = defineAsyncComponent(
   () => import('@/components/common/RichTextBlockEditor.vue'),
@@ -1085,8 +1086,8 @@ const initialFormState = () => ({
   _id: null,
   question: { TW: '', EN: '' },
   answer: {
-    TW: { type: 'doc', content: [{ type: 'paragraph' }] },
-    EN: { type: 'doc', content: [{ type: 'paragraph' }] },
+    TW: emptyTiptapDoc(),
+    EN: emptyTiptapDoc(),
   },
   summary: { TW: '', EN: '' },
   category: { main: { TW: '', EN: '' }, sub: { TW: '', EN: '' } },
@@ -1155,8 +1156,8 @@ watch(
               EN: faqData.summary?.EN || '',
             },
             answer: {
-              TW: faqData.answer?.TW || { type: 'doc', content: [{ type: 'paragraph' }] },
-              EN: faqData.answer?.EN || { type: 'doc', content: [{ type: 'paragraph' }] },
+              TW: faqData.answer?.TW || emptyTiptapDoc(),
+              EN: faqData.answer?.EN || emptyTiptapDoc(),
             },
             category: {
               main:
@@ -1179,7 +1180,7 @@ watch(
           }
 
           questionLanguage.value = form.value.question.TW ? 'TW' : 'EN'
-          answerLanguage.value = !isTiptapContentEmpty(form.value.answer.TW) ? 'TW' : 'EN'
+          answerLanguage.value = !isTiptapDocEmpty(form.value.answer.TW) ? 'TW' : 'EN'
         } catch (error) {
           console.error('Failed to load FAQ data for editing:', error)
           formError.value = `載入 FAQ 失敗: ${error.message}`
@@ -1196,23 +1197,6 @@ watch(
   },
   { immediate: true },
 )
-
-const isTiptapContentEmpty = (content) => {
-  if (!content || !content.content) {
-    return true
-  }
-  if (content.content.length === 0) {
-    return true
-  }
-  if (
-    content.content.length === 1 &&
-    content.content[0].type === 'paragraph' &&
-    !content.content[0].content
-  ) {
-    return true
-  }
-  return false
-}
 
 const validateForm = () => {
   clearErrors()
@@ -1259,7 +1243,7 @@ const validateForm = () => {
     }
   }
 
-  if (isTiptapContentEmpty(form.value.answer.TW) && isTiptapContentEmpty(form.value.answer.EN)) {
+  if (isTiptapDocEmpty(form.value.answer.TW) && isTiptapDocEmpty(form.value.answer.EN)) {
     pushError('mainContent', 'answer', '至少需要一種語言的答案')
     isValid = false
   }
@@ -1331,7 +1315,7 @@ const handleSaveDraft = async () => {
   }
 
   if (!faqDataPayload.question.EN) delete faqDataPayload.question.EN
-  if (isTiptapContentEmpty(faqDataPayload.answer.EN)) {
+  if (isTiptapDocEmpty(faqDataPayload.answer.EN)) {
     delete faqDataPayload.answer.EN
   }
 
@@ -1418,7 +1402,7 @@ const submitForm = async () => {
   }
   // Clean up empty EN fields
   if (!faqDataPayload.question.EN) delete faqDataPayload.question.EN
-  if (isTiptapContentEmpty(faqDataPayload.answer.EN)) {
+  if (isTiptapDocEmpty(faqDataPayload.answer.EN)) {
     delete faqDataPayload.answer.EN
   }
   if (!faqDataPayload.summary.TW) delete faqDataPayload.summary.TW

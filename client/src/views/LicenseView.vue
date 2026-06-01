@@ -786,6 +786,7 @@ const handleExtendSubmit = async (result) => {
       orderNumber: result.orderNumber,
       notes: result.notes || null,
       quotas: result.quotas || null,
+      imageFile: result.imageFile,
     })
     showExtendModal.value = false
     extendTarget.value = null

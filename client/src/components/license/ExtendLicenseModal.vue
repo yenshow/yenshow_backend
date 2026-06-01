@@ -156,6 +156,88 @@
         </div>
 
         <div class="md:col-span-2">
+          <label class="block theme-text mb-3">已簽核報價單 *（圖片或 PDF）</label>
+          <div
+            class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-[10px] cursor-pointer hover:border-purple-400"
+            :class="conditionalClass('border-gray-600', 'border-gray-300')"
+            role="button"
+            tabindex="0"
+            aria-label="上傳已簽核報價單，支援圖片或 PDF"
+            @click="attachmentInputRef?.click()"
+            @keydown.enter.prevent="attachmentInputRef?.click()"
+            @keydown.space.prevent="attachmentInputRef?.click()"
+          >
+            <div class="space-y-1 text-center">
+              <svg
+                class="mx-auto h-12 w-12"
+                :class="conditionalClass('text-gray-500', 'text-gray-400')"
+                stroke="currentColor"
+                fill="none"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                />
+              </svg>
+              <p class="pl-1 theme-text">點擊上傳圖片或 PDF</p>
+            </div>
+            <input
+              ref="attachmentInputRef"
+              type="file"
+              accept="image/*,application/pdf,.pdf"
+              class="hidden"
+              aria-label="選擇已簽核報價單（圖片或 PDF）"
+              @change="handleLicenseAttachmentChange"
+            />
+          </div>
+          <div v-if="attachmentFile" class="mt-4 max-w-md">
+            <div class="relative group">
+              <img
+                v-if="attachmentPreviewIsImage"
+                :src="attachmentPreviewUrl"
+                alt="已簽核報價單預覽"
+                class="w-full max-h-72 object-contain rounded-md border"
+                :class="
+                  conditionalClass('border-gray-600 bg-[#1f2732]', 'border-slate-300 bg-slate-50')
+                "
+              />
+              <div
+                v-else
+                class="flex items-center gap-3 px-4 py-3 rounded-md border"
+                :class="
+                  conditionalClass('border-gray-600 bg-[#1f2732]', 'border-slate-300 bg-slate-50')
+                "
+              >
+                <svg
+                  class="h-10 w-10 shrink-0 text-red-500"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM8 12h8v2H8v-2zm0 4h5v2H8v-2z"
+                  />
+                </svg>
+                <p class="theme-text text-sm break-all">{{ attachmentFile.name }}</p>
+              </div>
+              <button
+                type="button"
+                class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-75 group-hover:opacity-100 cursor-pointer"
+                title="移除附檔"
+                aria-label="移除附檔"
+                @click.stop="clearLicenseAttachmentSelection"
+              >
+                &#x2715;
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="md:col-span-2">
           <label class="block theme-text mb-2">備註</label>
           <textarea
             v-model="extendNotes"
@@ -175,7 +257,12 @@
       <div class="flex gap-2 mt-6">
         <button
           @click="handleSubmit"
-          :disabled="submitting || extendFeatures.length === 0 || !extendOrderNumber.trim()"
+          :disabled="
+            submitting ||
+            extendFeatures.length === 0 ||
+            !extendOrderNumber.trim() ||
+            !attachmentFile
+          "
           class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
         >
           <span
@@ -198,6 +285,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { buildLicenseQuotasPayload, getDefaultMaxDevicesByFeature } from '@/enums/licenseQuota'
+import { isLicenseAttachmentFile } from '@/utils/licenseAttachment.js'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -217,10 +305,27 @@ const extendFeatures = ref([])
 const extendNotes = ref('')
 const extendQuotas = ref({})
 const extendOrderNumber = ref('')
+const attachmentInputRef = ref(null)
+const attachmentFile = ref(null)
+const attachmentPreviewUrl = ref('')
+
+const attachmentPreviewIsImage = computed(() => attachmentFile.value?.type?.startsWith('image/'))
+
+const clearLicenseAttachmentSelection = () => {
+  if (attachmentPreviewUrl.value) {
+    URL.revokeObjectURL(attachmentPreviewUrl.value)
+  }
+  attachmentPreviewUrl.value = ''
+  attachmentFile.value = null
+  if (attachmentInputRef.value) {
+    attachmentInputRef.value.value = ''
+  }
+}
 
 watch(
   () => props.open,
   (isOpen) => {
+    clearLicenseAttachmentSelection()
     if (!isOpen) return
     extendFeatures.value = []
     extendNotes.value = ''
@@ -281,11 +386,29 @@ watch(
   { deep: false },
 )
 
+const handleLicenseAttachmentChange = (event) => {
+  const input = event.target
+  const file = input?.files?.[0]
+  if (!file || !isLicenseAttachmentFile(file)) {
+    if (input) input.value = ''
+    return
+  }
+  if (attachmentPreviewUrl.value) {
+    URL.revokeObjectURL(attachmentPreviewUrl.value)
+  }
+  attachmentFile.value = file
+  attachmentPreviewUrl.value = file.type.startsWith('image/') ? URL.createObjectURL(file) : ''
+}
+
 const handleSubmit = () => {
   if (!props.target) return
   if ((extendFeatures.value || []).length === 0) return
   const orderNo = extendOrderNumber.value.trim()
   if (!orderNo) return
+  if (!attachmentFile.value || !isLicenseAttachmentFile(attachmentFile.value)) {
+    emit('submit', { error: '請上傳已簽核報價單（圖片或 PDF）' })
+    return
+  }
 
   const quotasResult = buildLicenseQuotasPayload({
     featureKeys: extendFeatures.value,
@@ -302,6 +425,7 @@ const handleSubmit = () => {
     orderNumber: orderNo,
     notes: extendNotes.value || null,
     quotas: quotasResult.quotas,
+    imageFile: attachmentFile.value,
   })
 }
 

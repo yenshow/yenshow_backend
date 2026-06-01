@@ -68,7 +68,12 @@ router.post(
 	createLicense
 );
 router.post("/licenses/:id/review", checkRole([Permissions.ADMIN]), reviewLicense);
-router.post("/licenses/:id/extend", checkRole([Permissions.ADMIN, Permissions.STAFF]), extendLicense);
+router.post(
+	"/licenses/:id/extend",
+	checkRole([Permissions.ADMIN, Permissions.STAFF]),
+	uploadLicenseCreate,
+	extendLicense
+);
 router.post("/licenses/:id/unbind", checkRole([Permissions.ADMIN]), unbindLicense);
 router.delete("/licenses/:id", checkRole([Permissions.ADMIN, Permissions.STAFF]), deleteLicense);
 

@@ -513,12 +513,19 @@ export const useUserStore = defineStore(
     const extendLicense = async (licenseId, extensionData) => {
       return await safeApiCall(
         async () => {
-          const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/extend`, {
+          if (!(extensionData.imageFile instanceof File)) {
+            throw new Error('請上傳已簽核報價單（圖片或 PDF）')
+          }
+          const requestBody = {
             features: extensionData.features,
             orderNumber: extensionData.orderNumber,
             notes: extensionData.notes || null,
             quotas: extensionData.quotas || null,
-          })
+          }
+          const fd = new FormData()
+          fd.append('extendDataPayload', JSON.stringify(requestBody))
+          fd.append('licenseImage', extensionData.imageFile)
+          const { data } = await apiAuth.post(`/api/users/licenses/${licenseId}/extend`, fd)
 
           if (!data || !data.success) {
             throw new Error(data?.message || '追加授權失敗')

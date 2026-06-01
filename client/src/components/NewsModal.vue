@@ -813,6 +813,7 @@ import { useUserStore } from '@/stores/userStore'
 import { useApi } from '@/composables/axios'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import LanguageSwitcher from '@/components/common/languageSwitcher.vue'
+import { emptyTiptapDoc, isTiptapDocEmpty } from '@/composables/tiptapDoc'
 
 const RichTextBlockEditor = defineAsyncComponent(
   () => import('@/components/common/RichTextBlockEditor.vue'),
@@ -874,13 +875,12 @@ const videoRowPickingIndex = ref(null)
 let rowKey = 0
 const nextKey = () => `k-${++rowKey}`
 
-const emptyDoc = () => ({ type: 'doc', content: [{ type: 'paragraph' }] })
 
 const initialFormState = () => ({
   _id: null,
   title: { TW: '', EN: '' },
   summary: { TW: '', EN: '' },
-  article: { TW: emptyDoc(), EN: emptyDoc() },
+  article: { TW: emptyTiptapDoc(), EN: emptyTiptapDoc() },
   category: { main: { TW: '', EN: '' } },
   attachmentImages: [],
   attachmentVideos: [],
@@ -964,11 +964,6 @@ watch(
     form.value.category.main.EN = tw ? newsCategoryEnMap[tw] || '' : ''
   },
 )
-
-const isTiptapEmpty = (doc) => {
-  if (!doc?.content?.length) return true
-  return doc.content.length === 1 && doc.content[0].type === 'paragraph' && !doc.content[0].content
-}
 
 const triggerCoverInput = () => coverInputRef.value?.click()
 const handleCoverChange = (e) => {
@@ -1188,8 +1183,8 @@ const validateForm = () => {
     pushError('general', 'publishDate', '日期無效')
   }
 
-  const twEmpty = isTiptapEmpty(form.value.article.TW)
-  const enEmpty = isTiptapEmpty(form.value.article.EN)
+  const twEmpty = isTiptapDocEmpty(form.value.article.TW)
+  const enEmpty = isTiptapDocEmpty(form.value.article.EN)
   if (twEmpty && enEmpty) {
     pushError('mainContent', 'article', '主要內容至少填寫一種語言')
   }
@@ -1477,8 +1472,8 @@ const resetAndInitializeForm = async () => {
     form.value.isActive = !!item.isActive
     form.value.relatedNews = item.relatedNews?.map((n) => n._id || n) || []
     form.value.article = {
-      TW: item.article?.TW || emptyDoc(),
-      EN: item.article?.EN || emptyDoc(),
+      TW: item.article?.TW || emptyTiptapDoc(),
+      EN: item.article?.EN || emptyTiptapDoc(),
     }
     form.value.attachmentImages = (item.attachmentImages || []).map((r) => ({
       _key: nextKey(),
@@ -1523,87 +1518,3 @@ onBeforeUnmount(() => releaseBlobs())
   }
 })()
 </script>
-
-<style>
-.tiptap-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  padding: 0.5rem;
-  border-bottom: 1px solid;
-  gap: 0.5rem;
-}
-.toolbar-button {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid transparent;
-  border-radius: 0.25rem;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-.toolbar-button:hover:not(.is-active) {
-  background-color: rgba(128, 128, 128, 0.1);
-}
-.toolbar-button.is-active {
-  background-color: #3b82f6;
-  color: white;
-}
-html.dark .toolbar-button.is-active {
-  background-color: #60a5fa;
-  color: #1f2937;
-}
-.toolbar-button.remark-button.is-active {
-  background-color: #a855f7;
-}
-html.dark .toolbar-button.remark-button.is-active {
-  background-color: #c084fc;
-}
-.toolbar-color-input {
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 0;
-  width: 2rem;
-  height: 2rem;
-  cursor: pointer;
-}
-.toolbar-divider {
-  width: 1px;
-  height: 1.25rem;
-  background-color: #ccc;
-  margin-left: 0.5rem;
-  margin-right: 0.5rem;
-}
-html.dark .toolbar-divider {
-  background-color: #555;
-}
-.tiptap-editor-wrapper .prose {
-  max-width: none;
-  padding: 0.5rem;
-}
-.tiptap-editor-wrapper .prose,
-.tiptap-editor-wrapper .prose p,
-.tiptap-editor-wrapper .prose h1,
-.tiptap-editor-wrapper .prose h2,
-.tiptap-editor-wrapper .prose h3,
-.tiptap-editor-wrapper .prose h4,
-.tiptap-editor-wrapper .prose h5,
-.tiptap-editor-wrapper .prose h6,
-.tiptap-editor-wrapper .prose strong,
-.tiptap-editor-wrapper .prose em {
-  color: inherit;
-}
-.tiptap-editor-wrapper .prose [data-purpose='remark'] {
-  font-size: 0.9em;
-  opacity: 0.85;
-  border-left: 3px solid;
-  padding-left: 0.75em;
-  margin-top: 0.8em;
-  margin-bottom: 0.8em;
-}
-html:not(.dark) .tiptap-editor-wrapper .prose [data-purpose='remark'] {
-  border-left-color: #a855f7;
-}
-html.dark .tiptap-editor-wrapper .prose [data-purpose='remark'] {
-  border-left-color: #c084fc;
-}
-</style>

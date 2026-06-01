@@ -15,10 +15,14 @@
     </div>
 
     <div
-      v-if="editor"
-      class="tiptap-toolbar grid grid-cols-1 sm:grid-cols-3 gap-x-2 gap-y-1 p-2 rounded-t-md border-b"
-      :class="conditionalClass('bg-gray-700/20 border-gray-600', 'bg-gray-100/80 border-gray-300')"
+      class="rich-text-editor-body rounded-md"
+      :class="conditionalClass('border border-gray-600', 'border border-gray-300')"
     >
+      <div
+        v-if="editor"
+        class="tiptap-toolbar sticky top-0 z-10 grid grid-cols-1 sm:grid-cols-3 gap-x-2 gap-y-1 p-2 border-b shadow-sm backdrop-blur-sm"
+        :class="conditionalClass('bg-gray-800/95 border-gray-600', 'bg-white/95 border-gray-300')"
+      >
       <!-- Format Group -->
       <div class="toolbar-button-group flex flex-wrap items-center gap-1 text-[13px]">
         <label :class="['toolbar-label', conditionalClass('text-gray-400', 'text-gray-600')]">
@@ -81,7 +85,7 @@
         <button
           type="button"
           @click="editor.chain().focus().toggleBlockquote().run()"
-          :class="['toolbar-button', isBlockquoteActive ? 'is-active' : defaultButtonClass]"
+          :class="['toolbar-button', isBlockquoteActive ? 'is-active-remark' : defaultButtonClass]"
           title="備註 (引用)"
           aria-label="備註引用"
         >
@@ -199,16 +203,18 @@
           刪除表格
         </button>
       </div>
+      </div>
+      <editor-content :editor="editor" class="tiptap-content-area" />
     </div>
-    <editor-content :editor="editor" class="tiptap-content-area" />
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onUnmounted, onMounted, computed } from 'vue'
+import { ref, watch, onUnmounted, computed } from 'vue'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { useDark } from '@vueuse/core'
 import LanguageSwitcher from '@/components/common/languageSwitcher.vue'
+import { getValidTiptapDoc } from '@/composables/tiptapDoc'
 
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
@@ -249,8 +255,6 @@ const isDark = useDark()
 
 const currentEditingLanguage = ref(props.initialLanguage || 'TW')
 
-const defaultEmptyContent = () => ({ type: 'doc', content: [{ type: 'paragraph' }] })
-
 const languageSwitcherTestId = computed(() => {
   if (!props.dataTestId) return ''
   return `${props.dataTestId}-lang`
@@ -258,29 +262,8 @@ const languageSwitcherTestId = computed(() => {
 
 const activeFieldName = computed(() => `${props.fieldBase}.${currentEditingLanguage.value}`)
 
-// --- 幫助函數，用於確保傳入的內容是有效的 Tiptap 文檔物件 ---
-const getValidTiptapContent = (contentInput) => {
-  if (
-    contentInput &&
-    typeof contentInput === 'object' &&
-    contentInput.type === 'doc' &&
-    Array.isArray(contentInput.content)
-  ) {
-    // 如果 contentInput.content 為空陣列，ProseMirror 可能仍會報錯，
-    // Tiptap 通常期望至少有一個 paragraph。
-    if (contentInput.content.length === 0) {
-      // console.warn("Tiptap content was empty, ensuring default paragraph.");
-      return { ...contentInput, content: [{ type: 'paragraph' }] }
-    }
-    return contentInput // 看起來是個有效的 Tiptap JSON 文檔
-  }
-  // console.warn("Invalid Tiptap content detected, falling back to default empty content.", contentInput);
-  return defaultEmptyContent() // 否則返回預設的空文檔
-}
-// --- 結束幫助函數 ---
-
 const editor = useEditor({
-  content: getValidTiptapContent(props.modelValue[currentEditingLanguage.value]),
+  content: getValidTiptapDoc(props.modelValue[currentEditingLanguage.value]),
   extensions: [
     StarterKit.configure({
       heading: {
@@ -314,34 +297,19 @@ const editor = useEditor({
   },
 })
 
-// Computed properties for button active states
-const isH1Active = computed(() => {
-  return editor.value ? editor.value.isActive('heading', { level: 1 }) : false
-})
-const isH2Active = computed(() => {
-  return editor.value ? editor.value.isActive('heading', { level: 2 }) : false
-})
-const isH3Active = computed(() => {
-  return editor.value ? editor.value.isActive('heading', { level: 3 }) : false
-})
+const createIsActive = (name, attributes) =>
+  computed(() => {
+    if (!editor.value) return false
+    return attributes ? editor.value.isActive(name, attributes) : editor.value.isActive(name)
+  })
 
-const isBulletListActive = computed(() => {
-  return editor.value ? editor.value.isActive('bulletList') : false
-})
-
-const isOrderedListActive = computed(() => {
-  return editor.value ? editor.value.isActive('orderedList') : false
-})
-
-const isBlockquoteActive = computed(() => {
-  // Active if it's a blockquote.
-  return editor.value ? editor.value.isActive('blockquote') : false
-})
-
-const isParagraphActive = computed(() => {
-  // Active if it's a paragraph.
-  return editor.value ? editor.value.isActive('paragraph') : false
-})
+const isH1Active = createIsActive('heading', { level: 1 })
+const isH2Active = createIsActive('heading', { level: 2 })
+const isH3Active = createIsActive('heading', { level: 3 })
+const isParagraphActive = createIsActive('paragraph')
+const isBulletListActive = createIsActive('bulletList')
+const isOrderedListActive = createIsActive('orderedList')
+const isBlockquoteActive = createIsActive('blockquote')
 
 const defaultButtonClass = computed(() => {
   return conditionalClass(
@@ -352,7 +320,7 @@ const defaultButtonClass = computed(() => {
 
 watch(currentEditingLanguage, (newLang, oldLang) => {
   if (editor.value && newLang !== oldLang) {
-    editor.value.commands.setContent(getValidTiptapContent(props.modelValue[newLang]), false)
+    editor.value.commands.setContent(getValidTiptapDoc(props.modelValue[newLang]), false)
   }
 })
 
@@ -362,7 +330,7 @@ watch(
     if (editor.value) {
       const editorContentJson = JSON.stringify(editor.value.getJSON())
       const newContentForLangJson = JSON.stringify(
-        getValidTiptapContent(newVal[currentEditingLanguage.value]),
+        getValidTiptapDoc(newVal[currentEditingLanguage.value]),
       )
 
       if (editorContentJson !== newContentForLangJson) {
@@ -382,15 +350,6 @@ watch(
   },
 )
 
-onMounted(() => {
-  if (editor.value) {
-    const initialContent = getValidTiptapContent(props.modelValue[currentEditingLanguage.value])
-    if (JSON.stringify(editor.value.getJSON()) !== JSON.stringify(initialContent)) {
-      editor.value.commands.setContent(initialContent, false)
-    }
-  }
-})
-
 onUnmounted(() => {
   if (editor.value) {
     editor.value.destroy()
@@ -402,7 +361,7 @@ const setContentFromTiptapDoc = (docJson, emitUpdate = true) => {
   if (!editor.value || !docJson) {
     return
   }
-  const valid = getValidTiptapContent(docJson)
+  const valid = getValidTiptapDoc(docJson)
   editor.value.commands.setContent(valid, emitUpdate)
 }
 
@@ -413,19 +372,16 @@ defineExpose({
 </script>
 
 <style>
-.toolbar-label {
+/* 樣式皆限於 .rich-text-block-editor，避免污染全域 ProseMirror */
+.rich-text-block-editor .toolbar-label {
   font-size: 0.8125rem;
   font-weight: 500;
   margin-right: 0.25rem;
   white-space: nowrap;
-  color: var(--toolbar-label-color, #4a5568);
-}
-html.dark .toolbar-label {
-  color: var(--toolbar-label-color-dark, #a0aec0);
 }
 
-.tiptap-toolbar button.toolbar-button,
-.tiptap-toolbar input.toolbar-button {
+.rich-text-block-editor .tiptap-toolbar button.toolbar-button,
+.rich-text-block-editor .tiptap-toolbar input.toolbar-button {
   padding: 0.2rem 0.5rem;
   border-radius: 0.375rem;
   border: 1px solid transparent;
@@ -437,135 +393,177 @@ html.dark .toolbar-label {
     border-color 0.2s ease-in-out;
 }
 
-.tiptap-toolbar button.toolbar-button:not(.is-active) {
-  border-color: var(--button-default-border-color, #e2e8f0);
+.rich-text-block-editor .tiptap-toolbar button.toolbar-button:not(.is-active):not(.is-active-remark) {
+  border-color: #e2e8f0;
 }
-html.dark .tiptap-toolbar button.toolbar-button:not(.is-active) {
-  border-color: var(--button-default-border-color-dark, #4a5568);
+html.dark .rich-text-block-editor .tiptap-toolbar button.toolbar-button:not(.is-active):not(.is-active-remark) {
+  border-color: #4a5568;
 }
 
-.tiptap-toolbar button.toolbar-button.is-active {
+.rich-text-block-editor .tiptap-toolbar button.toolbar-button.is-active {
   background-color: #3b82f6 !important;
   color: white !important;
   border-color: #3b82f6 !important;
 }
-html.dark .tiptap-toolbar button.toolbar-button.is-active {
+html.dark .rich-text-block-editor .tiptap-toolbar button.toolbar-button.is-active {
   background-color: #60a5fa !important;
   color: #1f2937 !important;
   border-color: #60a5fa !important;
 }
 
-.tiptap-toolbar .color-picker {
+.rich-text-block-editor .tiptap-toolbar button.toolbar-button.is-active-remark {
+  background-color: #a855f7 !important;
+  color: white !important;
+  border-color: #a855f7 !important;
+}
+html.dark .rich-text-block-editor .tiptap-toolbar button.toolbar-button.is-active-remark {
+  background-color: #c084fc !important;
+  color: #1f2937 !important;
+  border-color: #c084fc !important;
+}
+
+.rich-text-block-editor .tiptap-toolbar .color-picker {
   width: 1.6rem;
   height: 1.6rem;
   padding: 0.1rem;
-  border: 1px solid;
+  border: 1px solid #e2e8f0;
   cursor: pointer;
   vertical-align: middle;
-  -webkit-appearance: none;
-  -moz-appearance: none;
   appearance: none;
   background-color: transparent;
   border-radius: 0.25rem;
 }
-
-html.dark .tiptap-toolbar .color-picker {
-  border-color: var(--button-default-border-color-dark, #4a5568);
-}
-html:not(.dark) .tiptap-toolbar .color-picker {
-  border-color: var(--button-default-border-color, #e2e8f0);
+html.dark .rich-text-block-editor .tiptap-toolbar .color-picker {
+  border-color: #4a5568;
 }
 
-.tiptap-toolbar .color-picker::-webkit-color-swatch-wrapper {
+.rich-text-block-editor .tiptap-toolbar .color-picker::-webkit-color-swatch-wrapper {
   padding: 0;
 }
-.tiptap-toolbar .color-picker::-webkit-color-swatch {
-  border: none;
-  border-radius: 0.125rem;
-}
-.tiptap-toolbar .color-picker::-moz-color-swatch {
+.rich-text-block-editor .tiptap-toolbar .color-picker::-webkit-color-swatch,
+.rich-text-block-editor .tiptap-toolbar .color-picker::-moz-color-swatch {
   border: none;
   border-radius: 0.125rem;
 }
 
-.tiptap-content-area .ProseMirror {
+.rich-text-block-editor .tiptap-content-area {
+  max-height: min(50vh, 28rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror {
   min-height: 150px;
   padding: 0.75rem;
-  border: 1px solid;
-  border-radius: 0 0 0.375rem 0.375rem;
   outline: none;
-  margin-top: -1px;
 }
 
-html.dark .tiptap-content-area .ProseMirror {
-  border-color: #4a5568;
+html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror {
   color: #d1d5db;
   background-color: #1f2937;
 }
 
-html:not(.dark) .tiptap-content-area .ProseMirror {
-  border-color: #d1d5db;
+html:not(.dark) .rich-text-block-editor .tiptap-content-area .ProseMirror {
   color: #1f2937;
   background-color: white;
 }
 
-.ProseMirror h1 {
+.rich-text-block-editor .tiptap-content-area .ProseMirror h1 {
   font-size: 1.5em;
   font-weight: 700;
-  margin-top: 0.5em;
-  margin-bottom: 0.25em;
+  margin: 0.5em 0 0.25em;
   line-height: 1.3;
 }
-.ProseMirror h2 {
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror h2 {
   font-size: 1.25em;
   font-weight: 600;
-  margin-top: 0.5em;
-  margin-bottom: 0.25em;
+  margin: 0.5em 0 0.25em;
 }
-.ProseMirror h3 {
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror h3 {
   font-size: 1.1em;
   font-weight: 600;
-  margin-top: 0.5em;
-  margin-bottom: 0.25em;
+  margin: 0.5em 0 0.25em;
 }
-.ProseMirror ul,
-.ProseMirror ol {
-  margin: 0.35em 0 0.5em;
-  padding-left: 1.35rem;
-}
-.ProseMirror li {
-  margin-bottom: 0.25em;
-  line-height: 1.6;
-}
-.ProseMirror p {
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror p {
   margin-bottom: 0.5em;
   line-height: 1.6;
 }
-.ProseMirror blockquote {
-  border-left: 3px solid;
-  margin-left: 1rem;
-  padding-left: 1rem;
-  font-style: italic;
-}
-html:not(.dark) .ProseMirror blockquote {
-  border-left-color: #cbd5e1;
-  color: #4b5563;
-}
-html.dark .ProseMirror blockquote {
-  border-left-color: #4b5563;
-  color: #9ca3af;
+
+/* Tailwind preflight 會將 ul/ol 的 list-style 設為 none */
+.rich-text-block-editor .tiptap-content-area .ProseMirror ul,
+.rich-text-block-editor .tiptap-content-area .ProseMirror ol {
+  margin: 0.35em 0 0.5em;
+  padding-left: 1.5rem;
+  list-style-position: outside;
 }
 
-/* Table styles */
-.ProseMirror table {
+.rich-text-block-editor .tiptap-content-area .ProseMirror ul {
+  list-style-type: disc;
+}
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror ul ul {
+  list-style-type: circle;
+}
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror ul ul ul {
+  list-style-type: square;
+}
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror li {
+  display: list-item;
+  margin-bottom: 0.25em;
+  line-height: 1.6;
+}
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror li > p {
+  margin: 0;
+}
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror blockquote {
+  border-left: 4px solid;
+  margin: 0.75em 0;
+  padding: 0.5rem 0 0.5rem 1rem;
+  font-style: italic;
+}
+
+html:not(.dark) .rich-text-block-editor .tiptap-content-area .ProseMirror blockquote {
+  border-left-color: #a855f7;
+  color: #4b5563;
+  background-color: rgba(168, 85, 247, 0.06);
+}
+
+html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror blockquote {
+  border-left-color: #c084fc;
+  color: #d1d5db;
+  background-color: rgba(192, 132, 252, 0.1);
+}
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror a {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror a {
+  color: #60a5fa;
+}
+
+.rich-text-block-editor .tiptap-content-area .ProseMirror table {
   width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
   table-layout: fixed;
 }
 
-.ProseMirror th,
-.ProseMirror td {
+.rich-text-block-editor .tiptap-content-area .ProseMirror th,
+.rich-text-block-editor .tiptap-content-area .ProseMirror td {
   border: none;
   border-bottom: 1px solid;
   padding: 0.5rem;
@@ -574,46 +572,38 @@ html.dark .ProseMirror blockquote {
   text-align: left;
 }
 
-.ProseMirror th {
+.rich-text-block-editor .tiptap-content-area .ProseMirror th {
   border-bottom-width: 3px;
+  font-weight: 500;
 }
 
-/* Light mode styles */
-html:not(.dark) .ProseMirror th,
-html:not(.dark) .ProseMirror td {
+html:not(.dark) .rich-text-block-editor .tiptap-content-area .ProseMirror th,
+html:not(.dark) .rich-text-block-editor .tiptap-content-area .ProseMirror td {
   border-color: #e5e7eb;
 }
 
-html:not(.dark) .ProseMirror th {
-  font-weight: 500;
+html:not(.dark) .rich-text-block-editor .tiptap-content-area .ProseMirror th {
   color: #6b7280;
-  background-color: transparent;
 }
 
-/* Dark mode styles */
-html.dark .ProseMirror th,
-html.dark .ProseMirror td {
+html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror th,
+html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror td {
   border-color: #4b5563;
 }
 
-html.dark .ProseMirror th {
-  font-weight: 500;
+html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror th {
   color: #9ca3af;
-  background-color: transparent;
 }
 
-.ProseMirror .selectedCell:after {
+.rich-text-block-editor .tiptap-content-area .ProseMirror .selectedCell:after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
+  inset: 0;
   background: rgba(96, 165, 250, 0.2);
   pointer-events: none;
 }
 
-.ProseMirror .column-resize-handle {
+.rich-text-block-editor .tiptap-content-area .ProseMirror .column-resize-handle {
   position: absolute;
   right: -2px;
   top: 0;

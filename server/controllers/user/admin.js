@@ -512,6 +512,17 @@ const parseCreateLicenseBody = (req) => {
 	return { ...req.body };
 };
 
+const parseExtendLicenseBody = (req) => {
+	if (req.is("multipart/form-data") && req.body?.extendDataPayload) {
+		try {
+			return JSON.parse(req.body.extendDataPayload);
+		} catch {
+			throw ApiError.badRequest("無法解析 extendDataPayload JSON 字串");
+		}
+	}
+	return { ...req.body };
+};
+
 export const createLicense = async (req, res, next) => {
 	try {
 		const body = parseCreateLicenseBody(req);
@@ -772,7 +783,8 @@ const applyLicenseKeysForAvailable = async (license, mode) => {
 export const extendLicense = async (req, res, next) => {
 	try {
 		const { id } = req.params;
-		const { features, notes, quotas, orderNumber } = req.body;
+		const body = parseExtendLicenseBody(req);
+		const { features, notes, quotas, orderNumber } = body;
 
 		const parentLicense = await License.findById(id);
 		if (!parentLicense) {
@@ -820,6 +832,11 @@ export const extendLicense = async (req, res, next) => {
 
 		const normalizedQuotas = validateQuotas(quotas, features);
 
+		const attachment = req.file;
+		if (!attachment?.buffer) {
+			throw ApiError.badRequest("請上傳已簽核報價單（圖片或 PDF）");
+		}
+
 		const extension = await License.create({
 			product: parentLicense.product,
 			deploymentProfile: parentLicense.deploymentProfile || "central",
@@ -834,6 +851,27 @@ export const extendLicense = async (req, res, next) => {
 			appliedAt: new Date(),
 			notes: notes || null
 		});
+
+		try {
+			const { fileName, assetCategory } = fileUpload.resolveLicenseAttachmentMeta(
+				orderNo,
+				attachment.originalname,
+				attachment.mimetype
+			);
+			extension.imageUrl = fileUpload.saveAsset(
+				attachment.buffer,
+				"licenses",
+				{ id: extension._id.toString() },
+				assetCategory,
+				fileName,
+				""
+			);
+			await extension.save();
+		} catch (err) {
+			await License.findByIdAndDelete(extension._id);
+			console.error("追加授權附件儲存失敗:", err);
+			throw ApiError.internal("已簽核報價單儲存失敗，請稍後再試");
+		}
 
 		void sendLicensePendingReviewEmail(extension, { isExtension: true }).catch((err) =>
 			console.error("副授權待審核通知失敗:", err)
