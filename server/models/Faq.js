@@ -69,7 +69,31 @@ const faqSchema = new Schema(
 				type: Schema.Types.ObjectId,
 				ref: "Faq"
 			}
-		]
+		],
+		relatedSolutions: [
+			{
+				type: String,
+				trim: true
+			}
+		],
+		relatedProductPaths: [
+			{
+				type: String,
+				trim: true
+			}
+		],
+		ctaPrimary: {
+			label: {
+				TW: { type: String, trim: true },
+				EN: { type: String, trim: true }
+			},
+			href: { type: String, trim: true },
+			type: {
+				type: String,
+				enum: ["contact", "solution", "product", "external"],
+				default: "contact"
+			}
+		}
 	},
 	{
 		timestamps: true,

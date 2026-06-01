@@ -21,6 +21,7 @@ import lineRoutes from "./routes/line.js";
 import caseStudyRoutes from "./routes/caseStudy.js";
 import licenseRoutes from "./routes/license.js";
 import documentsRoutes from "./routes/documents.js";
+import seoRoutes from "./routes/seo.js";
 import { signedStorageDownloadMiddleware } from "./middlewares/signedStorageDownload.js";
 // 導入模型 - 僅用於初始化檢查，確保模型正確載入
 import "./models/products.js";
@@ -219,6 +220,7 @@ const configureRoutes = (app) => {
 	app.use("/api", contactRoutes);
 	app.use("/api", caseStudyRoutes);
 	app.use("/api/documents", documentsRoutes);
+	app.use("/api/seo", seoRoutes);
 
 	// 提供靜態資源
 	app.use(

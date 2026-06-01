@@ -1,6 +1,6 @@
 <template>
   <div
-    class="p-4 rich-text-block-editor rounded-md"
+    class="rich-text-block-editor rounded-md"
     :data-testid="dataTestId"
     :data-lang="currentEditingLanguage"
     :data-field="activeFieldName"
@@ -20,191 +20,220 @@
     >
       <div
         v-if="editor"
-        class="tiptap-toolbar sticky top-0 z-10 grid grid-cols-1 sm:grid-cols-3 gap-x-2 gap-y-1 p-2 border-b shadow-sm backdrop-blur-sm"
-        :class="conditionalClass('bg-gray-800/95 border-gray-600', 'bg-white/95 border-gray-300')"
+        class="tiptap-toolbar sticky top-0 z-10 border-b px-3 py-2.5 space-y-2"
+        :class="
+          conditionalClass('bg-slate-800/90 border-slate-600', 'bg-slate-100 border-slate-200')
+        "
       >
-      <!-- Format Group -->
-      <div class="toolbar-button-group flex flex-wrap items-center gap-1 text-[13px]">
-        <label :class="['toolbar-label', conditionalClass('text-gray-400', 'text-gray-600')]">
-          格式：
-        </label>
-        <button
-          type="button"
-          @click="editor.chain().focus().toggleHeading({ level: 1 }).run()"
-          :class="['toolbar-button', isH1Active ? 'is-active' : defaultButtonClass]"
-          title="標題 H1"
-          aria-label="標題 H1"
-        >
-          H1
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().toggleHeading({ level: 2 }).run()"
-          :class="['toolbar-button', isH2Active ? 'is-active' : defaultButtonClass]"
-          title="標題 H2"
-          aria-label="標題 H2"
-        >
-          H2
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().toggleHeading({ level: 3 }).run()"
-          :class="['toolbar-button', isH3Active ? 'is-active' : defaultButtonClass]"
-          title="標題 H3"
-          aria-label="標題 H3"
-        >
-          H3
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().setParagraph().run()"
-          :class="['toolbar-button', isParagraphActive ? 'is-active' : defaultButtonClass]"
-          title="內文 (Paragraph)"
-          aria-label="內文段落"
-        >
-          內文
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().toggleBulletList().run()"
-          :class="['toolbar-button', isBulletListActive ? 'is-active' : defaultButtonClass]"
-          title="項目符號清單"
-          aria-label="項目符號清單"
-        >
-          • 清單
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().toggleOrderedList().run()"
-          :class="['toolbar-button', isOrderedListActive ? 'is-active' : defaultButtonClass]"
-          title="編號清單"
-          aria-label="編號清單"
-        >
-          1. 清單
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().toggleBlockquote().run()"
-          :class="['toolbar-button', isBlockquoteActive ? 'is-active-remark' : defaultButtonClass]"
-          title="備註 (引用)"
-          aria-label="備註引用"
-        >
-          備註
-        </button>
-      </div>
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-2">
+          <div class="toolbar-section">
+            <span :class="['toolbar-label', conditionalClass('text-slate-400', 'text-slate-500')]">
+              格式
+            </span>
+            <div :class="['toolbar-cluster', clusterClass]">
+              <button
+                type="button"
+                @click="editor.chain().focus().toggleHeading({ level: 1 }).run()"
+                :class="['toolbar-button', isH1Active ? 'is-active' : defaultButtonClass]"
+                title="標題 H1"
+                aria-label="標題 H1"
+              >
+                H1
+              </button>
+              <button
+                type="button"
+                @click="editor.chain().focus().toggleHeading({ level: 2 }).run()"
+                :class="['toolbar-button', isH2Active ? 'is-active' : defaultButtonClass]"
+                title="標題 H2"
+                aria-label="標題 H2"
+              >
+                H2
+              </button>
+              <button
+                type="button"
+                @click="editor.chain().focus().toggleHeading({ level: 3 }).run()"
+                :class="['toolbar-button', isH3Active ? 'is-active' : defaultButtonClass]"
+                title="標題 H3"
+                aria-label="標題 H3"
+              >
+                H3
+              </button>
+              <button
+                type="button"
+                @click="editor.chain().focus().setParagraph().run()"
+                :class="['toolbar-button', isParagraphActive ? 'is-active' : defaultButtonClass]"
+                title="內文"
+                aria-label="內文段落"
+              >
+                內文
+              </button>
+            </div>
+          </div>
 
-      <!-- Style Group -->
-      <div class="toolbar-button-group flex items-center gap-1 text-[13px]">
-        <label :class="['toolbar-label', conditionalClass('text-gray-400', 'text-gray-600')]">
-          樣式：
-        </label>
-        <button
-          type="button"
-          @click="editor.chain().focus().toggleBold().run()"
-          :disabled="!editor.can().chain().focus().toggleBold().run()"
-          :class="['toolbar-button', editor.isActive('bold') ? 'is-active' : defaultButtonClass]"
-          title="粗體"
-          aria-label="粗體"
-        >
-          粗體
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().toggleItalic().run()"
-          :disabled="!editor.can().chain().focus().toggleItalic().run()"
-          :class="['toolbar-button', editor.isActive('italic') ? 'is-active' : defaultButtonClass]"
-          title="斜體"
-          aria-label="斜體"
-        >
-          斜體
-        </button>
-      </div>
+          <div class="toolbar-section">
+            <span :class="['toolbar-label', conditionalClass('text-slate-400', 'text-slate-500')]">
+              清單
+            </span>
+            <div :class="['toolbar-cluster', clusterClass]">
+              <button
+                type="button"
+                @click="editor.chain().focus().toggleBulletList().run()"
+                :class="['toolbar-button', isBulletListActive ? 'is-active' : defaultButtonClass]"
+                title="項目符號清單"
+                aria-label="項目符號清單"
+              >
+                • 清單
+              </button>
+              <button
+                type="button"
+                @click="editor.chain().focus().toggleOrderedList().run()"
+                :class="['toolbar-button', isOrderedListActive ? 'is-active' : defaultButtonClass]"
+                title="編號清單"
+                aria-label="編號清單"
+              >
+                1. 清單
+              </button>
+              <button
+                type="button"
+                @click="editor.chain().focus().toggleBlockquote().run()"
+                :class="[
+                  'toolbar-button',
+                  isBlockquoteActive ? 'is-active-remark' : defaultButtonClass,
+                ]"
+                title="備註"
+                aria-label="備註引用"
+              >
+                備註
+              </button>
+            </div>
+          </div>
 
-      <!-- Color Group -->
-      <div class="toolbar-button-group flex items-center gap-1 text-[13px]">
-        <label :class="['toolbar-label', conditionalClass('text-gray-400', 'text-gray-600')]">
-          顏色：
-        </label>
-        <input
-          type="color"
-          @input="editor.chain().focus().setColor($event.target.value).run()"
-          :value="editor.getAttributes('textStyle').color || (isDark ? '#FFFFFF' : '#000000')"
-          title="文字顏色"
-          class="toolbar-button color-picker"
-          :style="{
-            backgroundColor:
-              editor.getAttributes('textStyle').color || (isDark ? '#FFFFFF' : '#000000'),
-          }"
-        />
-        <button
-          type="button"
-          @click="editor.chain().focus().unsetColor().run()"
-          :class="['toolbar-button', defaultButtonClass]"
-          title="清除顏色"
-        >
-          清除顏色
-        </button>
-      </div>
+          <div class="toolbar-section">
+            <span :class="['toolbar-label', conditionalClass('text-slate-400', 'text-slate-500')]">
+              樣式
+            </span>
+            <div :class="['toolbar-cluster', clusterClass]">
+              <button
+                type="button"
+                @click="editor.chain().focus().toggleBold().run()"
+                :disabled="!editor.can().chain().focus().toggleBold().run()"
+                :class="[
+                  'toolbar-button',
+                  editor.isActive('bold') ? 'is-active' : defaultButtonClass,
+                ]"
+                title="粗體"
+                aria-label="粗體"
+              >
+                粗體
+              </button>
+              <button
+                type="button"
+                @click="editor.chain().focus().toggleItalic().run()"
+                :disabled="!editor.can().chain().focus().toggleItalic().run()"
+                :class="[
+                  'toolbar-button',
+                  editor.isActive('italic') ? 'is-active' : defaultButtonClass,
+                ]"
+                title="斜體"
+                aria-label="斜體"
+              >
+                斜體
+              </button>
+            </div>
+          </div>
 
-      <!-- Table Group -->
-      <div class="toolbar-button-group flex flex-wrap items-center gap-1 text-[13px] col-span-full">
-        <label :class="['toolbar-label', conditionalClass('text-gray-400', 'text-gray-600')]">
-          表格：
-        </label>
-        <button
-          type="button"
-          @click="
-            editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-          "
-          :class="['toolbar-button', defaultButtonClass]"
+          <div class="toolbar-section">
+            <span :class="['toolbar-label', conditionalClass('text-slate-400', 'text-slate-500')]">
+              顏色
+            </span>
+            <div :class="['toolbar-cluster toolbar-cluster--color', clusterClass]">
+              <input
+                type="color"
+                class="color-picker"
+                :value="textColorValue"
+                title="文字顏色"
+                aria-label="文字顏色"
+                @input="editor.chain().focus().setColor($event.target.value).run()"
+              />
+              <button
+                type="button"
+                @click="editor.chain().focus().unsetColor().run()"
+                :class="['toolbar-button', defaultButtonClass]"
+                title="清除顏色"
+              >
+                清除
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="toolbar-section flex flex-wrap items-center gap-2 pt-2"
+          :class="conditionalClass('border-t border-slate-600/70', 'border-t border-slate-200')"
         >
-          插入表格
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().toggleHeaderRow().run()"
-          :class="['toolbar-button', defaultButtonClass]"
-        >
-          標題行
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().addColumnAfter().run()"
-          :class="['toolbar-button', defaultButtonClass]"
-        >
-          右增列
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().deleteColumn().run()"
-          :class="['toolbar-button', defaultButtonClass]"
-        >
-          刪除列
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().addRowAfter().run()"
-          :class="['toolbar-button', defaultButtonClass]"
-        >
-          下增行
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().deleteRow().run()"
-          :class="['toolbar-button', defaultButtonClass]"
-        >
-          刪除行
-        </button>
-        <button
-          type="button"
-          @click="editor.chain().focus().deleteTable().run()"
-          :class="['toolbar-button', defaultButtonClass]"
-        >
-          刪除表格
-        </button>
+          <span :class="['toolbar-label', conditionalClass('text-slate-400', 'text-slate-500')]">
+            表格
+          </span>
+          <div :class="['toolbar-cluster flex-wrap', clusterClass]">
+            <button
+              type="button"
+              @click="
+                editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+              "
+              :class="['toolbar-button', defaultButtonClass]"
+            >
+              插入表格
+            </button>
+            <button
+              type="button"
+              @click="editor.chain().focus().toggleHeaderRow().run()"
+              :class="['toolbar-button', defaultButtonClass]"
+            >
+              標題行
+            </button>
+            <button
+              type="button"
+              @click="editor.chain().focus().addColumnAfter().run()"
+              :class="['toolbar-button', defaultButtonClass]"
+            >
+              右增列
+            </button>
+            <button
+              type="button"
+              @click="editor.chain().focus().deleteColumn().run()"
+              :class="['toolbar-button', defaultButtonClass]"
+            >
+              刪除列
+            </button>
+            <button
+              type="button"
+              @click="editor.chain().focus().addRowAfter().run()"
+              :class="['toolbar-button', defaultButtonClass]"
+            >
+              下增行
+            </button>
+            <button
+              type="button"
+              @click="editor.chain().focus().deleteRow().run()"
+              :class="['toolbar-button', defaultButtonClass]"
+            >
+              刪除行
+            </button>
+            <button
+              type="button"
+              @click="editor.chain().focus().deleteTable().run()"
+              :class="['toolbar-button', defaultButtonClass]"
+            >
+              刪除表格
+            </button>
+          </div>
+        </div>
       </div>
-      </div>
-      <editor-content :editor="editor" class="tiptap-content-area" />
+      <editor-content
+        :editor="editor"
+        class="tiptap-content-area"
+        :class="conditionalClass('editor-surface--dark', 'editor-surface--light')"
+      />
     </div>
   </div>
 </template>
@@ -212,7 +241,6 @@
 <script setup>
 import { ref, watch, onUnmounted, computed } from 'vue'
 import { useThemeClass } from '@/composables/useThemeClass'
-import { useDark } from '@vueuse/core'
 import LanguageSwitcher from '@/components/common/languageSwitcher.vue'
 import { getValidTiptapDoc } from '@/composables/tiptapDoc'
 
@@ -250,8 +278,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue'])
-const { conditionalClass } = useThemeClass()
-const isDark = useDark()
+const { conditionalClass, isDarkTheme } = useThemeClass()
 
 const currentEditingLanguage = ref(props.initialLanguage || 'TW')
 
@@ -311,11 +338,16 @@ const isBulletListActive = createIsActive('bulletList')
 const isOrderedListActive = createIsActive('orderedList')
 const isBlockquoteActive = createIsActive('blockquote')
 
-const defaultButtonClass = computed(() => {
-  return conditionalClass(
-    'bg-gray-500/30 hover:bg-gray-500/50 text-gray-200',
-    'bg-gray-200/70 hover:bg-gray-300/70 text-gray-800',
-  )
+const defaultButtonClass = computed(() =>
+  conditionalClass('text-slate-200 hover:bg-white/10', 'text-slate-700 hover:bg-slate-200/80'),
+)
+
+const clusterClass = computed(() => conditionalClass('bg-slate-900/50', 'bg-white'))
+
+const textColorValue = computed(() => {
+  const color = editor.value?.getAttributes('textStyle').color
+  if (color) return color
+  return isDarkTheme.value ? '#e2e8f0' : '#1e293b'
 })
 
 watch(currentEditingLanguage, (newLang, oldLang) => {
@@ -372,78 +404,103 @@ defineExpose({
 </script>
 
 <style>
-/* 樣式皆限於 .rich-text-block-editor，避免污染全域 ProseMirror */
+/* 樣式皆限於 .rich-text-block-editor；主題使用 [data-theme='dark'] */
+.rich-text-block-editor .toolbar-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .rich-text-block-editor .toolbar-label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  margin-right: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   white-space: nowrap;
+  min-width: 2rem;
 }
 
-.rich-text-block-editor .tiptap-toolbar button.toolbar-button,
-.rich-text-block-editor .tiptap-toolbar input.toolbar-button {
-  padding: 0.2rem 0.5rem;
+.rich-text-block-editor .toolbar-cluster {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: 0.5rem;
+}
+
+.rich-text-block-editor .toolbar-cluster--color {
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.25rem 0.125rem 0.125rem;
+}
+
+.rich-text-block-editor .tiptap-toolbar .toolbar-button {
+  padding: 0.25rem 0.5rem;
   border-radius: 0.375rem;
-  border: 1px solid transparent;
+  border: none;
   font-size: 0.8125rem;
   font-weight: 500;
-  line-height: 1.4;
-  transition:
-    background-color 0.2s ease-in-out,
-    border-color 0.2s ease-in-out;
-}
-
-.rich-text-block-editor .tiptap-toolbar button.toolbar-button:not(.is-active):not(.is-active-remark) {
-  border-color: #e2e8f0;
-}
-html.dark .rich-text-block-editor .tiptap-toolbar button.toolbar-button:not(.is-active):not(.is-active-remark) {
-  border-color: #4a5568;
-}
-
-.rich-text-block-editor .tiptap-toolbar button.toolbar-button.is-active {
-  background-color: #3b82f6 !important;
-  color: white !important;
-  border-color: #3b82f6 !important;
-}
-html.dark .rich-text-block-editor .tiptap-toolbar button.toolbar-button.is-active {
-  background-color: #60a5fa !important;
-  color: #1f2937 !important;
-  border-color: #60a5fa !important;
-}
-
-.rich-text-block-editor .tiptap-toolbar button.toolbar-button.is-active-remark {
-  background-color: #a855f7 !important;
-  color: white !important;
-  border-color: #a855f7 !important;
-}
-html.dark .rich-text-block-editor .tiptap-toolbar button.toolbar-button.is-active-remark {
-  background-color: #c084fc !important;
-  color: #1f2937 !important;
-  border-color: #c084fc !important;
-}
-
-.rich-text-block-editor .tiptap-toolbar .color-picker {
-  width: 1.6rem;
-  height: 1.6rem;
-  padding: 0.1rem;
-  border: 1px solid #e2e8f0;
+  line-height: 1.35;
   cursor: pointer;
-  vertical-align: middle;
-  appearance: none;
-  background-color: transparent;
-  border-radius: 0.25rem;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
-html.dark .rich-text-block-editor .tiptap-toolbar .color-picker {
-  border-color: #4a5568;
+
+.rich-text-block-editor .tiptap-toolbar .toolbar-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rich-text-block-editor .tiptap-toolbar .toolbar-button.is-active {
+  background-color: #3b82f6 !important;
+  color: #fff !important;
+}
+
+[data-theme='dark'] .rich-text-block-editor .tiptap-toolbar .toolbar-button.is-active {
+  background-color: #60a5fa !important;
+  color: #0f172a !important;
+}
+
+.rich-text-block-editor .tiptap-toolbar .toolbar-button.is-active-remark {
+  background-color: #a855f7 !important;
+  color: #fff !important;
+}
+
+[data-theme='dark'] .rich-text-block-editor .tiptap-toolbar .toolbar-button.is-active-remark {
+  background-color: #c084fc !important;
+  color: #0f172a !important;
+}
+
+/* 色票：單一色塊，不套用 toolbar-button 避免雙層方框 */
+.rich-text-block-editor .tiptap-toolbar .color-picker {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .rich-text-block-editor .tiptap-toolbar .color-picker::-webkit-color-swatch-wrapper {
   padding: 0;
 }
-.rich-text-block-editor .tiptap-toolbar .color-picker::-webkit-color-swatch,
+
+.rich-text-block-editor .tiptap-toolbar .color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 0.375rem;
+}
+
 .rich-text-block-editor .tiptap-toolbar .color-picker::-moz-color-swatch {
   border: none;
-  border-radius: 0.125rem;
+  border-radius: 0.375rem;
 }
 
 .rich-text-block-editor .tiptap-content-area {
@@ -454,18 +511,19 @@ html.dark .rich-text-block-editor .tiptap-toolbar .color-picker {
 
 .rich-text-block-editor .tiptap-content-area .ProseMirror {
   min-height: 150px;
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
   outline: none;
+  line-height: 1.6;
 }
 
-html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror {
-  color: #d1d5db;
-  background-color: #1f2937;
+.rich-text-block-editor .editor-surface--dark .ProseMirror {
+  color: #e2e8f0;
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
-html:not(.dark) .rich-text-block-editor .tiptap-content-area .ProseMirror {
-  color: #1f2937;
-  background-color: white;
+.rich-text-block-editor .editor-surface--light .ProseMirror {
+  color: #1e293b;
+  background-color: #fff;
 }
 
 .rich-text-block-editor .tiptap-content-area .ProseMirror h1 {
@@ -533,16 +591,16 @@ html:not(.dark) .rich-text-block-editor .tiptap-content-area .ProseMirror {
   font-style: italic;
 }
 
-html:not(.dark) .rich-text-block-editor .tiptap-content-area .ProseMirror blockquote {
+.rich-text-block-editor .editor-surface--light .ProseMirror blockquote {
   border-left-color: #a855f7;
   color: #4b5563;
   background-color: rgba(168, 85, 247, 0.06);
 }
 
-html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror blockquote {
+.rich-text-block-editor .editor-surface--dark .ProseMirror blockquote {
   border-left-color: #c084fc;
-  color: #d1d5db;
-  background-color: rgba(192, 132, 252, 0.1);
+  color: #e2e8f0;
+  background-color: rgba(192, 132, 252, 0.12);
 }
 
 .rich-text-block-editor .tiptap-content-area .ProseMirror a {
@@ -551,7 +609,7 @@ html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror blockquote {
   cursor: pointer;
 }
 
-html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror a {
+[data-theme='dark'] .rich-text-block-editor .tiptap-content-area .ProseMirror a {
   color: #60a5fa;
 }
 
@@ -577,22 +635,22 @@ html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror a {
   font-weight: 500;
 }
 
-html:not(.dark) .rich-text-block-editor .tiptap-content-area .ProseMirror th,
-html:not(.dark) .rich-text-block-editor .tiptap-content-area .ProseMirror td {
+.rich-text-block-editor .editor-surface--light .ProseMirror th,
+.rich-text-block-editor .editor-surface--light .ProseMirror td {
   border-color: #e5e7eb;
 }
 
-html:not(.dark) .rich-text-block-editor .tiptap-content-area .ProseMirror th {
+.rich-text-block-editor .editor-surface--light .ProseMirror th {
   color: #6b7280;
 }
 
-html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror th,
-html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror td {
-  border-color: #4b5563;
+.rich-text-block-editor .editor-surface--dark .ProseMirror th,
+.rich-text-block-editor .editor-surface--dark .ProseMirror td {
+  border-color: #475569;
 }
 
-html.dark .rich-text-block-editor .tiptap-content-area .ProseMirror th {
-  color: #9ca3af;
+.rich-text-block-editor .editor-surface--dark .ProseMirror th {
+  color: #94a3b8;
 }
 
 .rich-text-block-editor .tiptap-content-area .ProseMirror .selectedCell:after {

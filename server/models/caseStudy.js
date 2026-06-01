@@ -146,6 +146,28 @@ caseStudySchema.virtual("solutionsText").get(function () {
 	return this.solutions.join("、");
 });
 
+const truncateCaseMeta = (text, maxLength = 155) => {
+	if (!text) return "";
+	if (text.length <= maxLength) return text;
+	return text.substring(0, maxLength - 3) + "...";
+};
+
+caseStudySchema.virtual("metaTitle").get(function () {
+	const siteName = "遠岫科技";
+	const title = this.title || "成功案例";
+	return {
+		TW: `${title} | 成功案例 | ${siteName}`,
+		EN: `${title} | Success Stories | Yenshow`
+	};
+});
+
+caseStudySchema.virtual("metaDescription").get(function () {
+	return {
+		TW: truncateCaseMeta(this.description || this.title || ""),
+		EN: truncateCaseMeta(this.description || this.title || "")
+	};
+});
+
 // --- 添加轉換配置 ---
 const transformOptions = {
 	virtuals: true,

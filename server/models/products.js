@@ -92,6 +92,29 @@ productSchema.pre("save", async function (next) {
 });
 // --- HOOKS END ---
 
+const truncateMeta = (text, maxLength = 155) => {
+	if (!text) return "";
+	if (text.length <= maxLength) return text;
+	return text.substring(0, maxLength - 3) + "...";
+};
+
+productSchema.virtual("metaTitle").get(function () {
+	const siteNameTW = "遠岫科技";
+	const siteNameEN = "Yenshow";
+	const nameTW = this.name?.TW || this.name?.EN || "產品";
+	const nameEN = this.name?.EN || this.name?.TW || "Product";
+	return {
+		TW: `${nameTW} | 產品 | ${siteNameTW}`,
+		EN: `${nameEN} | Products | ${siteNameEN}`
+	};
+});
+
+productSchema.virtual("metaDescription").get(function () {
+	const descTW = truncateMeta(this.description?.TW || this.name?.TW || "");
+	const descEN = truncateMeta(this.description?.EN || this.name?.EN || "");
+	return { TW: descTW, EN: descEN };
+});
+
 // --- 添加轉換配置 ---
 const transformOptions = {
 	virtuals: true,

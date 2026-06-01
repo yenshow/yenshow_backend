@@ -38,7 +38,9 @@ services:
       - HOST=0.0.0.0
       - FILES_ROOT=/app/storage
       - API_BASE_URL=http://localhost:${DOCKER_API_PORT:-4000}
-      - PUBLIC_BASE_URL=https://api.yenshow.com
+      - PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-https://www.yenshow.com}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://api.yenshow.com}
+      - SITEMAP_BUILD_SECRET=${SITEMAP_BUILD_SECRET:-}
       # Yenshow 專用環境變數
       - YENSHOW_RESEND_API_KEY=${YENSHOW_RESEND_API_KEY}
       - YENSHOW_EMAIL_FROM_ADDRESS_RESEND=${YENSHOW_EMAIL_FROM_ADDRESS_RESEND}

@@ -1,13 +1,10 @@
 import { verifyDownloadToken } from "../utils/storageDownloadSign.js";
 import DocumentDownloadToken from "../models/DocumentDownloadToken.js";
+import { getPublicSiteUrl } from "../utils/publicUrls.js";
 
 // req.path 在 mount("/storage") 後通常會長得像 "/products/<id>/documents/<file>.pdf"
 // 但為了降低比對差異，這裡同時支援帶/不帶前導 "/"。
 const protectedPdfRegex = /^\/?products\/[^/]+\/documents\/.+\.pdf$/i;
-
-const getFrontendBaseUrl = () => {
-	return (process.env.FRONTEND_PUBLIC_URL || process.env.PUBLIC_SITE_URL || "https://www.yenshow.com").replace(/\/$/, "");
-};
 
 /**
  * 將 /storage mount 下的 req.path 轉成瀏覽器使用的完整路徑（含 /storage 前綴）
@@ -40,7 +37,7 @@ const prefersHtmlNavigation = (req) => {
 
 const respondAccessDenied = (req, res, jsonBody) => {
 	if (prefersHtmlNavigation(req)) {
-		const target = `${getFrontendBaseUrl()}/documents/open?path=${encodeURIComponent(getFullStoragePathFromReq(req))}`;
+		const target = `${getPublicSiteUrl()}/documents/open?path=${encodeURIComponent(getFullStoragePathFromReq(req))}`;
 		return res.redirect(302, target);
 	}
 
