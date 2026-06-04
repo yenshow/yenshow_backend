@@ -2,36 +2,43 @@ import { ApiError } from "../utils/responseHandler.js";
 import { StatusCodes } from "http-status-codes";
 import { EntityService } from "./EntityService.js";
 
-// 排序輔助函數
-function sortItemsByCode(items) {
-	if (!Array.isArray(items)) return [];
+const PRODUCT_SORT = { createdAt: -1 };
 
+function sortItemsByCode(items) {
 	const parseCode = (code) => {
 		if (typeof code !== "string" || !code) {
 			return { num: Infinity, textPart: code || "" };
 		}
-		// 尋找第一個數字序列及其後的任何字符
 		const match = code.match(/(\d+)(.*)/);
 		if (match) {
-			const num = parseInt(match[1], 10);
-			const textPart = match[2] || ""; // 數字後的所有字符
-			return { num, textPart };
+			return { num: parseInt(match[1], 10), textPart: match[2] || "" };
 		}
-		// 如果沒有數字，則整個作為文本比較，將 num 設為 Infinity 使其排在後面
 		return { num: Infinity, textPart: code };
 	};
 
 	return [...items].sort((a, b) => {
-		// 假設 item 對象有 code 屬性
 		const valA = parseCode(a.code);
 		const valB = parseCode(b.code);
-
-		if (valA.num !== valB.num) {
-			return valA.num - valB.num; // 按數字升序
-		}
-		// 數字相同時，按文本部分進行不區分大小寫的排序
+		if (valA.num !== valB.num) return valA.num - valB.num;
 		return valA.textPart.localeCompare(valB.textPart, undefined, { sensitivity: "base" });
 	});
+}
+
+function sortHierarchyItems(childType, items) {
+	if (!Array.isArray(items)) return [];
+	return childType === "products" ? items : sortItemsByCode(items);
+}
+
+function buildChildSearchQuery(childService, parentId, childType, accessOptions) {
+	const query = { [childService.parentField]: parentId };
+	if (childType === "products" && accessOptions?.filterActive) {
+		query.isActive = true;
+	}
+	return query;
+}
+
+function getChildSearchOptions(childType, language) {
+	return childType === "products" ? { language, sort: PRODUCT_SORT } : { language };
 }
 
 /**
@@ -171,21 +178,13 @@ class HierarchyService {
 			const childService = await this.getEntityService(childType);
 
 			// 獲取子項
-			const searchQuery = { [childService.parentField]: id };
-			// 如果子層是 products，且需要過濾 active，則加入 isActive: true
-			if (childType === "products" && accessOptions.filterActive) {
-				searchQuery.isActive = true;
-			}
-
-			const childrenResult = await childService.search(
-				searchQuery,
-				{ language } // 移除 sort 選項，排序將由後續的 sortItemsByCode 處理
-			);
+			const searchQuery = buildChildSearchQuery(childService, id, childType, accessOptions);
+			const childrenResult = await childService.search(searchQuery, getChildSearchOptions(childType, language));
 
 			// 遞迴處理每個子項
 			const childrenWithSubtree = [];
-			if (childrenResult && childrenResult.data) {
-				const sortedChildren = sortItemsByCode(childrenResult.data); // 在此排序
+			if (childrenResult?.data?.length) {
+				const sortedChildren = sortHierarchyItems(childType, childrenResult.data);
 				for (const child of sortedChildren) {
 					// 遞迴調用，增加深度
 					const childWithSubtree = await this.buildHierarchyTree(childType, child._id, { ...options, currentDepth: currentDepth + 1 });
@@ -271,23 +270,11 @@ class HierarchyService {
 		const childService = await this.getEntityService(childType);
 
 		// 獲取子項
-		const childSearchQuery = { [childService.parentField]: parentId };
-		// 如果子層是 products，且需要過濾 active，則加入 isActive: true
-		// (這也適用於其他層級，如果它們也需要根據 accessOptions 過濾 isActive 的話)
-		if (childType === "products" && accessOptions && accessOptions.filterActive) {
-			childSearchQuery.isActive = true;
-		}
-		// 你也可以考慮為所有層級的 search 都加入 accessOptions.filterActive 判斷
-		// else if (accessOptions && accessOptions.filterActive && childService.model.schema.paths.isActive) {
-		//   childSearchQuery.isActive = true;
-		// }
-
-		const childItemsResult = await childService.search(childSearchQuery, { language });
-
-		const sortedChildren = sortItemsByCode(childItemsResult.data || []); // 在此排序
+		const childSearchQuery = buildChildSearchQuery(childService, parentId, childType, accessOptions);
+		const childItemsResult = await childService.search(childSearchQuery, getChildSearchOptions(childType, language));
 
 		return {
-			children: sortedChildren, // 使用排序後的子項
+			children: sortHierarchyItems(childType, childItemsResult?.data),
 			childType: childType,
 			parent: {
 				type: parentType,
