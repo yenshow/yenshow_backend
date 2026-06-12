@@ -492,6 +492,7 @@ const BA_FEATURES = [
   { value: 'multimedia', label: '多媒體資訊' },
   { value: 'smoke_alarm', label: '煙霧警報' },
   { value: 'air_circulation', label: '空氣循環' },
+  { value: 'elevator', label: '電梯管理' },
 ]
 
 const getFeatureLabel = (featureValue) => {
@@ -558,6 +559,7 @@ const getAllowedFeatureKeysByProfile = (deploymentProfile) => {
     'multimedia',
     'smoke_alarm',
     'air_circulation',
+    'elevator',
   ]
 }
 

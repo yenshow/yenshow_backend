@@ -47,7 +47,8 @@ const FEATURE_LABELS = {
 	vehicle_access: "車輛進出",
 	multimedia: "多媒體資訊",
 	smoke_alarm: "煙霧警報",
-	air_circulation: "空氣循環"
+	air_circulation: "空氣循環",
+	elevator: "電梯管理"
 };
 
 const trim = (v) => (typeof v === "string" ? v.trim() : "");

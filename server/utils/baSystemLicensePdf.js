@@ -27,7 +27,8 @@ const FEATURE_LABELS_EN = {
 	vehicle_access: "Vehicle Access",
 	multimedia: "Multimedia",
 	smoke_alarm: "Smoke Alarm",
-	air_circulation: "Air Circulation"
+	air_circulation: "Air Circulation",
+	elevator: "Elevator Management"
 };
 
 const featureLabelEn = (k) => FEATURE_LABELS_EN[k] || k;
