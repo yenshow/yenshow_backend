@@ -494,6 +494,7 @@ const BA_FEATURES = [
   { value: 'air_circulation', label: '空氣循環' },
   { value: 'elevator', label: '電梯管理' },
   { value: 'energy', label: '能源管理系統' },
+  { value: 'access_security', label: '門禁保全' },
 ]
 
 const getFeatureLabel = (featureValue) => {
@@ -562,6 +563,7 @@ const getAllowedFeatureKeysByProfile = (deploymentProfile) => {
     'air_circulation',
     'elevator',
     'energy',
+    'access_security',
   ]
 }
 

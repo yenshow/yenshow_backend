@@ -452,7 +452,8 @@ const CENTRAL_FEATURES = [
 	"smoke_alarm",
 	"air_circulation",
 	"elevator",
-	"energy"
+	"energy",
+	"access_security"
 ];
 const CONSTRUCTION_FEATURES = ["people_counting", "environment", "surveillance", "vehicle_access"];
 

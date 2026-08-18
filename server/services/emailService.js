@@ -49,7 +49,8 @@ const FEATURE_LABELS = {
 	smoke_alarm: "煙霧警報",
 	air_circulation: "空氣循環",
 	elevator: "電梯管理",
-	energy: "能源管理系統"
+	energy: "能源管理系統",
+	access_security: "門禁保全"
 };
 
 const trim = (v) => (typeof v === "string" ? v.trim() : "");
