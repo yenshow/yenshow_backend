@@ -32,7 +32,7 @@
 
 | 值                | 說明                                                                                                                                                           |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `central`（預設） | 16 keys：`people_counting`、`lighting`、`hvac`、`drainage`、`power`、`fire`、`emergency_rescue`、`environment`、`surveillance`、`vehicle_access`、`multimedia`、`smoke_alarm`、`air_circulation`、`elevator`、`energy`、`access_security` |
+| `central`（預設） | 17 keys：`people_counting`、`lighting`、`hvac`、`drainage`、`power`、`fire`、`emergency_rescue`、`environment`、`surveillance`、`vehicle_access`、`multimedia`、`smoke_alarm`、`air_circulation`、`elevator`、`energy`、`access_security`、`visitor` |
 | `construction`    | 4 keys：`people_counting`、`environment`、`surveillance`、`vehicle_access`                                                                                     |
 
 程式：`ba-backend/src/services/licenseService.js` → `getActiveFeatureKeys()`。

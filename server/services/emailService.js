@@ -50,7 +50,8 @@ const FEATURE_LABELS = {
 	air_circulation: "空氣循環",
 	elevator: "電梯管理",
 	energy: "能源管理系統",
-	access_security: "門禁保全"
+	access_security: "門禁保全",
+	visitor: "訪客系統"
 };
 
 const trim = (v) => (typeof v === "string" ? v.trim() : "");

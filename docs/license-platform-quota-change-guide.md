@@ -72,12 +72,21 @@
 
 - `people_counting`
 - `lighting`
+- `hvac`
 - `drainage`
+- `power`
 - `fire`
 - `emergency_rescue`
 - `environment`
 - `surveillance`
 - `vehicle_access`
+- `multimedia`
+- `smoke_alarm`
+- `air_circulation`
+- `elevator`
+- `energy`
+- `access_security`
+- `visitor`
 
 `construction`：
 

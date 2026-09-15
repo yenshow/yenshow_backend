@@ -495,6 +495,7 @@ const BA_FEATURES = [
   { value: 'elevator', label: '電梯管理' },
   { value: 'energy', label: '能源管理系統' },
   { value: 'access_security', label: '門禁保全' },
+  { value: 'visitor', label: '訪客系統' },
 ]
 
 const getFeatureLabel = (featureValue) => {
@@ -564,6 +565,7 @@ const getAllowedFeatureKeysByProfile = (deploymentProfile) => {
     'elevator',
     'energy',
     'access_security',
+    'visitor',
   ]
 }
 

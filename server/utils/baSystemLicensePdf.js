@@ -30,7 +30,8 @@ const FEATURE_LABELS_EN = {
 	air_circulation: "Air Circulation",
 	elevator: "Elevator Management",
 	energy: "Energy Management System",
-	access_security: "Access Security"
+	access_security: "Access Security",
+	visitor: "Visitor System"
 };
 
 const featureLabelEn = (k) => FEATURE_LABELS_EN[k] || k;
