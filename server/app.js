@@ -63,6 +63,9 @@ const configureApp = () => {
 			[
 				"http://localhost:3000",
 				"http://127.0.0.1:3000",
+				"http://localhost:5174",
+				"http://127.0.0.1:5174",
+				"https://liff.yenshow.com",
 				`http://localhost:${clientPort}`,
 				`http://127.0.0.1:${clientPort}`,
 				lanIp && `http://${lanIp}`,

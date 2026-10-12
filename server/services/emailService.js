@@ -51,7 +51,8 @@ const FEATURE_LABELS = {
 	elevator: "電梯管理",
 	energy: "能源管理系統",
 	access_security: "門禁保全",
-	visitor: "訪客系統"
+	visitor: "訪客系統",
+	roll_call: "點名系統"
 };
 
 const trim = (v) => (typeof v === "string" ? v.trim() : "");

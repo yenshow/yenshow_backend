@@ -67,335 +67,339 @@
 
     <!-- 載入與內容切換過渡 -->
     <Transition name="fade" mode="out-in">
-      <LoadingSpinner
-        v-if="loading"
-        key="loading"
-        container-class="py-12"
-      />
+      <LoadingSpinner v-if="loading" key="loading" container-class="py-12" />
       <div v-else key="content" :class="[cardClass, 'rounded-xl p-6 backdrop-blur-sm']">
-      <!-- 頂部操作列 -->
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-semibold theme-text">
-          {{ activeTab === 'all' ? '用戶管理' : activeTab === 'clients' ? '客戶管理' : '員工管理' }}
-        </h2>
-        <button
-          v-if="showCreateButton"
-          @click="showCreateUserModal = true"
-          class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
-        >
-          新增{{ activeTab === 'clients' ? '客戶' : activeTab === 'staff' ? '員工' : '用戶' }}
-        </button>
-      </div>
-      <!-- 所有用戶列表 -->
-      <div v-if="activeTab === 'all'" class="overflow-x-auto">
-        <table class="w-full">
-          <thead :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')">
-            <tr>
-              <th class="text-left py-3 px-4 theme-text">帳號</th>
-              <th class="text-left py-3 px-4 theme-text">身分</th>
-              <th class="text-left py-3 px-4 theme-text">信箱</th>
-              <th class="text-left py-3 px-4 theme-text">狀態</th>
-              <th class="text-left py-3 px-4 theme-text">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="user in pagedUsers"
-              :key="user._id"
-              :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
+        <!-- 頂部操作列 -->
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-xl font-semibold theme-text">
+            {{
+              activeTab === 'all' ? '用戶管理' : activeTab === 'clients' ? '客戶管理' : '員工管理'
+            }}
+          </h2>
+          <button
+            v-if="showCreateButton"
+            @click="showCreateUserModal = true"
+            class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
+          >
+            新增{{ activeTab === 'clients' ? '客戶' : activeTab === 'staff' ? '員工' : '用戶' }}
+          </button>
+        </div>
+        <!-- 所有用戶列表 -->
+        <div v-if="activeTab === 'all'" class="overflow-x-auto">
+          <table class="w-full">
+            <thead
+              :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')"
             >
-              <td class="py-3 px-4 theme-text">{{ user.account }}</td>
-              <td class="py-3 px-4">
-                <span
-                  :class="
-                    user.role === 'admin'
-                      ? conditionalClass(
-                          'bg-purple-700/30 text-purple-200',
-                          'bg-purple-200 text-purple-800',
-                        )
-                      : user.role === 'staff'
+              <tr>
+                <th class="text-left py-3 px-4 theme-text">帳號</th>
+                <th class="text-left py-3 px-4 theme-text">身分</th>
+                <th class="text-left py-3 px-4 theme-text">信箱</th>
+                <th class="text-left py-3 px-4 theme-text">狀態</th>
+                <th class="text-left py-3 px-4 theme-text">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="user in pagedUsers"
+                :key="user._id"
+                :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
+              >
+                <td class="py-3 px-4 theme-text">{{ user.account }}</td>
+                <td class="py-3 px-4">
+                  <span
+                    :class="
+                      user.role === 'admin'
                         ? conditionalClass(
-                            'bg-yellow-700/30 text-yellow-200',
-                            'bg-yellow-200 text-yellow-800',
+                            'bg-purple-700/30 text-purple-200',
+                            'bg-purple-200 text-purple-800',
                           )
-                        : conditionalClass(
+                        : user.role === 'staff'
+                          ? conditionalClass(
+                              'bg-yellow-700/30 text-yellow-200',
+                              'bg-yellow-200 text-yellow-800',
+                            )
+                          : conditionalClass(
+                              'bg-green-500/20 text-green-300',
+                              'bg-green-100 text-green-700',
+                            )
+                    "
+                    class="px-2 py-1 rounded-full text-sm"
+                  >
+                    {{ user.role === 'admin' ? '管理員' : user.role === 'staff' ? '員工' : '客戶' }}
+                  </span>
+                </td>
+                <td class="py-3 px-4 theme-text">{{ user.email }}</td>
+                <td class="py-3 px-4">
+                  <span
+                    :class="
+                      user.isActive
+                        ? conditionalClass(
                             'bg-green-500/20 text-green-300',
                             'bg-green-100 text-green-700',
                           )
-                  "
-                  class="px-2 py-1 rounded-full text-sm"
+                        : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
+                    "
+                    class="px-2 py-1 rounded-full text-sm"
+                  >
+                    {{ user.isActive ? '啟用' : '停用' }}
+                  </span>
+                </td>
+                <AdminUserRowActions
+                  :user="user"
+                  :can-manage="canManageTarget(user)"
+                  :deleting-id="deletingUser"
+                  @edit="handleEditUser"
+                  @delete="handleDeleteUser"
+                />
+              </tr>
+              <tr v-if="filteredUsers.length === 0">
+                <td
+                  colspan="5"
+                  class="text-center py-6"
+                  :class="conditionalClass('text-gray-400', 'text-slate-500')"
                 >
-                  {{ user.role === 'admin' ? '管理員' : user.role === 'staff' ? '員工' : '客戶' }}
-                </span>
-              </td>
-              <td class="py-3 px-4 theme-text">{{ user.email }}</td>
-              <td class="py-3 px-4">
-                <span
-                  :class="
-                    user.isActive
-                      ? conditionalClass(
-                          'bg-green-500/20 text-green-300',
-                          'bg-green-100 text-green-700',
-                        )
-                      : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
-                  "
-                  class="px-2 py-1 rounded-full text-sm"
-                >
-                  {{ user.isActive ? '啟用' : '停用' }}
-                </span>
-              </td>
-              <AdminUserRowActions
-                :user="user"
-                :can-manage="canManageTarget(user)"
-                :deleting-id="deletingUser"
-                @edit="handleEditUser"
-                @delete="handleDeleteUser"
-              />
-            </tr>
-            <tr v-if="filteredUsers.length === 0">
-              <td
-                colspan="5"
-                class="text-center py-6"
-                :class="conditionalClass('text-gray-400', 'text-slate-500')"
-              >
-                目前沒有符合條件的用戶
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <!-- 分頁控制 -->
-        <div v-if="pagination.totalPages > 1" class="py-4 flex justify-center gap-2">
-          <button
-            @click="changePage(pagination.currentPage - 1)"
-            :disabled="pagination.currentPage === 1"
-            :class="
-              conditionalClass(
-                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-              )
-            "
-          >
-            上一頁
-          </button>
-          <span class="px-3 py-1 theme-text">
-            {{ pagination.currentPage }} / {{ pagination.totalPages }}
-          </span>
-          <button
-            @click="changePage(pagination.currentPage + 1)"
-            :disabled="pagination.currentPage === pagination.totalPages"
-            :class="
-              conditionalClass(
-                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-              )
-            "
-          >
-            下一頁
-          </button>
-        </div>
-      </div>
-
-      <!-- 客戶列表 -->
-      <div v-else-if="activeTab === 'clients'" class="overflow-x-auto">
-        <table class="w-full">
-          <thead :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')">
-            <tr>
-              <th class="text-left py-3 px-4 theme-text">帳號</th>
-              <th class="text-left py-3 px-4 theme-text">公司名稱</th>
-              <th class="text-left py-3 px-4 theme-text">聯絡人</th>
-              <th class="text-left py-3 px-4 theme-text">電話</th>
-              <th class="text-left py-3 px-4 theme-text">狀態</th>
-              <th class="text-left py-3 px-4 theme-text">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="user in pagedUsers"
-              :key="user._id"
-              :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
+                  目前沒有符合條件的用戶
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <!-- 分頁控制 -->
+          <div v-if="pagination.totalPages > 1" class="py-4 flex justify-center gap-2">
+            <button
+              @click="changePage(pagination.currentPage - 1)"
+              :disabled="pagination.currentPage === 1"
+              :class="
+                conditionalClass(
+                  'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+                  'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+                )
+              "
             >
-              <td class="py-3 px-4 theme-text">{{ user.account }}</td>
-              <td class="py-3 px-4 theme-text">{{ user.clientInfo?.companyName || '-' }}</td>
-              <td class="py-3 px-4 theme-text">{{ user.clientInfo?.contactPerson || '-' }}</td>
-              <td class="py-3 px-4 theme-text">{{ user.clientInfo?.phone || '-' }}</td>
-              <td class="py-3 px-4">
-                <span
-                  :class="
-                    user.isActive
-                      ? conditionalClass(
-                          'bg-green-500/20 text-green-300',
-                          'bg-green-100 text-green-700',
-                        )
-                      : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
-                  "
-                  class="px-2 py-1 rounded-full text-sm"
-                >
-                  {{ user.isActive ? '啟用' : '停用' }}
-                </span>
-              </td>
-              <AdminUserRowActions
-                :user="user"
-                :can-manage="canManageTarget(user)"
-                :deleting-id="deletingUser"
-                @edit="handleEditUser"
-                @delete="handleDeleteUser"
-              />
-            </tr>
-            <tr v-if="filteredUsers.length === 0">
-              <td
-                colspan="6"
-                class="text-center py-6"
-                :class="conditionalClass('text-gray-400', 'text-slate-500')"
-              >
-                目前沒有符合條件的用戶
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <!-- 分頁控制 -->
-        <div v-if="pagination.totalPages > 1" class="py-4 flex justify-center gap-2">
-          <button
-            @click="changePage(pagination.currentPage - 1)"
-            :disabled="pagination.currentPage === 1"
-            :class="
-              conditionalClass(
-                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-              )
-            "
-          >
-            上一頁
-          </button>
-          <span class="px-3 py-1 theme-text">
-            {{ pagination.currentPage }} / {{ pagination.totalPages }}
-          </span>
-          <button
-            @click="changePage(pagination.currentPage + 1)"
-            :disabled="pagination.currentPage === pagination.totalPages"
-            :class="
-              conditionalClass(
-                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-              )
-            "
-          >
-            下一頁
-          </button>
-        </div>
-      </div>
-
-      <!-- 員工列表 -->
-      <div v-else-if="activeTab === 'staff'" class="overflow-x-auto">
-        <table class="w-full">
-          <thead :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')">
-            <tr>
-              <th class="text-left py-3 px-4 theme-text">帳號</th>
-              <th class="text-left py-3 px-4 theme-text">身分</th>
-              <th class="text-left py-3 px-4 theme-text">部門</th>
-              <th class="text-left py-3 px-4 theme-text">職位</th>
-              <th class="text-left py-3 px-4 theme-text">狀態</th>
-              <th class="text-left py-3 px-4 theme-text">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="user in pagedUsers"
-              :key="user._id"
-              :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
+              上一頁
+            </button>
+            <span class="px-3 py-1 theme-text">
+              {{ pagination.currentPage }} / {{ pagination.totalPages }}
+            </span>
+            <button
+              @click="changePage(pagination.currentPage + 1)"
+              :disabled="pagination.currentPage === pagination.totalPages"
+              :class="
+                conditionalClass(
+                  'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+                  'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+                )
+              "
             >
-              <td class="py-3 px-4 theme-text">
-                {{ user.account }}
-              </td>
-              <td class="py-3 px-4">
-                <span
-                  :class="
-                    user.role === 'admin'
-                      ? conditionalClass(
-                          'bg-purple-700/30 text-purple-200',
-                          'bg-purple-200 text-purple-800',
-                        )
-                      : user.role === 'staff'
+              下一頁
+            </button>
+          </div>
+        </div>
+
+        <!-- 客戶列表 -->
+        <div v-else-if="activeTab === 'clients'" class="overflow-x-auto">
+          <table class="w-full">
+            <thead
+              :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')"
+            >
+              <tr>
+                <th class="text-left py-3 px-4 theme-text">帳號</th>
+                <th class="text-left py-3 px-4 theme-text">公司名稱</th>
+                <th class="text-left py-3 px-4 theme-text">聯絡人</th>
+                <th class="text-left py-3 px-4 theme-text">電話</th>
+                <th class="text-left py-3 px-4 theme-text">狀態</th>
+                <th class="text-left py-3 px-4 theme-text">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="user in pagedUsers"
+                :key="user._id"
+                :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
+              >
+                <td class="py-3 px-4 theme-text">{{ user.account }}</td>
+                <td class="py-3 px-4 theme-text">{{ user.clientInfo?.companyName || '-' }}</td>
+                <td class="py-3 px-4 theme-text">{{ user.clientInfo?.contactPerson || '-' }}</td>
+                <td class="py-3 px-4 theme-text">{{ user.clientInfo?.phone || '-' }}</td>
+                <td class="py-3 px-4">
+                  <span
+                    :class="
+                      user.isActive
                         ? conditionalClass(
-                            'bg-yellow-700/30 text-yellow-200',
-                            'bg-yellow-200 text-yellow-800',
-                          )
-                        : conditionalClass(
                             'bg-green-500/20 text-green-300',
                             'bg-green-100 text-green-700',
                           )
-                  "
-                  class="px-2 py-1 rounded-full text-sm"
+                        : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
+                    "
+                    class="px-2 py-1 rounded-full text-sm"
+                  >
+                    {{ user.isActive ? '啟用' : '停用' }}
+                  </span>
+                </td>
+                <AdminUserRowActions
+                  :user="user"
+                  :can-manage="canManageTarget(user)"
+                  :deleting-id="deletingUser"
+                  @edit="handleEditUser"
+                  @delete="handleDeleteUser"
+                />
+              </tr>
+              <tr v-if="filteredUsers.length === 0">
+                <td
+                  colspan="6"
+                  class="text-center py-6"
+                  :class="conditionalClass('text-gray-400', 'text-slate-500')"
                 >
-                  {{ user.role === 'admin' ? '管理員' : user.role === 'staff' ? '員工' : '客戶' }}
-                </span>
-              </td>
-              <td class="py-3 px-4 theme-text">{{ user.staffInfo?.department || '-' }}</td>
-              <td class="py-3 px-4 theme-text">{{ user.staffInfo?.position || '-' }}</td>
-              <td class="py-3 px-4">
-                <span
-                  :class="
-                    user.isActive
-                      ? conditionalClass(
-                          'bg-green-500/20 text-green-300',
-                          'bg-green-100 text-green-700',
-                        )
-                      : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
-                  "
-                  class="px-2 py-1 rounded-full text-sm"
-                >
-                  {{ user.isActive ? '啟用' : '停用' }}
-                </span>
-              </td>
-              <AdminUserRowActions
-                :user="user"
-                :can-manage="canManageTarget(user)"
-                :deleting-id="deletingUser"
-                @edit="handleEditUser"
-                @delete="handleDeleteUser"
-              />
-            </tr>
-            <tr v-if="filteredUsers.length === 0">
-              <td
-                colspan="6"
-                class="text-center py-6"
-                :class="conditionalClass('text-gray-400', 'text-slate-500')"
-              >
-                目前沒有符合條件的用戶
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <!-- 分頁控制 -->
-        <div v-if="pagination.totalPages > 1" class="py-4 flex justify-center gap-2">
-          <button
-            @click="changePage(pagination.currentPage - 1)"
-            :disabled="pagination.currentPage === 1"
-            :class="
-              conditionalClass(
-                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-              )
-            "
-          >
-            上一頁
-          </button>
-          <span class="px-3 py-1 theme-text">
-            {{ pagination.currentPage }} / {{ pagination.totalPages }}
-          </span>
-          <button
-            @click="changePage(pagination.currentPage + 1)"
-            :disabled="pagination.currentPage === pagination.totalPages"
-            :class="
-              conditionalClass(
-                'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
-                'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
-              )
-            "
-          >
-            下一頁
-          </button>
+                  目前沒有符合條件的用戶
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <!-- 分頁控制 -->
+          <div v-if="pagination.totalPages > 1" class="py-4 flex justify-center gap-2">
+            <button
+              @click="changePage(pagination.currentPage - 1)"
+              :disabled="pagination.currentPage === 1"
+              :class="
+                conditionalClass(
+                  'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+                  'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+                )
+              "
+            >
+              上一頁
+            </button>
+            <span class="px-3 py-1 theme-text">
+              {{ pagination.currentPage }} / {{ pagination.totalPages }}
+            </span>
+            <button
+              @click="changePage(pagination.currentPage + 1)"
+              :disabled="pagination.currentPage === pagination.totalPages"
+              :class="
+                conditionalClass(
+                  'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+                  'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+                )
+              "
+            >
+              下一頁
+            </button>
+          </div>
         </div>
-      </div>
+
+        <!-- 員工列表 -->
+        <div v-else-if="activeTab === 'staff'" class="overflow-x-auto">
+          <table class="w-full">
+            <thead
+              :class="conditionalClass('border-b border-white/10', 'border-b border-slate-200')"
+            >
+              <tr>
+                <th class="text-left py-3 px-4 theme-text">帳號</th>
+                <th class="text-left py-3 px-4 theme-text">身分</th>
+                <th class="text-left py-3 px-4 theme-text">部門</th>
+                <th class="text-left py-3 px-4 theme-text">職位</th>
+                <th class="text-left py-3 px-4 theme-text">狀態</th>
+                <th class="text-left py-3 px-4 theme-text">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="user in pagedUsers"
+                :key="user._id"
+                :class="conditionalClass('border-b border-white/5', 'border-b border-slate-100')"
+              >
+                <td class="py-3 px-4 theme-text">
+                  {{ user.account }}
+                </td>
+                <td class="py-3 px-4">
+                  <span
+                    :class="
+                      user.role === 'admin'
+                        ? conditionalClass(
+                            'bg-purple-700/30 text-purple-200',
+                            'bg-purple-200 text-purple-800',
+                          )
+                        : user.role === 'staff'
+                          ? conditionalClass(
+                              'bg-yellow-700/30 text-yellow-200',
+                              'bg-yellow-200 text-yellow-800',
+                            )
+                          : conditionalClass(
+                              'bg-green-500/20 text-green-300',
+                              'bg-green-100 text-green-700',
+                            )
+                    "
+                    class="px-2 py-1 rounded-full text-sm"
+                  >
+                    {{ user.role === 'admin' ? '管理員' : user.role === 'staff' ? '員工' : '客戶' }}
+                  </span>
+                </td>
+                <td class="py-3 px-4 theme-text">{{ user.staffInfo?.department || '-' }}</td>
+                <td class="py-3 px-4 theme-text">{{ user.staffInfo?.position || '-' }}</td>
+                <td class="py-3 px-4">
+                  <span
+                    :class="
+                      user.isActive
+                        ? conditionalClass(
+                            'bg-green-500/20 text-green-300',
+                            'bg-green-100 text-green-700',
+                          )
+                        : conditionalClass('bg-red-500/20 text-red-300', 'bg-red-100 text-red-700')
+                    "
+                    class="px-2 py-1 rounded-full text-sm"
+                  >
+                    {{ user.isActive ? '啟用' : '停用' }}
+                  </span>
+                </td>
+                <AdminUserRowActions
+                  :user="user"
+                  :can-manage="canManageTarget(user)"
+                  :deleting-id="deletingUser"
+                  @edit="handleEditUser"
+                  @delete="handleDeleteUser"
+                />
+              </tr>
+              <tr v-if="filteredUsers.length === 0">
+                <td
+                  colspan="6"
+                  class="text-center py-6"
+                  :class="conditionalClass('text-gray-400', 'text-slate-500')"
+                >
+                  目前沒有符合條件的用戶
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <!-- 分頁控制 -->
+          <div v-if="pagination.totalPages > 1" class="py-4 flex justify-center gap-2">
+            <button
+              @click="changePage(pagination.currentPage - 1)"
+              :disabled="pagination.currentPage === 1"
+              :class="
+                conditionalClass(
+                  'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+                  'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+                )
+              "
+            >
+              上一頁
+            </button>
+            <span class="px-3 py-1 theme-text">
+              {{ pagination.currentPage }} / {{ pagination.totalPages }}
+            </span>
+            <button
+              @click="changePage(pagination.currentPage + 1)"
+              :disabled="pagination.currentPage === pagination.totalPages"
+              :class="
+                conditionalClass(
+                  'px-3 py-1 rounded bg-[#3F5069] disabled:opacity-50 disabled:cursor-not-allowed',
+                  'px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed',
+                )
+              "
+            >
+              下一頁
+            </button>
+          </div>
+        </div>
       </div>
     </Transition>
 

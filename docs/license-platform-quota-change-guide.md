@@ -94,6 +94,7 @@
 - `environment`
 - `surveillance`
 - `vehicle_access`
+- `roll_call`
 
 ---
 

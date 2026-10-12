@@ -47,7 +47,8 @@ const licenseSchema = new Schema(
 				"elevator",
 				"energy",
 				"access_security",
-				"visitor"
+				"visitor",
+				"roll_call"
 			],
 			default: [],
 			comment: "授權功能模組（僅 BA-system 使用）"

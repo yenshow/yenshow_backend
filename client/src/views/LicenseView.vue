@@ -496,6 +496,7 @@ const BA_FEATURES = [
   { value: 'energy', label: '能源管理系統' },
   { value: 'access_security', label: '門禁保全' },
   { value: 'visitor', label: '訪客系統' },
+  { value: 'roll_call', label: '點名系統' },
 ]
 
 const getFeatureLabel = (featureValue) => {
@@ -546,7 +547,7 @@ const handleToggleLicenseExtensions = (license) => {
 
 const getAllowedFeatureKeysByProfile = (deploymentProfile) => {
   if (deploymentProfile === 'construction') {
-    return ['people_counting', 'environment', 'surveillance', 'vehicle_access']
+    return ['people_counting', 'environment', 'surveillance', 'vehicle_access', 'roll_call']
   }
   return [
     'people_counting',

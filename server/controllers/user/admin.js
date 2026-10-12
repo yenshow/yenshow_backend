@@ -456,7 +456,7 @@ const CENTRAL_FEATURES = [
 	"access_security",
 	"visitor"
 ];
-const CONSTRUCTION_FEATURES = ["people_counting", "environment", "surveillance", "vehicle_access"];
+const CONSTRUCTION_FEATURES = ["people_counting", "environment", "surveillance", "vehicle_access", "roll_call"];
 
 const normalizeDeploymentProfile = (value) => {
 	if (!value) return "central";

@@ -31,7 +31,8 @@ const FEATURE_LABELS_EN = {
 	elevator: "Elevator Management",
 	energy: "Energy Management System",
 	access_security: "Access Security",
-	visitor: "Visitor System"
+	visitor: "Visitor System",
+	roll_call: "Roll Call"
 };
 
 const featureLabelEn = (k) => FEATURE_LABELS_EN[k] || k;
