@@ -186,7 +186,7 @@ class ProductsController {
 	 */
 	async searchProducts(req, res) {
 		try {
-			const { keyword, specifications, page = 1, limit = 20, sort = "createdAt", sortDirection = "asc", includeInactive } = req.query;
+			const { keyword, specifications, page = 1, limit = 10, sort = "createdAt", sortDirection = "asc", includeInactive, searchBy } = req.query;
 
 			// 預設僅搜尋 active 的產品
 			const additionalConditions = {};
@@ -198,35 +198,42 @@ class ProductsController {
 				additionalConditions.specifications = specifications;
 			}
 
-			// 使用 searchHelper 進行搜索
+			// searchBy=code：只比對型號（LIFF 規格查詢）
+			// searchBy=all 或未指定：型號 + 中英文名稱（後台相容）
+			const searchFields =
+				searchBy === "code" ? ["code"] : ["code", "name.TW", "name.EN"];
+
+			// searchBy=code（LIFF）不需完整 specifications；後台搜尋仍 populate
+			const populate = searchBy === "code" ? null : "specifications";
+
 			const searchResults = await performSearch({
 				model: Products,
 				keyword,
 				additionalConditions,
-				searchFields: ["code", "name.TW", "name.EN"],
+				searchFields,
 				sort,
 				sortDirection,
+				page: parseInt(page) || 1,
 				limit: parseInt(limit),
-				populate: "specifications"
+				populate
 			});
 
-			// 計算分頁
 			const { items, total } = searchResults;
-			const skip = (parseInt(page) - 1) * parseInt(limit);
-			const paginatedItems = items.slice(skip, skip + parseInt(limit));
 
-			// 應用轉換
 			const baseUrl = process.env.PUBLIC_BASE_URL;
-			const transformedItems = paginatedItems.map((item) => transformProductImagePaths(item.toObject(), baseUrl));
+			const transformedItems = items.map((item) => transformProductImagePaths(item.toObject(), baseUrl));
 
-			// 回傳結果
+			if (searchBy === "code") {
+				res.set("Cache-Control", "public, max-age=60");
+			}
+
 			return res.status(StatusCodes.OK).json({
 				success: true,
 				message: "搜索產品成功",
 				result: {
 					productsList: transformedItems,
 					pagination: {
-						page: parseInt(page),
+						page: parseInt(page) || 1,
 						limit: parseInt(limit),
 						total,
 						pages: Math.ceil(total / parseInt(limit))

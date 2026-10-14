@@ -2,5 +2,4 @@ node_modules
 fonts/*.otf
 .env
 .env.*
-!.env.example
 secrets/

@@ -60,6 +60,8 @@ const productSchema = new Schema(
 	}
 );
 
+productSchema.index({ isActive: 1, createdAt: -1 });
+
 // --- HOOKS ---
 productSchema.pre("save", async function (next) {
 	if ((this.isModified("code") || this.isNew) && this.code) {

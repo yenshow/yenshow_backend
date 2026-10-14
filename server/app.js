@@ -1,4 +1,4 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
@@ -109,7 +109,7 @@ const configureApp = () => {
 			}
 		},
 		methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-		allowedHeaders: ["Content-Type", "Authorization", "x-api-key", "x-api-secret", "X-App-Context"],
+		allowedHeaders: ["Content-Type", "Authorization", "x-api-key", "x-api-secret", "X-App-Context", "X-Line-User-Id"],
 		credentials: true // 允許跨域請求攜帶憑證
 	};
 
@@ -217,16 +217,17 @@ const configureRoutes = (app) => {
 
 	// API 路由
 	// 將更具體的路由放在前面，確保優先匹配（避免被通用路由攔截）
+	app.use("/api/hub", hubRoutes);
 	app.use("/api/license", licenseRoutes);
 	app.use("/api/users", userRoutes);
 	app.use("/api/faqs", faqRoutes);
 	app.use("/api/news", newsRoutes);
+	// documents 需在 caseStudy（曾用 router.use(requireAuth)）之前，確保 LIFF 免登入下載不被攔截
+	app.use("/api/documents", documentsRoutes);
 	app.use("/api", hierarchyRoutes);
 	app.use("/api", contactRoutes);
 	app.use("/api", caseStudyRoutes);
-	app.use("/api/documents", documentsRoutes);
 	app.use("/api/seo", seoRoutes);
-	app.use("/api/hub", hubRoutes);
 
 	// 提供靜態資源
 	app.use(

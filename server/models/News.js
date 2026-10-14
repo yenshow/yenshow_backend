@@ -70,7 +70,8 @@ const newsSchema = new Schema(
 		},
 		isActive: {
 			type: Boolean,
-			default: false
+			default: false,
+			index: true
 		},
 		author: {
 			type: String,
@@ -95,6 +96,9 @@ const newsSchema = new Schema(
 		toJSON: { virtuals: true }
 	}
 );
+
+newsSchema.index({ isActive: 1, createdAt: -1 });
+newsSchema.index({ isActive: 1, publishDate: -1 });
 
 newsSchema.pre("save", async function (next) {
 	if ((this.isModified("title.EN") || this.isNew) && this.title && this.title.EN) {

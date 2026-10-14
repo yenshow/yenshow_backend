@@ -3,6 +3,9 @@ import jwt from "jsonwebtoken";
 import { ApiError } from "../utils/responseHandler.js";
 import LineCustomerBinding from "../models/LineCustomerBinding.js";
 
+const MAX_VERIFY_CACHE_TTL_MS = 10 * 60 * 1000;
+const verifyCache = new Map();
+
 const extractBearer = (req) => {
 	const authHeader = req.headers.authorization;
 	if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -16,6 +19,24 @@ const resolveChannelId = () =>
 	process.env.LIFF_CHANNEL_ID ||
 	process.env.YENSHOW_LINE_CHANNEL_ID ||
 	"";
+
+const getCachedVerify = (idToken) => {
+	const entry = verifyCache.get(idToken);
+	if (!entry) return null;
+	if (entry.expiresAt <= Date.now()) {
+		verifyCache.delete(idToken);
+		return null;
+	}
+	return entry;
+};
+
+const setCachedVerify = (idToken, lineUserId, lineProfile) => {
+	const decoded = jwt.decode(idToken);
+	const untilExp = decoded?.exp ? Number(decoded.exp) * 1000 - Date.now() : MAX_VERIFY_CACHE_TTL_MS;
+	const ttl = Math.min(Math.max(untilExp, 0), MAX_VERIFY_CACHE_TTL_MS);
+	if (!ttl) return;
+	verifyCache.set(idToken, { lineUserId, lineProfile, expiresAt: Date.now() + ttl });
+};
 
 /**
  * 驗證 LINE LIFF idToken，將 lineUserId 寫入 req.lineUserId
@@ -42,6 +63,13 @@ export const requireLineIdToken = async (req, res, next) => {
 			return next();
 		}
 
+		const cached = getCachedVerify(idToken);
+		if (cached) {
+			req.lineUserId = cached.lineUserId;
+			req.lineProfile = cached.lineProfile;
+			return next();
+		}
+
 		const channelId = resolveChannelId();
 		if (!channelId) throw ApiError.internal("尚未設定 LINE_LOGIN_CHANNEL_ID");
 
@@ -54,6 +82,7 @@ export const requireLineIdToken = async (req, res, next) => {
 		if (!data?.sub) throw ApiError.unauthorized("無效的 LINE idToken");
 		req.lineUserId = String(data.sub);
 		req.lineProfile = { displayName: data.name || "", pictureUrl: data.picture || "" };
+		setCachedVerify(idToken, req.lineUserId, req.lineProfile);
 		next();
 	} catch (err) {
 		if (err instanceof ApiError) return next(err);

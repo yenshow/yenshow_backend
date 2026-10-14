@@ -295,13 +295,11 @@ class NewsController extends EntityController {
 	getAllItems = async (req, res, next) => {
 		try {
 			const { category, sort, sortDirection, page, limit } = req.query;
+			const filterActive = this._shouldFilterActive(req);
 			const query = {};
-			if (this._shouldFilterActive(req)) {
-				query.isActive = true;
-			}
-			if (category) {
-				query["category.main.TW"] = category;
-			}
+			if (filterActive) query.isActive = true;
+			if (category) query["category.main.TW"] = category;
+
 			const allowedSortFields = ["publishDate", "createdAt"];
 			const sortField = allowedSortFields.includes(sort) ? sort : "publishDate";
 			const order = sortDirection === "asc" ? 1 : -1;
@@ -309,17 +307,20 @@ class NewsController extends EntityController {
 			const pageNum = Math.max(parseInt(page) || 1, 1);
 			const limitNum = Math.min(Math.max(parseInt(limit) || 20, 1), 100);
 			const skip = (pageNum - 1) * limitNum;
-			const total = await this.model.countDocuments(query);
-			const items = await this.model
-				.find(query)
-				.sort(sortOption)
-				.skip(skip)
-				.limit(limitNum)
-				.populate("relatedNews", "title.TW title.EN summary.TW summary.EN slug category");
 
-			const formattedItems = items.map((item) => this.entityService.formatOutput(item));
+			const [total, items] = await Promise.all([
+				this.model.countDocuments(query),
+				this.model
+					.find(query)
+					.select("-article -attachmentImages -attachmentVideos -attachmentDocuments -relatedNews")
+					.sort(sortOption)
+					.skip(skip)
+					.limit(limitNum)
+			]);
+
+			if (filterActive) res.set("Cache-Control", "public, max-age=60");
 			this._sendResponse(res, StatusCodes.OK, `消息列表獲取成功`, {
-				[this.responseKey]: formattedItems,
+				[this.responseKey]: items.map((item) => this.entityService.formatOutput(item)),
 				pagination: {
 					page: pageNum,
 					limit: limitNum,

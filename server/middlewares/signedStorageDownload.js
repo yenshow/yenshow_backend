@@ -16,7 +16,7 @@ const getFullStoragePathFromReq = (req) => {
 };
 
 /**
- * 一般使用者用網址列直接開 PDF 時，不應只看到 JSON；改導向官網「登入後下載」頁。
+ * 一般使用者用網址列直接開 PDF 時，不應只看到 JSON；改導向官網「開啟規格」頁（活躍產品免登入）。
  * API/程式客戶端（Accept: application/json）仍回 JSON 403。
  */
 const prefersHtmlNavigation = (req) => {
