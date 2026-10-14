@@ -3,3 +3,4 @@ fonts/*.otf
 .env
 .env.*
 !.env.example
+secrets/

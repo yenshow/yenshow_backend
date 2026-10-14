@@ -12,7 +12,8 @@
     "migrate-product": "node scripts/mongoDB/migrate-product.js",
     "export-users": "node scripts/mongoDB/export-users.js",
     "migrate-documents": "node scripts/mongoDB/migrate-documents-to-by-lang.js",
-    "fix-license-indexes": "node scripts/fix-license-indexes.js"
+		"fix-license-indexes": "node scripts/fix-license-indexes.js",
+		"generate-crm-hub-keys": "node scripts/generate-crm-hub-keys.js"
   },
   "keywords": [],
   "author": "",

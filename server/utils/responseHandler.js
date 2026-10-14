@@ -34,6 +34,10 @@ export class ApiError extends Error {
 		return new ApiError(StatusCodes.CONFLICT, message);
 	}
 
+	static tooManyRequests(message = "請求過於頻繁，請稍後再試") {
+		return new ApiError(StatusCodes.TOO_MANY_REQUESTS, message);
+	}
+
 	static internal(message = "內部伺服器錯誤") {
 		return new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, message);
 	}
