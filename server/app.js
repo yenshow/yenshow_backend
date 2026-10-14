@@ -222,7 +222,6 @@ const configureRoutes = (app) => {
 	app.use("/api/users", userRoutes);
 	app.use("/api/faqs", faqRoutes);
 	app.use("/api/news", newsRoutes);
-	// documents 需在 caseStudy（曾用 router.use(requireAuth)）之前，確保 LIFF 免登入下載不被攔截
 	app.use("/api/documents", documentsRoutes);
 	app.use("/api", hierarchyRoutes);
 	app.use("/api", contactRoutes);

@@ -10,16 +10,62 @@ const router = express.Router();
 
 const protectedPdfStoragePathRegex = /^products\/[^/]+\/documents\/.+\.pdf$/i;
 
-const normalizeStoragePath = (documentUrl) => {
+/** 反覆 decode，消化重複 percent-encoding */
+const fullyDecodeUri = (value) => {
+	let current = String(value ?? "");
+	for (let i = 0; i < 5; i++) {
+		try {
+			const next = decodeURIComponent(current.replace(/\+/g, "%20"));
+			if (next === current) break;
+			current = next;
+		} catch {
+			break;
+		}
+	}
+	return current;
+};
+
+/** 絕對／相對網址 → storage 相對路徑（不含 /storage/） */
+const toStoragePath = (documentUrl) => {
 	if (!documentUrl || typeof documentUrl !== "string") return null;
-	if (!documentUrl.startsWith("/storage/")) return null;
-	const storagePath = documentUrl.replace(/^\/storage\//, "");
+
+	let url = fullyDecodeUri(documentUrl.trim());
+	if (/^https?:\/\//i.test(url)) {
+		try {
+			url = fullyDecodeUri(new URL(url).pathname);
+		} catch {
+			return null;
+		}
+	}
+	if (!url.startsWith("/")) url = `/${url}`;
+	if (!url.startsWith("/storage/")) return null;
+
+	const storagePath = url.slice("/storage/".length);
 	if (!protectedPdfStoragePathRegex.test(storagePath)) return null;
 	return storagePath;
 };
 
+const collectProductDocs = (product) =>
+	[...(product.documents || []), ...(product.documentsByLang?.TW || []), ...(product.documentsByLang?.EN || [])].filter(Boolean);
+
+/** 白名單比對（路徑全同，或同產品＋同檔名），回傳可用於簽章／讀檔的 storagePath */
+const resolveWhitelistedStoragePath = (product, requestedStoragePath) => {
+	const wantName = requestedStoragePath.split("/").pop();
+	const wantPid = requestedStoragePath.split("/")[1];
+	let byName = null;
+
+	for (const doc of collectProductDocs(product)) {
+		const path = toStoragePath(String(doc));
+		if (!path) continue;
+		if (path === requestedStoragePath) return path;
+		if (!byName && path.split("/").pop() === wantName && path.split("/")[1] === wantPid) {
+			byName = path;
+		}
+	}
+	return byName;
+};
+
 /**
- * 校驗產品文件白名單並簽發短效下載 token
  * @param {{ productId: string, documentUrl: string, userId?: string|null, requireActive?: boolean }}
  */
 const issueSpecificationDownload = async ({ productId, documentUrl, userId = null, requireActive = false }) => {
@@ -27,8 +73,8 @@ const issueSpecificationDownload = async ({ productId, documentUrl, userId = nul
 		throw ApiError.badRequest("缺少或無效的 productId");
 	}
 
-	const storagePath = normalizeStoragePath(documentUrl);
-	if (!storagePath) {
+	const requestedStoragePath = toStoragePath(documentUrl);
+	if (!requestedStoragePath) {
 		throw ApiError.badRequest("缺少或無效的 documentUrl");
 	}
 
@@ -45,14 +91,8 @@ const issueSpecificationDownload = async ({ productId, documentUrl, userId = nul
 		throw ApiError.notFound("找不到指定產品");
 	}
 
-	const allDocs = new Set([
-		...(product.documents || []),
-		...(product.documentsByLang?.TW || []),
-		...(product.documentsByLang?.EN || [])
-	]);
-
-	const expectedDocumentUrl = `/storage/${storagePath}`;
-	if (!allDocs.has(expectedDocumentUrl)) {
+	const storagePath = resolveWhitelistedStoragePath(product, requestedStoragePath);
+	if (!storagePath) {
 		throw ApiError.forbidden("您無法下載此文件");
 	}
 
@@ -69,7 +109,7 @@ const issueSpecificationDownload = async ({ productId, documentUrl, userId = nul
 	return { storagePath, token, expiresInSeconds: 300 };
 };
 
-// GET /api/documents/specifications/presign — 官網登入後下載
+// GET /api/documents/specifications/presign — 官網登入後開啟
 router.get("/specifications/presign", requireAuth, async (req, res, next) => {
 	try {
 		const result = await issueSpecificationDownload({
@@ -87,7 +127,7 @@ router.get("/specifications/presign", requireAuth, async (req, res, next) => {
 	}
 });
 
-// GET /api/documents/specifications/public-url — LIFF 免登入下載
+// GET /api/documents/specifications/public-url — 活躍產品免登入開啟（LIFF／官網）
 router.get("/specifications/public-url", async (req, res, next) => {
 	try {
 		const result = await issueSpecificationDownload({
