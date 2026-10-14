@@ -1,5 +1,6 @@
 import express from "express";
 import { requireAuth } from "../middlewares/auth.js";
+import { requireLineIdToken } from "../middlewares/lineIdToken.js";
 import { ApiError } from "../utils/responseHandler.js";
 import { StatusCodes } from "http-status-codes";
 import Products from "../models/products.js";
@@ -66,9 +67,9 @@ const resolveWhitelistedStoragePath = (product, requestedStoragePath) => {
 };
 
 /**
- * @param {{ productId: string, documentUrl: string, userId?: string|null, requireActive?: boolean }}
+ * @param {{ productId: string, documentUrl: string, userId?: string|null }}
  */
-const issueSpecificationDownload = async ({ productId, documentUrl, userId = null, requireActive = false }) => {
+const issueSpecificationDownload = async ({ productId, documentUrl, userId = null }) => {
 	if (!productId || typeof productId !== "string") {
 		throw ApiError.badRequest("缺少或無效的 productId");
 	}
@@ -80,14 +81,10 @@ const issueSpecificationDownload = async ({ productId, documentUrl, userId = nul
 
 	const product = await Products.findById(productId).select({
 		documents: 1,
-		documentsByLang: 1,
-		isActive: 1
+		documentsByLang: 1
 	});
 
 	if (!product) {
-		throw ApiError.notFound("找不到指定產品");
-	}
-	if (requireActive && product.isActive === false) {
 		throw ApiError.notFound("找不到指定產品");
 	}
 
@@ -109,7 +106,7 @@ const issueSpecificationDownload = async ({ productId, documentUrl, userId = nul
 	return { storagePath, token, expiresInSeconds: 300 };
 };
 
-// GET /api/documents/specifications/presign — 官網登入後開啟
+// GET /api/documents/specifications/presign — 官網會員 JWT 登入後開啟
 router.get("/specifications/presign", requireAuth, async (req, res, next) => {
 	try {
 		const result = await issueSpecificationDownload({
@@ -127,18 +124,18 @@ router.get("/specifications/presign", requireAuth, async (req, res, next) => {
 	}
 });
 
-// GET /api/documents/specifications/public-url — 活躍產品免登入開啟（LIFF／官網）
-router.get("/specifications/public-url", async (req, res, next) => {
+// GET /api/documents/specifications/liff-presign — LINE LIFF idToken 登入後開啟（不需 CRM 綁定）
+router.get("/specifications/liff-presign", requireLineIdToken, async (req, res, next) => {
 	try {
+		const lineUserId = req.lineUserId ? String(req.lineUserId) : null;
 		const result = await issueSpecificationDownload({
 			productId: req.query.productId,
 			documentUrl: req.query.documentUrl,
-			userId: null,
-			requireActive: true
+			userId: lineUserId ? `line:${lineUserId}` : null
 		});
 		return res.status(StatusCodes.OK).json({
 			success: true,
-			message: "取得公開下載連結成功",
+			message: "取得下載連結成功",
 			result
 		});
 	} catch (error) {
