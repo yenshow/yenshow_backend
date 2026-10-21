@@ -1,11 +1,7 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
 import { catchAsync } from "../utils/responseHandler.js";
-import {
-	requireLineIdToken,
-	requireHubBinding,
-	requireHubEventApiKey
-} from "../middlewares/lineIdToken.js";
+import { requireLineIdToken, requireHubBinding } from "../middlewares/lineIdToken.js";
 import * as hubController from "../controllers/hub/hubController.js";
 
 const router = express.Router();
@@ -20,8 +16,6 @@ const verifyOrderLimiter = rateLimit({
 		message: "驗證嘗試過於頻繁，請稍後再試"
 	}
 });
-
-router.post("/events", requireHubEventApiKey, catchAsync(hubController.handleCrmEvent));
 
 router.use(requireLineIdToken);
 

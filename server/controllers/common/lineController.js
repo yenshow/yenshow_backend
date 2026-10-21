@@ -2,7 +2,7 @@ import * as lineService from "../../services/lineService.js";
 
 /**
  * LINE Webhook Controller
- * 產品瀏覽改由 LIFF／Rich Menu；此處僅處理加退追與後續推播所需 webhook。
+ * 產品瀏覽與訂單改由 LIFF／Rich Menu；此處僅處理加追／退追歡迎語。
  */
 export const webhook = async (req, res) => {
 	const events = req.body.events;

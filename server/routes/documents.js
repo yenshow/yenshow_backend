@@ -6,25 +6,11 @@ import { StatusCodes } from "http-status-codes";
 import Products from "../models/products.js";
 import { signDownloadToken } from "../utils/storageDownloadSign.js";
 import DocumentDownloadToken from "../models/DocumentDownloadToken.js";
+import { fullyDecodeUri } from "../utils/fullyDecodeUri.js";
 
 const router = express.Router();
 
 const protectedPdfStoragePathRegex = /^products\/[^/]+\/documents\/.+\.pdf$/i;
-
-/** 反覆 decode，消化重複 percent-encoding */
-const fullyDecodeUri = (value) => {
-	let current = String(value ?? "");
-	for (let i = 0; i < 5; i++) {
-		try {
-			const next = decodeURIComponent(current.replace(/\+/g, "%20"));
-			if (next === current) break;
-			current = next;
-		} catch {
-			break;
-		}
-	}
-	return current;
-};
 
 /** 絕對／相對網址 → storage 相對路徑（不含 /storage/） */
 const toStoragePath = (documentUrl) => {

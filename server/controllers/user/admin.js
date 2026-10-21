@@ -18,84 +18,21 @@ import {
 	sendLicenseApprovedEmail,
 	sendLicensePendingReviewEmail
 } from "../../services/emailService.js";
-
-const LICENSE_EXT_SORT = { appliedAt: 1, createdAt: 1, _id: 1 };
-
-const applyStaffApplicantFilter = (query, staffAcc) => {
-	if (staffAcc) query.applicant = staffAcc;
-	return query;
-};
-
-/** 查詢主 LK 底下副授權（含審核前以 parentLicenseId 暫掛者） */
-const buildMainLicenseChildrenFilter = (mainLicense) => {
-	const parentId = mainLicense._id?.toString();
-	const or = parentId ? [{ parentLicenseId: parentId }] : [];
-	if (mainLicense.licenseKey) or.push({ parentLicenseKey: mainLicense.licenseKey });
-	return or.length === 1 ? or[0] : { $or: or };
-};
-
-const groupExtensionsBy = (extensions, field) => {
-	const map = {};
-	for (const ext of extensions) {
-		const key = ext[field];
-		if (!key) continue;
-		if (!map[key]) map[key] = [];
-		map[key].push(ext);
-	}
-	return map;
-};
-
-const attachExtensionsToMainLicenses = async (licenses, staffAcc) => {
-	const licenseKeys = licenses.map((l) => l.licenseKey).filter((k) => typeof k === "string" && k.length > 0);
-	const pendingParentIds = licenses
-		.filter((l) => !l.parentLicenseKey && !l.licenseKey)
-		.map((l) => (l._id != null ? String(l._id) : null))
-		.filter(Boolean);
-
-	const fetches = [];
-	if (licenseKeys.length > 0) {
-		fetches.push(
-			License.collection
-				.find(applyStaffApplicantFilter({ parentLicenseKey: { $in: licenseKeys } }, staffAcc))
-				.sort(LICENSE_EXT_SORT)
-				.toArray()
-		);
-	}
-	if (pendingParentIds.length > 0) {
-		fetches.push(
-			License.collection
-				.find(applyStaffApplicantFilter({ parentLicenseId: { $in: pendingParentIds } }, staffAcc))
-				.sort(LICENSE_EXT_SORT)
-				.toArray()
-		);
-	}
-
-	const fetchResults = await Promise.all(fetches);
-	let ri = 0;
-	const byKeyExts = licenseKeys.length > 0 ? fetchResults[ri++] : [];
-	const byIdExts = pendingParentIds.length > 0 ? fetchResults[ri++] : [];
-	const extensionMap = groupExtensionsBy(byKeyExts, "parentLicenseKey");
-	const extensionMapByParentId = groupExtensionsBy(byIdExts, "parentLicenseId");
-
-	for (const license of licenses) {
-		const parentId = license._id != null ? String(license._id) : null;
-		const byKey = license.licenseKey ? extensionMap[license.licenseKey] || [] : [];
-		const byId = parentId ? extensionMapByParentId[parentId] || [] : [];
-		license.extensions = [...byKey, ...byId];
-	}
-};
-
-/** 主 LK 審核通過後，將以 parentLicenseId 暫掛的副授權改為 parentLicenseKey */
-const linkPendingExtensionsToMainLicenseKey = async (mainLicense) => {
-	if (!mainLicense?.licenseKey || mainLicense.parentLicenseKey) return;
-	const parentId = mainLicense._id?.toString();
-	if (!parentId) return;
-
-	await License.updateMany(
-		{ parentLicenseId: parentId },
-		{ $set: { parentLicenseKey: mainLicense.licenseKey }, $unset: { parentLicenseId: "" } }
-	);
-};
+import {
+	LICENSE_EXT_SORT,
+	applyLicenseKeysForAvailable,
+	applyStaffApplicantFilter,
+	attachExtensionsToMainLicenses,
+	buildMainLicenseChildrenFilter,
+	getAllowedFeaturesByProfile,
+	linkPendingExtensionsToMainLicenseKey,
+	normalizeDeploymentProfile,
+	parseCreateLicenseBody,
+	parseExtendLicenseBody,
+	saveLicenseAttachment,
+	trimAccount,
+	validateQuotas
+} from "../../services/licenseShared.js";
 
 /**
  * 獲取用戶列表 (支援過濾)
@@ -286,8 +223,6 @@ export const resetUserPassword = async (req, res, next) => {
 
 // ==================== 授權管理功能 ====================
 
-const trimAccount = (value) => (typeof value === "string" ? value.trim() : "");
-
 /** 非員工：null；員工：登入帳號 trim 後字串（可能為空） */
 const getStaffApplicantAccount = (req) => {
 	if (req.user?.role !== UserRole.STAFF) return null;
@@ -437,96 +372,6 @@ export const exportLicensePdf = async (req, res, next) => {
  * status 自動設為 pending（審核中）
  * serialNumber 和 licenseKey 在審核時才生成
  */
-const CENTRAL_FEATURES = [
-	"people_counting",
-	"lighting",
-	"hvac",
-	"drainage",
-	"power",
-	"fire",
-	"emergency_rescue",
-	"environment",
-	"surveillance",
-	"vehicle_access",
-	"multimedia",
-	"smoke_alarm",
-	"air_circulation",
-	"elevator",
-	"energy",
-	"access_security",
-	"visitor"
-];
-const CONSTRUCTION_FEATURES = ["people_counting", "environment", "surveillance", "vehicle_access", "roll_call"];
-
-const normalizeDeploymentProfile = (value) => {
-	if (!value) return "central";
-	if (value === "center") return "central";
-	return value;
-};
-
-const getAllowedFeaturesByProfile = (deploymentProfile) => {
-	if (deploymentProfile === "construction") return CONSTRUCTION_FEATURES;
-	return CENTRAL_FEATURES;
-};
-
-const validateQuotas = (quotas, features) => {
-	if (quotas === undefined || quotas === null) return null;
-	if (typeof quotas !== "object" || Array.isArray(quotas)) {
-		throw ApiError.badRequest("quotas 必須為 object");
-	}
-
-	const featureSet = new Set((features || []).filter((f) => typeof f === "string"));
-	const normalized = {};
-
-	for (const [featureKey, quotaValue] of Object.entries(quotas)) {
-		if (!featureSet.has(featureKey)) {
-			throw ApiError.badRequest(`quotas 的 key 必須同時出現在 features[]：${featureKey}`);
-		}
-		if (quotaValue === null) {
-			normalized[featureKey] = { maxDevices: null };
-			continue;
-		}
-		if (typeof quotaValue !== "object" || Array.isArray(quotaValue)) {
-			throw ApiError.badRequest(`quotas.${featureKey} 必須為 object`);
-		}
-
-		const maxDevices = quotaValue.maxDevices;
-		if (maxDevices === undefined || maxDevices === null || maxDevices === "") {
-			normalized[featureKey] = { maxDevices: null };
-			continue;
-		}
-		if (!Number.isInteger(maxDevices) || maxDevices < 0) {
-			throw ApiError.badRequest(`quotas.${featureKey}.maxDevices 必須為非負整數或 null`);
-		}
-
-		normalized[featureKey] = { maxDevices };
-	}
-
-	return Object.keys(normalized).length > 0 ? normalized : null;
-};
-
-const parseCreateLicenseBody = (req) => {
-	if (req.is("multipart/form-data") && req.body?.licenseDataPayload) {
-		try {
-			return JSON.parse(req.body.licenseDataPayload);
-		} catch {
-			throw ApiError.badRequest("無法解析 licenseDataPayload JSON 字串");
-		}
-	}
-	return { ...req.body };
-};
-
-const parseExtendLicenseBody = (req) => {
-	if (req.is("multipart/form-data") && req.body?.extendDataPayload) {
-		try {
-			return JSON.parse(req.body.extendDataPayload);
-		} catch {
-			throw ApiError.badRequest("無法解析 extendDataPayload JSON 字串");
-		}
-	}
-	return { ...req.body };
-};
-
 export const createLicense = async (req, res, next) => {
 	try {
 		const body = parseCreateLicenseBody(req);
@@ -578,20 +423,7 @@ export const createLicense = async (req, res, next) => {
 		});
 
 		try {
-			const { fileName, assetCategory } = fileUpload.resolveLicenseAttachmentMeta(
-				orderNo,
-				attachment.originalname,
-				attachment.mimetype
-			);
-			newLicense.imageUrl = fileUpload.saveAsset(
-				attachment.buffer,
-				"licenses",
-				{ id: newLicense._id.toString() },
-				assetCategory,
-				fileName,
-				""
-			);
-			await newLicense.save();
+			await saveLicenseAttachment(newLicense, attachment, orderNo);
 		} catch (err) {
 			await License.findByIdAndDelete(newLicense._id);
 			console.error("授權附件儲存失敗:", err);
@@ -667,114 +499,6 @@ export const reviewLicense = async (req, res, next) => {
 		return successResponse(res, StatusCodes.OK, "授權審核成功", { license });
 	} catch (error) {
 		next(error);
-	}
-};
-
-/**
- * 生成 SerialNumber 和 License Key 的輔助函數
- * 用於審核授權和更新授權時自動生成
- */
-const generateSerialNumberAndLicenseKey = async () => {
-	// 生成 SerialNumber（格式：SN-YYYYMMDD-XXXX）
-	const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-	const randomNum = Math.floor(Math.random() * 10000)
-		.toString()
-		.padStart(4, "0");
-	let serialNumber = `SN-${dateStr}-${randomNum}`;
-	let attempts = 0;
-
-	// 確保 SerialNumber 唯一
-	while (attempts < 10) {
-		const existing = await License.findOne({ serialNumber });
-		if (!existing) {
-			break;
-		}
-		const randomNum = Math.floor(Math.random() * 10000)
-			.toString()
-			.padStart(4, "0");
-		serialNumber = `SN-${dateStr}-${randomNum}`;
-		attempts++;
-	}
-
-	if (attempts >= 10) {
-		throw ApiError.internal("無法生成唯一的 SerialNumber");
-	}
-
-	// 生成 License Key（基於 SerialNumber + 時間戳 + 隨機數）
-	let finalLicenseKey;
-	attempts = 0;
-
-	while (attempts < 10) {
-		const timestamp = Date.now();
-		const random = crypto.randomBytes(8).toString("hex");
-		const data = `${serialNumber}:${timestamp}:${random}`;
-		const hash = crypto.createHash("sha256").update(data).digest("hex");
-		const licenseKey = hash
-			.substring(0, 16)
-			.match(/.{1,4}/g)
-			.join("-")
-			.toUpperCase();
-
-		// 檢查是否已存在
-		const existingKey = await License.findOne({ licenseKey });
-		if (!existingKey) {
-			finalLicenseKey = licenseKey;
-			break;
-		}
-
-		attempts++;
-	}
-
-	if (attempts >= 10) {
-		throw ApiError.internal("無法生成唯一的 License Key");
-	}
-
-	return { serialNumber, licenseKey: finalLicenseKey };
-};
-
-/**
- * 產生 License Key（不依賴 SerialNumber）
- * 用於副 LK，避免副 LK 產生新 SerialNumber。
- */
-const generateLicenseKey = async () => {
-	let attempts = 0;
-	while (attempts < 10) {
-		const timestamp = Date.now();
-		const random = crypto.randomBytes(8).toString("hex");
-		const data = `EXT:${timestamp}:${random}`;
-		const hash = crypto.createHash("sha256").update(data).digest("hex");
-		const licenseKey = hash
-			.substring(0, 16)
-			.match(/.{1,4}/g)
-			.join("-")
-			.toUpperCase();
-
-		const existingKey = await License.findOne({ licenseKey });
-		if (!existingKey) return licenseKey;
-		attempts++;
-	}
-
-	throw ApiError.internal("無法生成唯一的 License Key");
-};
-
-/**
- * 寫入 SN / LK：review=審核時必產生；fill=改為 available 時僅補缺漏
- */
-const applyLicenseKeysForAvailable = async (license, mode) => {
-	const isReview = mode === "review";
-	const isChild = Boolean(license.parentLicenseKey);
-
-	if (isChild) {
-		if (isReview || !license.licenseKey) {
-			license.licenseKey = await generateLicenseKey();
-		}
-		return;
-	}
-
-	if (isReview || !license.serialNumber || !license.licenseKey) {
-		const gen = await generateSerialNumberAndLicenseKey();
-		license.serialNumber = gen.serialNumber;
-		license.licenseKey = gen.licenseKey;
 	}
 };
 
@@ -857,20 +581,7 @@ export const extendLicense = async (req, res, next) => {
 		});
 
 		try {
-			const { fileName, assetCategory } = fileUpload.resolveLicenseAttachmentMeta(
-				orderNo,
-				attachment.originalname,
-				attachment.mimetype
-			);
-			extension.imageUrl = fileUpload.saveAsset(
-				attachment.buffer,
-				"licenses",
-				{ id: extension._id.toString() },
-				assetCategory,
-				fileName,
-				""
-			);
-			await extension.save();
+			await saveLicenseAttachment(extension, attachment, orderNo);
 		} catch (err) {
 			await License.findByIdAndDelete(extension._id);
 			console.error("追加授權附件儲存失敗:", err);

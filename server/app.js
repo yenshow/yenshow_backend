@@ -20,6 +20,7 @@ import contactRoutes from "./routes/contactRoutes.js";
 import lineRoutes from "./routes/line.js";
 import caseStudyRoutes from "./routes/caseStudy.js";
 import licenseRoutes from "./routes/license.js";
+import crmLicenseRoutes from "./routes/crmLicenses.js";
 import documentsRoutes from "./routes/documents.js";
 import seoRoutes from "./routes/seo.js";
 import hubRoutes from "./routes/hub.js";
@@ -33,6 +34,7 @@ import "./models/subCategories.js";
 import "./models/user.js";
 import "./models/caseStudy.js";
 import "./models/License.js";
+import "./models/LicenseIdempotency.js";
 import "./models/LineCustomerBinding.js";
 
 // 初始化路徑
@@ -45,6 +47,7 @@ const __dirname = path.dirname(__filename);
 const configureApp = () => {
 	// 初始化 Express 應用
 	const app = express();
+	app.set("trust proxy", 1);
 
 	// 基本安全性設定
 	app.use(helmet());
@@ -109,7 +112,18 @@ const configureApp = () => {
 			}
 		},
 		methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-		allowedHeaders: ["Content-Type", "Authorization", "x-api-key", "x-api-secret", "X-App-Context", "X-Line-User-Id"],
+		allowedHeaders: [
+			"Content-Type",
+			"Authorization",
+			"x-api-key",
+			"x-api-secret",
+			"X-App-Context",
+			"X-Line-User-Id",
+			"X-Crm-Actor-Account",
+			"X-Crm-Actor-Role",
+			"X-Crm-Actor-Name",
+			"Idempotency-Key"
+		],
 		credentials: true // 允許跨域請求攜帶憑證
 	};
 
@@ -161,7 +175,11 @@ const configureApp = () => {
 	// 請求超時處理
 	app.use((req, res, next) => {
 		// 如果是檔案上傳請求，設定更長的超時時間
-		const isFileUpload = req.path.includes("/news") || req.path.includes("/products") || req.path.includes("/faqs");
+		const isFileUpload =
+			req.path.includes("/news") ||
+			req.path.includes("/products") ||
+			req.path.includes("/faqs") ||
+			req.path.includes("/crm/licenses");
 		const timeout = isFileUpload ? 300000 : 30000; // 檔案上傳 5分鐘，一般請求 30秒
 
 		res.setTimeout(timeout, () => {
@@ -219,6 +237,7 @@ const configureRoutes = (app) => {
 	// 將更具體的路由放在前面，確保優先匹配（避免被通用路由攔截）
 	app.use("/api/hub", hubRoutes);
 	app.use("/api/license", licenseRoutes);
+	app.use("/api/crm/licenses", crmLicenseRoutes);
 	app.use("/api/users", userRoutes);
 	app.use("/api/faqs", faqRoutes);
 	app.use("/api/news", newsRoutes);

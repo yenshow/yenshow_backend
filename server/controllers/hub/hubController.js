@@ -2,7 +2,6 @@ import { StatusCodes } from "http-status-codes";
 import LineCustomerBinding from "../../models/LineCustomerBinding.js";
 import crmClient from "../../services/crm/crmClient.js";
 import { ApiError, successResponse } from "../../utils/responseHandler.js";
-import { pushTextMessage } from "../../services/lineService.js";
 
 const toMeResult = (binding) => {
 	if (!binding) {
@@ -19,10 +18,6 @@ const toMeResult = (binding) => {
 		}
 	};
 };
-
-const customerScope = (req) => ({
-	lineUserId: req.lineUserId
-});
 
 export const getMe = async (req, res) => {
 	const binding = await LineCustomerBinding.findOne({ lineUserId: req.lineUserId }).lean();
@@ -68,38 +63,33 @@ export const verifyOrder = async (req, res) => {
 
 export const listOrders = async (req, res) => {
 	const { page, limit, status } = req.query;
-	const data = await crmClient.listOrders(
-		req.hubBinding.crmCustomerId,
-		{ page, limit, status },
-		customerScope(req)
-	);
+	const data = await crmClient.listOrders(req.hubBinding.crmCustomerId, {
+		page,
+		limit,
+		status
+	});
 	return successResponse(res, StatusCodes.OK, "OK", { result: data });
 };
 
 export const getOrder = async (req, res) => {
-	const order = await crmClient.getOrder(
-		req.hubBinding.crmCustomerId,
-		req.params.id,
-		customerScope(req)
-	);
+	const order = await crmClient.getOrder(req.hubBinding.crmCustomerId, req.params.id);
 	return successResponse(res, StatusCodes.OK, "OK", { result: { order } });
 };
 
 export const listServiceTickets = async (req, res) => {
 	const { page, limit, status } = req.query;
-	const data = await crmClient.listServiceTickets(
-		req.hubBinding.crmCustomerId,
-		{ page, limit, status },
-		customerScope(req)
-	);
+	const data = await crmClient.listServiceTickets(req.hubBinding.crmCustomerId, {
+		page,
+		limit,
+		status
+	});
 	return successResponse(res, StatusCodes.OK, "OK", { result: data });
 };
 
 export const getServiceTicket = async (req, res) => {
 	const ticket = await crmClient.getServiceTicket(
 		req.hubBinding.crmCustomerId,
-		req.params.id,
-		customerScope(req)
+		req.params.id
 	);
 	return successResponse(res, StatusCodes.OK, "OK", { result: { ticket } });
 };
@@ -124,40 +114,8 @@ export const createServiceTicket = async (req, res) => {
 			contactName: req.body?.contactName || undefined,
 			contactPhone: req.body?.contactPhone || undefined
 		},
-		{
-			...customerScope(req),
-			idempotencyKey: idempotencyKey || undefined
-		}
+		{ idempotencyKey: idempotencyKey || undefined }
 	);
 
 	return successResponse(res, StatusCodes.CREATED, "案件已建立", { result: { ticket } });
-};
-
-export const handleCrmEvent = async (req, res) => {
-	const type = String(req.body?.type || "").trim();
-	const crmCustomerId = String(req.body?.crmCustomerId || "").trim();
-	const title = String(req.body?.title || "遠岫通知").trim();
-	const body = String(req.body?.body || "").trim();
-	const reference = req.body?.reference || "";
-
-	if (!type || !crmCustomerId) {
-		throw ApiError.badRequest("缺少 type 或 crmCustomerId");
-	}
-
-	const bindings = await LineCustomerBinding.find({ crmCustomerId }).lean();
-	const text = [title, body, reference ? `參考：${reference}` : ""].filter(Boolean).join("\n");
-
-	let pushed = 0;
-	for (const binding of bindings) {
-		try {
-			await pushTextMessage(binding.lineUserId, text);
-			pushed += 1;
-		} catch (err) {
-			console.error("Hub event push 失敗:", binding.lineUserId, err?.message || err);
-		}
-	}
-
-	return successResponse(res, StatusCodes.OK, "事件已接收", {
-		result: { type, recipients: bindings.length, pushed }
-	});
 };

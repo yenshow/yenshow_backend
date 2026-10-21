@@ -1,7 +1,10 @@
 import { randomUUID } from "crypto";
+import fs from "fs";
+import https from "https";
+import path from "path";
+import { fileURLToPath } from "url";
 import axios from "axios";
 import { ApiError } from "../../utils/responseHandler.js";
-import { signCustomerBindingJwt } from "./customerBindingJwt.js";
 import {
 	mockCustomers,
 	mockOrders,
@@ -9,10 +12,31 @@ import {
 	orderMatchesNo
 } from "./mockCrmData.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const serverRoot = path.resolve(__dirname, "../..");
+
 const useMock = () => {
 	if (process.env.HUB_USE_MOCK === "true") return true;
 	if (process.env.HUB_USE_MOCK === "false") return false;
 	return !process.env.CRM_API_BASE_URL;
+};
+
+const resolveCrmCaPath = () => {
+	const fromEnv = process.env.CRM_CA_FILE;
+	if (!fromEnv) return null;
+	return path.isAbsolute(fromEnv) ? fromEnv : path.resolve(serverRoot, fromEnv);
+};
+
+const buildHttpsAgent = () => {
+	const caPath = resolveCrmCaPath();
+	if (!caPath) return undefined;
+	if (!fs.existsSync(caPath)) {
+		throw ApiError.internal(`找不到 CRM CA 檔：${caPath}`);
+	}
+	return new https.Agent({
+		ca: fs.readFileSync(caPath),
+		keepAlive: true
+	});
 };
 
 const crmHttp = () => {
@@ -22,12 +46,13 @@ const crmHttp = () => {
 	}
 	const token = process.env.CRM_API_TOKEN;
 	if (!token) {
-		throw ApiError.internal("尚未設定 CRM_API_TOKEN（CRM Customer Hub 服務 Token）");
+		throw ApiError.internal("尚未設定 CRM_API_TOKEN");
 	}
 
 	return axios.create({
 		baseURL,
 		timeout: 15000,
+		httpsAgent: buildHttpsAgent(),
 		headers: {
 			"Content-Type": "application/json",
 			Authorization: `Bearer ${token}`
@@ -36,11 +61,6 @@ const crmHttp = () => {
 };
 
 const unwrap = (data) => data?.data ?? data?.result ?? data;
-
-const scopedHeaders = ({ crmCustomerId, lineUserId, extra = {} }) => ({
-	...extra,
-	"X-Customer-Binding": signCustomerBindingJwt({ crmCustomerId, lineUserId })
-});
 
 const mapCrmError = (err, fallbackMessage) => {
 	if (err instanceof ApiError) throw err;
@@ -212,12 +232,11 @@ export const crmClient = {
 		}
 	},
 
-	listOrders: async (crmCustomerId, query, { lineUserId } = {}) => {
+	listOrders: async (crmCustomerId, query) => {
 		if (useMock()) return mockListOrders(crmCustomerId, query);
 		try {
 			const { data } = await crmHttp().get(`/customers/${encodeURIComponent(crmCustomerId)}/orders`, {
-				params: query,
-				headers: scopedHeaders({ crmCustomerId, lineUserId })
+				params: query
 			});
 			return unwrap(data);
 		} catch (err) {
@@ -225,12 +244,11 @@ export const crmClient = {
 		}
 	},
 
-	getOrder: async (crmCustomerId, orderId, { lineUserId } = {}) => {
+	getOrder: async (crmCustomerId, orderId) => {
 		if (useMock()) return mockGetOrder(crmCustomerId, orderId);
 		try {
 			const { data } = await crmHttp().get(
-				`/customers/${encodeURIComponent(crmCustomerId)}/orders/${encodeURIComponent(orderId)}`,
-				{ headers: scopedHeaders({ crmCustomerId, lineUserId }) }
+				`/customers/${encodeURIComponent(crmCustomerId)}/orders/${encodeURIComponent(orderId)}`
 			);
 			const payload = unwrap(data);
 			return payload?.order || payload;
@@ -239,15 +257,12 @@ export const crmClient = {
 		}
 	},
 
-	listServiceTickets: async (crmCustomerId, query, { lineUserId } = {}) => {
+	listServiceTickets: async (crmCustomerId, query) => {
 		if (useMock()) return mockListTickets(crmCustomerId, query);
 		try {
 			const { data } = await crmHttp().get(
 				`/customers/${encodeURIComponent(crmCustomerId)}/service-tickets`,
-				{
-					params: query,
-					headers: scopedHeaders({ crmCustomerId, lineUserId })
-				}
+				{ params: query }
 			);
 			return unwrap(data);
 		} catch (err) {
@@ -255,12 +270,11 @@ export const crmClient = {
 		}
 	},
 
-	getServiceTicket: async (crmCustomerId, ticketId, { lineUserId } = {}) => {
+	getServiceTicket: async (crmCustomerId, ticketId) => {
 		if (useMock()) return mockGetTicket(crmCustomerId, ticketId);
 		try {
 			const { data } = await crmHttp().get(
-				`/customers/${encodeURIComponent(crmCustomerId)}/service-tickets/${encodeURIComponent(ticketId)}`,
-				{ headers: scopedHeaders({ crmCustomerId, lineUserId }) }
+				`/customers/${encodeURIComponent(crmCustomerId)}/service-tickets/${encodeURIComponent(ticketId)}`
 			);
 			const payload = unwrap(data);
 			return payload?.ticket || payload;
@@ -269,20 +283,14 @@ export const crmClient = {
 		}
 	},
 
-	createServiceTicket: async (crmCustomerId, body, { lineUserId, idempotencyKey } = {}) => {
+	createServiceTicket: async (crmCustomerId, body, { idempotencyKey } = {}) => {
 		if (useMock()) return mockCreateTicket(crmCustomerId, body);
 		try {
 			const key = idempotencyKey || randomUUID();
 			const { data } = await crmHttp().post(
 				`/customers/${encodeURIComponent(crmCustomerId)}/service-tickets`,
 				body,
-				{
-					headers: scopedHeaders({
-						crmCustomerId,
-						lineUserId,
-						extra: { "Idempotency-Key": key }
-					})
-				}
+				{ headers: { "Idempotency-Key": key } }
 			);
 			const payload = unwrap(data);
 			return payload?.ticket || payload;

@@ -110,14 +110,3 @@ export const requireHubBinding = async (req, res, next) => {
 	}
 };
 
-/**
- * CRM webhook 事件用 API Key
- */
-export const requireHubEventApiKey = (req, res, next) => {
-	const apiKey = req.headers["x-api-key"];
-	const expected = process.env.HUB_EVENTS_API_KEY || process.env.API_KEY;
-	if (!expected || apiKey !== expected) {
-		return next(ApiError.unauthorized("無效的 API 金鑰"));
-	}
-	next();
-};

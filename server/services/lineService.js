@@ -23,14 +23,3 @@ export const handleUnfollow = async (event) => {
 	console.log(`User ${userId} unfollowed or blocked the bot.`);
 	return Promise.resolve(null);
 };
-
-/**
- * 主動推播文字訊息（Customer Hub 訂單／售後事件用）
- */
-export const pushTextMessage = async (lineUserId, text) => {
-	if (!lineUserId || !text) return null;
-	return client.pushMessage(lineUserId, {
-		type: "text",
-		text: String(text).slice(0, 4900)
-	});
-};

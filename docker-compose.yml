@@ -63,6 +63,9 @@ services:
       - COMEO_GA_API_SECRET=${COMEO_GA_API_SECRET}
       # 離線授權簽名密鑰
       - LICENSE_SIGN_SECRET=${LICENSE_SIGN_SECRET}
+      # CRM → YenShow 授權 API
+      - CRM_LICENSE_API_TOKEN=${CRM_LICENSE_API_TOKEN}
+      - CRM_LICENSE_ALLOWED_IPS=${CRM_LICENSE_ALLOWED_IPS:-192.168.1.11}
     volumes:
       - /home/yenshoweb-server/yenshow_storage:/app/storage
       # - D:/storage:/app/storage
