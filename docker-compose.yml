@@ -63,9 +63,15 @@ services:
       - COMEO_GA_API_SECRET=${COMEO_GA_API_SECRET}
       # 離線授權簽名密鑰
       - LICENSE_SIGN_SECRET=${LICENSE_SIGN_SECRET}
-      # CRM → YenShow 授權 API
+      # CRM 共用 Token：授權 CRM→YS、訂單 Hub YS→CRM
       - CRM_LICENSE_API_TOKEN=${CRM_LICENSE_API_TOKEN}
+      - CRM_API_TOKEN=${CRM_LICENSE_API_TOKEN}
       - CRM_LICENSE_ALLOWED_IPS=${CRM_LICENSE_ALLOWED_IPS:-192.168.1.11}
+      - CRM_API_BASE_URL=${CRM_API_BASE_URL:-https://192.168.1.11:9443/api/customer-hub/v1}
+      - CRM_CA_FILE=${CRM_CA_FILE:-secrets/crm-hub/crm-ca.pem}
+      - HUB_USE_MOCK=${HUB_USE_MOCK:-true}
+      - LINE_LOGIN_CHANNEL_ID=${LINE_LOGIN_CHANNEL_ID}
+      - HUB_SKIP_LINE_VERIFY=${HUB_SKIP_LINE_VERIFY:-false}
     volumes:
       - /home/yenshoweb-server/yenshow_storage:/app/storage
       # - D:/storage:/app/storage

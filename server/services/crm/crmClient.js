@@ -44,7 +44,7 @@ const crmHttp = () => {
 	if (!baseURL) {
 		throw ApiError.internal("尚未設定 CRM_API_BASE_URL");
 	}
-	const token = process.env.CRM_API_TOKEN;
+	const token = process.env.CRM_API_TOKEN || process.env.CRM_LICENSE_API_TOKEN;
 	if (!token) {
 		throw ApiError.internal("尚未設定 CRM_API_TOKEN");
 	}
