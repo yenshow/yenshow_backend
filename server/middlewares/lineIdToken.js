@@ -14,11 +14,14 @@ const extractBearer = (req) => {
 	return null;
 };
 
-const resolveChannelId = () =>
-	process.env.LINE_LOGIN_CHANNEL_ID ||
-	process.env.LIFF_CHANNEL_ID ||
-	process.env.YENSHOW_LINE_CHANNEL_ID ||
-	"";
+const LINE_EXPIRED_MESSAGE = "LINE 登入已過期，請重新開啟此頁";
+
+const resolveChannelId = () => process.env.LINE_LOGIN_CHANNEL_ID || "";
+
+const toLineProfile = (payload) => ({
+	displayName: payload?.name || "",
+	pictureUrl: payload?.picture || ""
+});
 
 const getCachedVerify = (idToken) => {
 	const entry = verifyCache.get(idToken);
@@ -55,11 +58,15 @@ export const requireLineIdToken = async (req, res, next) => {
 		const idToken = extractBearer(req);
 		if (!idToken) throw ApiError.unauthorized("請先透過 LINE 登入");
 
+		const decoded = jwt.decode(idToken);
+		if (decoded?.exp && Number(decoded.exp) * 1000 <= Date.now()) {
+			throw ApiError.unauthorized(LINE_EXPIRED_MESSAGE);
+		}
+
 		if (skipVerify) {
-			const decoded = jwt.decode(idToken);
 			if (!decoded?.sub) throw ApiError.unauthorized("無效的 LINE idToken");
 			req.lineUserId = String(decoded.sub);
-			req.lineProfile = { displayName: decoded.name || "", pictureUrl: decoded.picture || "" };
+			req.lineProfile = toLineProfile(decoded);
 			return next();
 		}
 
@@ -81,13 +88,15 @@ export const requireLineIdToken = async (req, res, next) => {
 
 		if (!data?.sub) throw ApiError.unauthorized("無效的 LINE idToken");
 		req.lineUserId = String(data.sub);
-		req.lineProfile = { displayName: data.name || "", pictureUrl: data.picture || "" };
+		req.lineProfile = toLineProfile(data);
 		setCachedVerify(idToken, req.lineUserId, req.lineProfile);
 		next();
 	} catch (err) {
 		if (err instanceof ApiError) return next(err);
-		console.error("LINE idToken 驗證失敗:", err?.response?.data || err?.message || err);
-		return next(ApiError.unauthorized("LINE 身分驗證失敗"));
+		const lineError = err?.response?.data;
+		console.error("LINE idToken 驗證失敗:", lineError || err?.message || err);
+		const expired = /expired/i.test(String(lineError?.error_description || lineError?.error || ""));
+		return next(ApiError.unauthorized(expired ? LINE_EXPIRED_MESSAGE : "LINE 身分驗證失敗"));
 	}
 };
 
