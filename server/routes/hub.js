@@ -20,6 +20,7 @@ const verifyOrderLimiter = rateLimit({
 router.use(requireLineIdToken);
 
 router.get("/me", catchAsync(hubController.getMe));
+router.delete("/binding", catchAsync(hubController.unbind));
 router.post("/verify-order", verifyOrderLimiter, catchAsync(hubController.verifyOrder));
 
 router.get("/orders", requireHubBinding, catchAsync(hubController.listOrders));

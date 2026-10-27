@@ -24,6 +24,13 @@ export const getMe = async (req, res) => {
 	return successResponse(res, StatusCodes.OK, "OK", { result: toMeResult(binding) });
 };
 
+export const unbind = async (req, res) => {
+	await LineCustomerBinding.deleteOne({ lineUserId: req.lineUserId });
+	return successResponse(res, StatusCodes.OK, "已解除綁定", {
+		result: { bound: false, customer: null }
+	});
+};
+
 export const verifyOrder = async (req, res) => {
 	const orderNo = String(req.body?.orderNo || "").trim();
 	const taxId = String(req.body?.taxId || "").trim();
