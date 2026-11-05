@@ -2,6 +2,7 @@ import { StatusCodes } from "http-status-codes";
 import Faq from "../../models/Faq.js";
 import News from "../../models/News.js";
 import Product from "../../models/products.js";
+import { toProductUrlSegment } from "../../utils/productUrl.js";
 import { getPublicSiteUrl } from "../../utils/publicUrls.js";
 
 const SITE_URL = getPublicSiteUrl();
@@ -85,19 +86,21 @@ export const getSitemapUrls = async (req, res, next) => {
 					if (/^[a-f0-9]{24}$/i.test(c)) return false;
 					if (/[\u4e00-\u9fa5]/.test(c)) return false;
 					if (/^\d+$/.test(c)) return false;
-					if (c !== c.toLowerCase()) return false;
 				}
 				return true;
 			})
 			.map((doc) => {
-				const segment = String(doc[config.idField]).toLowerCase();
+				const raw = String(doc[config.idField]);
+				const segment = type === "products" ? toProductUrlSegment(raw) : raw.toLowerCase();
+				if (!segment) return null;
 				const path = `${config.pathPrefix}/${segment}`;
 				return {
 					loc: path,
 					lastmod: toLastmod(doc),
 					alternates: buildAlternates(path)
 				};
-			});
+			})
+			.filter(Boolean);
 
 		return res.status(StatusCodes.OK).json({
 			success: true,

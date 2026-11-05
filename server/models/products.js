@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose";
+import { toProductUrlSegment } from "../utils/productUrl.js";
 
 const productSchema = new Schema(
 	{
@@ -65,30 +66,20 @@ productSchema.index({ isActive: 1, createdAt: -1 });
 // --- HOOKS ---
 productSchema.pre("save", async function (next) {
 	if ((this.isModified("code") || this.isNew) && this.code) {
-		const slugify = (text) =>
-			text
-				.toString()
-				.toLowerCase()
-				.replace(/\s+/g, "-") // Replace spaces with -
-				.replace(/[^\w\-]+/g, "") // Remove all non-word chars
-				.replace(/\-\-+/g, "-") // Replace multiple - with single -
-				.replace(/^-+/, "") // Trim - from start of text
-				.replace(/-+$/, ""); // Trim - from end of text
-
 		const Model = this.constructor;
-		const baseSlug = slugify(this.code);
+		const baseSlug = toProductUrlSegment(this.code);
 		let slug = baseSlug;
 		let counter = 1;
 
-		while (true) {
-			const existingDoc = await Model.findOne({ slug: slug });
+		while (slug) {
+			const existingDoc = await Model.findOne({ slug });
 			if (!existingDoc || existingDoc._id.equals(this._id)) {
 				break;
 			}
 			counter++;
 			slug = `${baseSlug}-${counter}`;
 		}
-		this.slug = slug;
+		if (slug) this.slug = slug;
 	}
 	next();
 });

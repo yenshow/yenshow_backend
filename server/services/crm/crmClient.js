@@ -5,9 +5,17 @@ import path from "path";
 import { fileURLToPath } from "url";
 import axios from "axios";
 import { ApiError } from "../../utils/responseHandler.js";
+import { crmMockClient, isCrmMockEnabled } from "./crmMock.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverRoot = path.resolve(__dirname, "../..");
+
+const withMock = (methodName) => async (...args) => {
+	if (isCrmMockEnabled()) {
+		return crmMockClient[methodName](...args);
+	}
+	return realCrmClient[methodName](...args);
+};
 
 const resolveCrmCaPath = () => {
 	const fromEnv = process.env.CRM_CA_FILE;
@@ -109,7 +117,7 @@ const normalizeVerifyPayload = (payload) => {
 	};
 };
 
-export const crmClient = {
+const realCrmClient = {
 	verifyOrder: async ({ orderNo, taxId }) => {
 		try {
 			const { data } = await crmHttp().post("/customers/verify-order", { orderNo, taxId });
@@ -183,6 +191,15 @@ export const crmClient = {
 			mapCrmError(err, "無法建立售後案件");
 		}
 	}
+};
+
+export const crmClient = {
+	verifyOrder: withMock("verifyOrder"),
+	listOrders: withMock("listOrders"),
+	getOrder: withMock("getOrder"),
+	listServiceTickets: withMock("listServiceTickets"),
+	getServiceTicket: withMock("getServiceTicket"),
+	createServiceTicket: withMock("createServiceTicket")
 };
 
 export default crmClient;

@@ -330,6 +330,31 @@
               </div>
             </div>
 
+            <div class="space-y-3 mt-4">
+              <label class="block theme-text">搜尋標題（選填）</label>
+              <p class="text-xs text-gray-500">給搜尋結果使用。空白則使用問題文字，不會改網址。</p>
+              <div v-show="summaryLanguage === 'TW'">
+                <input
+                  id="faqSeoTitleTW"
+                  name="seoTitle.tw"
+                  type="text"
+                  v-model="form.seoTitle.TW"
+                  :class="inputClass"
+                  placeholder="例如：RTSP 是什麼？攝影機串流與 VLC 播放教學"
+                />
+              </div>
+              <div v-show="summaryLanguage === 'EN'">
+                <input
+                  id="faqSeoTitleEN"
+                  name="seoTitle.en"
+                  type="text"
+                  v-model="form.seoTitle.EN"
+                  :class="inputClass"
+                  placeholder="What is RTSP? Camera streaming tutorial with VLC"
+                />
+              </div>
+            </div>
+
             <!-- 關聯內容 -->
             <div class="space-y-3 mt-4">
               <div class="flex justify-between items-center mb-2">
@@ -1090,6 +1115,7 @@ const initialFormState = () => ({
     EN: emptyTiptapDoc(),
   },
   summary: { TW: '', EN: '' },
+  seoTitle: { TW: '', EN: '' },
   category: { main: { TW: '', EN: '' }, sub: { TW: '', EN: '' } },
   author: '',
   publishDate: formatDateForInput(new Date()),
@@ -1154,6 +1180,10 @@ watch(
             summary: {
               TW: faqData.summary?.TW || '',
               EN: faqData.summary?.EN || '',
+            },
+            seoTitle: {
+              TW: faqData.seoTitle?.TW || '',
+              EN: faqData.seoTitle?.EN || '',
             },
             answer: {
               TW: faqData.answer?.TW || emptyTiptapDoc(),

@@ -25,6 +25,7 @@ import documentsRoutes from "./routes/documents.js";
 import seoRoutes from "./routes/seo.js";
 import hubRoutes from "./routes/hub.js";
 import { signedStorageDownloadMiddleware } from "./middlewares/signedStorageDownload.js";
+import { isCrmMockEnabled } from "./services/crm/crmMock.js";
 // 導入模型 - 僅用於初始化檢查，確保模型正確載入
 import "./models/products.js";
 import "./models/categories.js";
@@ -321,6 +322,9 @@ const startHttpServer = (app) => {
 		console.log(`✅ 伺服器啟動於 ${host}:${port}`);
 		console.log(`📌 API 基礎路徑: http://${host}:${port}/`);
 		console.log(`🔒 允許的 CORS 來源: ${process.env.CORS_ORIGIN || "http://localhost:3002"}`);
+		if (isCrmMockEnabled()) {
+			console.log("🧪 CRM_MOCK=true：訂單／售後使用本機假資料（不呼叫真實 CRM）");
+		}
 	});
 };
 

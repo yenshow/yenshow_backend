@@ -21,6 +21,10 @@ const faqSchema = new Schema(
 			TW: { type: String, trim: true },
 			EN: { type: String, trim: true }
 		},
+		seoTitle: {
+			TW: { type: String, trim: true },
+			EN: { type: String, trim: true }
+		},
 		category: {
 			main: {
 				TW: {
@@ -133,84 +137,38 @@ faqSchema.pre("save", async function (next) {
 	next();
 });
 
+const stripSeoText = (text = "") =>
+	String(text)
+		.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}]/gu, "")
+		.replace(/\s+/g, " ")
+		.trim();
+
+const truncateMeta = (text, maxLength = 155) => {
+	if (!text) return "";
+	if (text.length <= maxLength) return text;
+	return text.substring(0, maxLength - 3) + "...";
+};
+
 // --- VIRTUALS ---
 faqSchema.virtual("metaTitle").get(function () {
-	const siteNameTW = "遠岫科技";
-	const siteNameEN = "Yenshow";
 	const pageTypeTW = "常見問題";
 	const pageTypeEN = "FAQ";
-	let baseTitleTW = "";
-	let baseTitleEN = "";
-
-	if (this.category && this.category.main) {
-		// 兼容舊資料（string）與新資料（{ TW, EN }）
-		const mainTW = typeof this.category.main === "string" ? this.category.main : this.category.main.TW || "";
-		const mainENVal = typeof this.category.main === "string" ? "" : this.category.main.EN || "";
-
-		// TW 顯示：main(TW)
-		let categoryStrTW = mainTW;
-		if (categoryStrTW.length > 20) {
-			categoryStrTW = categoryStrTW.substring(0, 20) + "...";
-		}
-		baseTitleTW = `${categoryStrTW} | ${pageTypeTW}`;
-
-		// EN 顯示：優先 main(EN)，回退 main(TW)
-		let categoryStrEN = mainENVal && mainENVal.trim() !== "" ? mainENVal.trim() : mainTW;
-		if (categoryStrEN.length > 20) {
-			categoryStrEN = categoryStrEN.substring(0, 20) + "...";
-		}
-		baseTitleEN = `${categoryStrEN} | ${pageTypeEN}`;
-	} else {
-		baseTitleTW = pageTypeTW;
-		baseTitleEN = pageTypeEN;
-	}
+	const seoTW = this.seoTitle?.TW?.trim() || "";
+	const seoEN = this.seoTitle?.EN?.trim() || "";
+	const questionTW = stripSeoText(this.question?.TW || "");
+	const questionEN = stripSeoText(this.question?.EN || "");
 
 	return {
-		TW: `${baseTitleTW} | ${siteNameTW}`,
-		EN: `${baseTitleEN} | ${siteNameEN}`
+		TW: seoTW || (questionTW ? `${questionTW} | ${pageTypeTW}` : pageTypeTW),
+		EN: seoEN || (questionEN ? `${questionEN} | ${pageTypeEN}` : pageTypeEN)
 	};
 });
 
 faqSchema.virtual("metaDescription").get(function () {
-	const maxLength = 155;
-	if (this.summary && (this.summary.TW || this.summary.EN)) {
-		let descTW = this.summary.TW || this.question.TW || "";
-		let descEN = this.summary.EN || this.question.EN || "";
-
-		// TW
-		if (descTW.length > maxLength) {
-			descTW = descTW.substring(0, maxLength - 3) + "...";
-		}
-
-		// EN
-		if (descEN.length > maxLength) {
-			descEN = descEN.substring(0, maxLength - 3) + "...";
-		}
-		return {
-			TW: descTW,
-			EN: descEN
-		};
-	}
-
-	if (this.question) {
-		let descTW = this.question.TW || "";
-		let descEN = this.question.EN || "";
-
-		// TW
-		if (descTW.length > maxLength) {
-			descTW = descTW.substring(0, maxLength - 3) + "...";
-		}
-
-		// EN
-		if (descEN.length > maxLength) {
-			descEN = descEN.substring(0, maxLength - 3) + "...";
-		}
-		return {
-			TW: descTW,
-			EN: descEN
-		};
-	}
-	return { TW: "", EN: "" }; // 如果沒有 question，返回空字串
+	return {
+		TW: truncateMeta(this.summary?.TW || this.question?.TW || ""),
+		EN: truncateMeta(this.summary?.EN || this.question?.EN || "")
+	};
 });
 
 // --- 添加轉換配置 ---
