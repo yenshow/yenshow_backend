@@ -1,9 +1,8 @@
 # BA 系統授權（License / Feature Gate / Quota）— 契約文件
 
-> 最後更新：2026-04-08  
-> 本檔為 **唯一授權文件 SSOT**：涵蓋授權平台契約、BA 後端落地、前端使用方式，以及 Quota/Usage 計數口徑。  
-> 變更路由/回應時，需同步更新：`[api-surface.md](api-surface.md)`。  
-> `openapi/openapi.yaml` 採骨架策略（不維護 `paths`），僅在需要機器可讀規格時再補齊。
+> 最後更新：2026-11-12  
+> 本檔為 **授權平台側契約摘要 SSOT**（對齊 BA `FEATURE_KEYS_CENTRAL` 18 鍵與台／點口徑）。  
+> BA 後端實作細節仍以 ba-system 契約為準；**本平台不得改 ba-system 程式**。
 
 ---
 
@@ -26,123 +25,110 @@
 
 ## 2. Feature keys（模組授權）
 
-平台合約可帶多個 feature 字串。BA **後端**依部署樣貌只接受、正規化與 gate 對應子集。
+### 2.1 `LICENSE_DEPLOYMENT_PROFILE`／白名單
 
-### 2.1 `LICENSE_DEPLOYMENT_PROFILE`
+| 值 | 說明 |
+| ---- | ---- |
+| `central`（預設） | **18 鍵**（與 BA `FEATURE_KEYS_CENTRAL` 完全一致）：`people_counting`、`roll_call`、`elevator`、`lighting`、`hvac`、`air_circulation`、`drainage`、`power`、`energy`、`fire`、`emergency_rescue`、`smoke_alarm`、`environment`、`surveillance`、`vehicle_access`、`multimedia`、`intercom`、`security` |
+| `construction` | 5 keys：`people_counting`、`environment`、`surveillance`、`vehicle_access`、`roll_call` |
 
-| 值                | 說明                                                                                                                                                           |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `central`（預設） | 17 keys：`people_counting`、`lighting`、`hvac`、`drainage`、`power`、`fire`、`emergency_rescue`、`environment`、`surveillance`、`vehicle_access`、`multimedia`、`smoke_alarm`、`air_circulation`、`elevator`、`energy`、`access_security`、`visitor` |
-| `construction`    | 5 keys：`people_counting`、`environment`、`surveillance`、`vehicle_access`、`roll_call`                                                                         |
+顯示名（平台 UI）：
 
-程式：`ba-backend/src/services/licenseService.js` → `getActiveFeatureKeys()`。
+| key | 顯示名 |
+| --- | --- |
+| `people_counting` | 門禁管理 |
+| `roll_call` | 時段簽到 |
+| `intercom` | 對講系統 |
+| `security` | 保全系統 |
+| （其餘） | 見後台 catalog／`FEATURE_LABELS` |
+
+#### 舊鍵相容
+
+- 舊 `access_security`：**讀取可接受**；**寫出／對 BA 回傳／審核通過落盤一律轉 `intercom`**。
+- 新發 LK／審核通過：**禁止再寫入 `access_security`**。
+- `intercom` 與 `security` **分開**，不可合併。
+- 舊 `visitor` 已自 central 白名單移除；對 BA 回傳時略過。
 
 ### 2.2 Feature Gate（後端為準）
 
-- 後端 `requireFeature(featureKey)` 未授權回 `403 FEATURE_NOT_LICENSED`。
-- 前端可用 `GET /api/license` 的 `features[]` 做 UI 鎖頭/路由守衛，但 **是否放行以後端為準**。
+- BA 後端 `requireFeature(featureKey)` 未授權回 `403 FEATURE_NOT_LICENSED`。
+- 前端可用授權狀態的 `features[]` 做 UI 鎖頭，但 **是否放行以後端為準**。
 
 ### 2.3 `LICENSE_OPEN_ALL_FEATURES`
 
-- 實際行為由 `licenseService.getLicenseState()` 決定：回傳部署允許 keys 的全集。
-- **同時略過 Feature Gate 與 Quota 檢查**（開發/測試用；正式環境請關閉）。
+- 開發／測試用；正式環境請關閉（同時略過 Feature Gate 與 Quota 檢查）。
 
 ---
 
-## 3. Quota（配額）與 Usage（用量）
+## 3. Quota（授權配額：台數／點數）與 Usage
 
-### 3.1 平台回傳契約（quotas）
+### 3.1 顯示口徑（對客戶／業務／審核 UI）
 
-平台在既有 `result.features` 外，可回傳選配 `result.quotas`：
+- **禁止**把所有模組單位都叫「額度」。
+- **台數模組** → 標「台數」，數字後綴「台」。
+- **點數模組** → 標「點數」，數字後綴「點」。
+- **elevator** → 同時顯示「台數」與「點數」（例：`2 台／40 點`）。
+- 技術／API／DB 仍可用 `quotas`、`maxDevices` 等欄位名；UI label 用「台數上限／點數上限」。
+
+#### 單位對照
+
+**台數（devices）**  
+`people_counting`、`roll_call`、`vehicle_access`、`surveillance`、`multimedia`、`intercom`
+
+**點數（points）** — wire 仍用 `maxDevices` 存點上限  
+`lighting`、`hvac`、`air_circulation`、`drainage`、`power`、`energy`、`fire`、`emergency_rescue`、`smoke_alarm`、`environment`、`security`  
+（保全 DI 點綁在 `security`；門禁／讀卡機台數歸 `people_counting`，不要另計 security 台）
+
+**台數＋點數（elevator）**  
+- `maxDevices`＝梯控主機台數  
+- `maxPoints`＝樓層偵測 DI 點數  
+
+### 3.2 平台回傳契約（quotas）
 
 ```json
 {
-	"features": ["people_counting", "lighting"],
-	"quotas": {
-		"lighting": { "maxDevices": 2 }
-	}
+  "features": ["people_counting", "intercom", "security", "lighting", "elevator"],
+  "quotas": {
+    "people_counting": { "maxDevices": 50 },
+    "intercom": { "maxDevices": 20 },
+    "security": { "maxDevices": 100 },
+    "lighting": { "maxDevices": 80 },
+    "elevator": { "maxDevices": 2, "maxPoints": 40 }
+  }
 }
 ```
 
 規則：
 
-- `quotas` key 必須是 feature key。
-- `maxDevices` 為非負整數。
-- 缺 key / `maxDevices` 為 `null`/缺值 → 視為不限（後端不落地）。
+- `quotas` key 必須是正式 feature key（不得再出現 `access_security`）。
+- `maxDevices` 為非負整數；缺 key／`null` → 視為不限。
+- 僅 `elevator` 可帶 `maxPoints`。
+- 點數模組的點上限仍放在 `maxDevices`（欄位名不變）。
 
-### 3.2 本地落地與副 LK 合併
+### 3.3 本地落地與副 LK 合併（BA）
 
-- 本地儲存於 `system_settings.license_quotas`（JSON）。
 - **主 LK**：覆寫 quotas。
-- **副 LK**：逐 key **加總**（additive）。
-- 寫入前後都需套用 `LICENSE_DEPLOYMENT_PROFILE` 過濾。
+- **副 LK**：逐 key **加總**（additive）；elevator 的 `maxDevices`／`maxPoints` 各自加總。
 
-### 3.3 Usage 計數口徑（重點）
+### 3.4 Usage 顯示
 
-`GET /api/license` 回傳的 `usage.{featureKey}.usedDevices` 為後端計算結果（用於 UI 顯示與 Quota 檢查）。
-
-#### 3.3.1 device type 映射（非 controller）
-
-- `camera -> surveillance`
-- `sensor -> environment`
-- `access_control -> people_counting`
-
-以上為 **以 `devices` 表依 `device_types.code` 計數**。
-
-#### 3.3.2 controller 類系統（做法 B；統一口徑）
-
-對 `lighting / hvac / drainage / power / fire / emergency_rescue`：
-
-- **以 `location_systems` 綁定為準**：`location_systems.system_type = featureKey`
-- **設備來源**：從 `location_systems.system_config.device_id`（或相容 `deviceId`）取得 device
-- **系統內去重**：同一系統下重複綁到同一台 controller 只算 1 台（`DISTINCT device_id`）
-- **跨系統各算各的**：同一台 controller 若同時被 lighting 與 fire 綁定，會同時計入兩個系統的 usage
-- **型別約束**：上述系統的綁定設備必須是 `device_types.code='controller'`
+- BA usage：台數模組顯示「N 台」；點數模組「N 點」；elevator 同時顯示台與點。
+- Wire：`usedDevices`／`usedPoints`（欄位名不變）。
 
 ---
 
-## 4. BA 對外 API（授權相關）
+## 4. 平台 API（摘要）
 
-Base path：`/api/license`（見 `ba-backend/src/routes/licenseRoutes.js`）
-
-| 方法 | 路徑                    | 權限  | 說明                                                        |
-| ---- | ----------------------- | ----- | ----------------------------------------------------------- |
-| GET  | `/`                     | 登入  | 本地授權狀態（含 `features/quotas/usage`）                  |
-| POST | `/activate`             | admin | 線上啟用（body `{ licenseKey }`）或手動（`{ features[] }`） |
-| POST | `/offline-request-file` | admin | 產生離線請求檔                                              |
-| POST | `/offline-import`       | admin | 匯入離線回應（含 `signature`）                              |
-| POST | `/reset`                | admin | 清空本地授權狀態（測試/維運用）                             |
-
-常見錯誤碼：
-
-- `FEATURE_NOT_LICENSED`（403）
-- `LICENSE_QUOTA_EXCEEDED`（403）
-
----
-
-## 5. Quota 檢查時機
-
-### 5.1 controller
-
-controller 類系統的用量由「系統綁定」決定，因此 Quota 檢查在：
-
-- 建立/更新 `location_systems`（`/api/locations`）時進行
-
-> 注意：建立 controller 設備（`POST /api/devices`）本身不代表「已被某系統使用」，因此不作為 controller Quota 的檢查點。
-
-### 5.2 非 controller（camera/sensor/access_control）
-
-仍可在建立 `devices` 時依 `deviceTypeCode -> featureKey` 做 Quota 檢查。
-
----
-
-## 6. 平台 API（摘要）
-
-平台 Base URL 由後端環境變數 `LICENSE_PLATFORM_API_BASE_URL` 決定（至 `/api/license` 前綴之完整根）。
-
-| 方法 | 路徑                | 用途                    |
-| ---- | ------------------- | ----------------------- |
-| POST | `/activate`         | 線上啟用（主/副 LK）    |
-| POST | `/offline-activate` | 離線啟用（回簽名 JSON） |
+| 方法 | 路徑 | 用途 |
+| ---- | ---- | ---- |
+| POST | `/api/license/activate` | 線上啟用（主/副 LK）；`result.features`／`result.quotas` 已 normalize |
+| POST | `/api/license/offline-activate` | 離線啟用（回簽名 JSON）；簽章內容含 normalize 後的 features／quotas |
 
 離線簽名：HMAC-SHA256，金鑰 `LICENSE_SIGN_SECRET`，BA 後端驗簽。
+
+---
+
+## 5. 遷移
+
+平台腳本：`server/scripts/mongoDB/migrate-access-security-to-intercom.js`  
+將 DB 中 `features`／`quotas` 的 `access_security` 轉為 `intercom`。

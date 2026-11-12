@@ -24,14 +24,15 @@ import {
 	applyStaffApplicantFilter,
 	attachExtensionsToMainLicenses,
 	buildMainLicenseChildrenFilter,
-	getAllowedFeaturesByProfile,
 	linkPendingExtensionsToMainLicenseKey,
 	normalizeDeploymentProfile,
 	parseCreateLicenseBody,
 	parseExtendLicenseBody,
+	normalizeLicensePayloadForBa,
+	prepareFeaturesAndQuotasForPersist,
+	rewriteLicenseFeaturesForIssue,
 	saveLicenseAttachment,
-	trimAccount,
-	validateQuotas
+	trimAccount
 } from "../../services/licenseShared.js";
 
 /**
@@ -340,9 +341,7 @@ export const exportLicensePdf = async (req, res, next) => {
 		}
 
 		const licenseTypeLabel = license.parentLicenseKey ? "Expanded" : "Basal";
-		const features = Array.isArray(license.features) ? license.features : [];
-		const quotas =
-			license.quotas && typeof license.quotas === "object" && !Array.isArray(license.quotas) ? license.quotas : {};
+		const { features, quotas } = normalizeLicensePayloadForBa(license);
 
 		const buffer = await buildBaSystemLicensePdfBuffer({
 			customerName: license.customerName || "",
@@ -351,7 +350,7 @@ export const exportLicensePdf = async (req, res, next) => {
 			licenseTypeLabel,
 			deploymentProfile: normalizeDeploymentProfile(license.deploymentProfile),
 			features,
-			quotas
+			quotas: quotas || {}
 		});
 
 		const profile = normalizeDeploymentProfile(license.deploymentProfile);
@@ -393,16 +392,12 @@ export const createLicense = async (req, res, next) => {
 			throw ApiError.badRequest("deploymentProfile 必須為 central 或 construction");
 		}
 
-		if (!Array.isArray(features) || features.length === 0) {
-			throw ApiError.badRequest("必須指定至少一個功能模組");
-		}
-		const allowed = getAllowedFeaturesByProfile(normalizedProfile);
-		const invalidFeatures = features.filter((f) => !allowed.includes(f));
-		if (invalidFeatures.length > 0) {
-			throw ApiError.badRequest(`無效的功能模組：${invalidFeatures.join(", ")}`);
-		}
-
-		const normalizedQuotas = validateQuotas(quotas, features);
+		const prepared = prepareFeaturesAndQuotasForPersist(
+			features,
+			quotas,
+			normalizedProfile,
+			"必須指定至少一個功能模組"
+		);
 
 		const attachment = req.file;
 		if (!attachment?.buffer) {
@@ -412,8 +407,8 @@ export const createLicense = async (req, res, next) => {
 		const newLicense = await License.create({
 			product: "BA-system",
 			deploymentProfile: normalizedProfile,
-			features,
-			quotas: normalizedQuotas,
+			features: prepared.features,
+			quotas: prepared.quotas,
 			customerName,
 			orderNumber: orderNo,
 			applicant: resolvedApplicant,
@@ -480,6 +475,7 @@ export const reviewLicense = async (req, res, next) => {
 			license.parentLicenseId = null;
 		}
 
+		rewriteLicenseFeaturesForIssue(license);
 		await applyLicenseKeysForAvailable(license, "review");
 
 		license.status = "available";
@@ -549,16 +545,12 @@ export const extendLicense = async (req, res, next) => {
 			throw ApiError.badRequest("需要提供訂單編號");
 		}
 
-		if (!Array.isArray(features) || features.length === 0) {
-			throw ApiError.badRequest("必須指定至少一個追加授權模組");
-		}
-		const allowed = getAllowedFeaturesByProfile(parentLicense.deploymentProfile || "central");
-		const invalidFeatures = features.filter((f) => !allowed.includes(f));
-		if (invalidFeatures.length > 0) {
-			throw ApiError.badRequest(`無效的功能模組：${invalidFeatures.join(", ")}`);
-		}
-
-		const normalizedQuotas = validateQuotas(quotas, features);
+		const prepared = prepareFeaturesAndQuotasForPersist(
+			features,
+			quotas,
+			parentLicense.deploymentProfile || "central",
+			"必須指定至少一個追加授權模組"
+		);
 
 		const attachment = req.file;
 		if (!attachment?.buffer) {
@@ -568,8 +560,8 @@ export const extendLicense = async (req, res, next) => {
 		const extension = await License.create({
 			product: parentLicense.product,
 			deploymentProfile: parentLicense.deploymentProfile || "central",
-			features,
-			quotas: normalizedQuotas,
+			features: prepared.features,
+			quotas: prepared.quotas,
 			customerName: parentLicense.customerName,
 			orderNumber: orderNo,
 			parentLicenseKey: parentLicense.licenseKey || null,

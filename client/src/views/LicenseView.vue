@@ -3,7 +3,7 @@
     <div class="mb-8">
       <h1 class="text-3xl font-bold mb-4 theme-text">授權管理</h1>
       <p :class="conditionalClass('text-gray-400', 'text-slate-500')">
-        管理 BA 系統授權申請、部署樣貌與配額
+        管理 BA 系統授權申請、部署樣貌與授權配額（台數／點數）
       </p>
     </div>
 
@@ -458,6 +458,11 @@ import { usePageInitialization } from '@/composables/usePageInitialization'
 import CreateLicenseModal from '@/components/license/CreateLicenseModal.vue'
 import ExtendLicenseModal from '@/components/license/ExtendLicenseModal.vue'
 import ViewLicenseModal from '@/components/license/ViewLicenseModal.vue'
+import {
+  BA_FEATURES,
+  getAllowedFeatureKeysByProfile,
+  getFeatureLabel,
+} from '@/enums/baLicenseFeatures'
 import { getLicenseStatusText } from '@/utils/licenseLabels.js'
 
 const userStore = useUserStore()
@@ -477,32 +482,6 @@ const isStaff = computed(() => userStore.isStaff)
 const { loading: loadingLicenses, initialize } = usePageInitialization()
 
 const error = ref('')
-
-const BA_FEATURES = [
-  { value: 'people_counting', label: '人流統計' },
-  { value: 'lighting', label: '照明系統' },
-  { value: 'hvac', label: '空調系統' },
-  { value: 'drainage', label: '排水系統' },
-  { value: 'power', label: '電力系統' },
-  { value: 'fire', label: '消防系統' },
-  { value: 'emergency_rescue', label: '緊急求救' },
-  { value: 'environment', label: '環境品質' },
-  { value: 'surveillance', label: '影像監控' },
-  { value: 'vehicle_access', label: '車輛進出' },
-  { value: 'multimedia', label: '多媒體資訊' },
-  { value: 'smoke_alarm', label: '煙霧警報' },
-  { value: 'air_circulation', label: '空氣循環' },
-  { value: 'elevator', label: '電梯管理' },
-  { value: 'energy', label: '能源管理系統' },
-  { value: 'access_security', label: '門禁保全' },
-  { value: 'visitor', label: '訪客系統' },
-  { value: 'roll_call', label: '點名系統' },
-]
-
-const getFeatureLabel = (featureValue) => {
-  const feat = BA_FEATURES.find((f) => f.value === featureValue)
-  return feat ? feat.label : featureValue
-}
 
 const getFeatureTooltipText = (features) => {
   const safeFeatures = Array.isArray(features) ? features : []
@@ -543,31 +522,6 @@ const handleToggleLicenseExtensions = (license) => {
   if (next.has(id)) next.delete(id)
   else next.add(id)
   expandedMainLicenseIds.value = next
-}
-
-const getAllowedFeatureKeysByProfile = (deploymentProfile) => {
-  if (deploymentProfile === 'construction') {
-    return ['people_counting', 'environment', 'surveillance', 'vehicle_access', 'roll_call']
-  }
-  return [
-    'people_counting',
-    'lighting',
-    'hvac',
-    'drainage',
-    'power',
-    'fire',
-    'emergency_rescue',
-    'environment',
-    'surveillance',
-    'vehicle_access',
-    'multimedia',
-    'smoke_alarm',
-    'air_circulation',
-    'elevator',
-    'energy',
-    'access_security',
-    'visitor',
-  ]
 }
 
 const licenses = computed(() => {

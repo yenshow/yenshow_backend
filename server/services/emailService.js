@@ -2,6 +2,8 @@ import { Resend } from "resend"; // 引入 Resend SDK
 import { ApiError } from "../utils/responseHandler.js";
 import fs from "fs/promises"; // 需要讀取檔案內容
 import User from "../models/user.js";
+import { formatQuotaDisplay, getFeatureLabel } from "../constants/baLicenseFeatures.js";
+import { normalizeFeaturesList, normalizeQuotasMap } from "./licenseShared.js";
 
 // --- Resend 設定 ---
 const YENSHOW_RESEND_API_KEY = process.env.YENSHOW_RESEND_API_KEY;
@@ -34,27 +36,6 @@ const DEPLOYMENT_PROFILE_LABELS = {
 	construction: "YSOS 工地管理平台"
 };
 
-const FEATURE_LABELS = {
-	people_counting: "人流統計",
-	lighting: "照明系統",
-	hvac: "空調系統",
-	drainage: "排水系統",
-	power: "電力系統",
-	fire: "消防系統",
-	emergency_rescue: "緊急求救",
-	environment: "環境品質",
-	surveillance: "影像監控",
-	vehicle_access: "車輛進出",
-	multimedia: "多媒體資訊",
-	smoke_alarm: "煙霧警報",
-	air_circulation: "空氣循環",
-	elevator: "電梯管理",
-	energy: "能源管理系統",
-	access_security: "門禁保全",
-	visitor: "訪客系統",
-	roll_call: "點名系統"
-};
-
 const trim = (v) => (typeof v === "string" ? v.trim() : "");
 const dash = (v) => v || "—";
 
@@ -68,32 +49,25 @@ const formatLicenseDate = (value) => {
 
 const formatDeploymentProfile = (profile) => DEPLOYMENT_PROFILE_LABELS[profile] || DEPLOYMENT_PROFILE_LABELS.central;
 
-const formatFeatureLabel = (key) => FEATURE_LABELS[key] || key;
-
-const formatQuotaCell = (maxDevices) => {
-	if (maxDevices === undefined || maxDevices === null || maxDevices === "") return "不限";
-	return String(maxDevices);
-};
-
-/** 依 features[] 列模組，配額取自 quotas[featureKey].maxDevices */
+/** 依 features[] 列模組，顯示台數／點數 */
 const buildFeatureQuotaRows = (features, quotas) => {
-	const list = Array.isArray(features) ? features : [];
-	const quotaMap = quotas && typeof quotas === "object" ? quotas : {};
+	const list = normalizeFeaturesList(features);
+	const quotaMap = normalizeQuotasMap(quotas) || {};
 	return list.map((key) => ({
-		module: formatFeatureLabel(key),
-		quota: formatQuotaCell(quotaMap[key]?.maxDevices)
+		module: getFeatureLabel(key),
+		quota: formatQuotaDisplay(key, quotaMap[key])
 	}));
 };
 
 const buildFeatureQuotaTableHtml = (rows) => {
-	if (!rows.length) return "<p><strong>模組與配額：</strong>—</p>";
+	if (!rows.length) return "<p><strong>模組與授權配額（台數／點數）：</strong>—</p>";
 	const trs = rows.map((r) => `<tr><td>${r.module}</td><td>${r.quota}</td></tr>`).join("");
-	return `<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;margin:12px 0"><thead><tr><th align="left">模組</th><th align="left">配額</th></tr></thead><tbody>${trs}</tbody></table>`;
+	return `<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;margin:12px 0"><thead><tr><th align="left">模組</th><th align="left">台數／點數</th></tr></thead><tbody>${trs}</tbody></table>`;
 };
 
 const buildFeatureQuotaTableText = (rows) => {
-	if (!rows.length) return "模組與配額：—\n";
-	return ["模組 | 配額", ...rows.map((r) => `${r.module} | ${r.quota}`)].join("\n") + "\n";
+	if (!rows.length) return "模組與授權配額（台數／點數）：—\n";
+	return ["模組 | 台數／點數", ...rows.map((r) => `${r.module} | ${r.quota}`)].join("\n") + "\n";
 };
 
 const licenseAdminLink = () => {

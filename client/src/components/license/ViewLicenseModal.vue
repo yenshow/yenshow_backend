@@ -154,17 +154,20 @@
         </div>
 
         <div>
-          <label class="block theme-text mb-2">配額</label>
+          <label class="block theme-text mb-2">配額詳情（台數／點數）</label>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div
               v-for="feat in orderedDisplayFeatures"
               :key="feat"
-              class="flex items-center justify-between gap-3 px-6 py-2 rounded-lg border"
+              class="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border"
               :class="readonlyBoxClass"
             >
-              <div class="theme-text text-sm">{{ getFeatureLabel(feat) }}</div>
+              <div class="theme-text text-sm">
+                {{ getFeatureLabel(feat) }}
+                <span class="opacity-70">（{{ getQuotaFieldLabel(feat) }}）</span>
+              </div>
               <div
-                class="w-28 px-3 py-1.5 rounded-lg border text-center font-mono"
+                class="min-w-[7rem] px-3 py-1.5 rounded-lg border text-center font-mono text-sm"
                 :class="
                   conditionalClass(
                     'bg-[#1f2732] border-gray-600 theme-text',
@@ -172,11 +175,7 @@
                   )
                 "
               >
-                {{
-                  (displayQuotas?.[feat]?.maxDevices ?? null) === null
-                    ? '不限'
-                    : displayQuotas?.[feat]?.maxDevices
-                }}
+                {{ formatQuotaDisplay(feat, resolveQuotaForFeature(feat)) }}
               </div>
             </div>
             <div
@@ -259,6 +258,11 @@
 
 <script setup>
 import { computed } from 'vue'
+import {
+  formatQuotaDisplay,
+  getQuotaFieldLabel,
+  normalizeFeaturesForDisplay,
+} from '@/enums/baLicenseFeatures'
 import { getLicenseAttachmentUrlMeta } from '@/utils/licenseAttachment.js'
 import { getLicenseStatusText } from '@/utils/licenseLabels.js'
 
@@ -301,11 +305,7 @@ const orderFeatureKeys = (featureKeys) => {
   })
 }
 
-const displayFeatures = computed(() => {
-  const row = src.value
-  if (!row) return []
-  return row.features || []
-})
+const displayFeatures = computed(() => normalizeFeaturesForDisplay(src.value?.features))
 
 const orderedDisplayFeatures = computed(() => orderFeatureKeys(displayFeatures.value))
 
@@ -314,6 +314,11 @@ const displayQuotas = computed(() => {
   if (!row) return {}
   return row.quotas || {}
 })
+
+const resolveQuotaForFeature = (feat) => {
+  const quotas = displayQuotas.value || {}
+  return quotas[feat] || (feat === 'intercom' ? quotas.access_security : null) || null
+}
 
 const handleClose = () => emit('close')
 </script>

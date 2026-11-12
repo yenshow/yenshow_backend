@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { transliterate } from "transliteration";
+import { getFeatureUnit, normalizeFeatureKey } from "../constants/baLicenseFeatures.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NOTO_PATH = path.join(__dirname, "../fonts/NotoSansTC-Regular.otf");
@@ -15,35 +16,44 @@ const GREEN = "#1b5e20";
 const BLACK = "#000000";
 
 const FEATURE_LABELS_EN = {
-	people_counting: "People Counting",
+	people_counting: "Access Control",
+	roll_call: "Time-slot Roll Call",
+	elevator: "Elevator Management",
 	lighting: "Lighting System",
 	hvac: "HVAC",
+	air_circulation: "Air Circulation",
 	drainage: "Drainage",
 	power: "Power",
+	energy: "Energy Management System",
 	fire: "Fire Safety",
 	emergency_rescue: "Emergency Rescue",
+	smoke_alarm: "Smoke Alarm",
 	environment: "Environment",
 	surveillance: "Surveillance",
 	vehicle_access: "Vehicle Access",
-	multimedia: "Multimedia",
-	smoke_alarm: "Smoke Alarm",
-	air_circulation: "Air Circulation",
-	elevator: "Elevator Management",
-	energy: "Energy Management System",
-	access_security: "Access Security",
-	visitor: "Visitor System",
-	roll_call: "Roll Call"
+	multimedia: "Multimedia Wall Seats",
+	intercom: "Intercom",
+	security: "Security System"
 };
 
-const featureLabelEn = (k) => FEATURE_LABELS_EN[k] || k;
+const featureLabelEn = (k) => FEATURE_LABELS_EN[normalizeFeatureKey(k)] || normalizeFeatureKey(k);
 
 const formatQuotaCell = (featureKey, quotas) => {
-	const q = quotas?.[featureKey];
+	const key = normalizeFeatureKey(featureKey);
+	const q = quotas?.[key] ?? quotas?.[featureKey];
 	if (q == null || typeof q !== "object" || Array.isArray(q)) return "Unlimited";
-	const md = q.maxDevices;
-	if (md === null || md === undefined) return "Unlimited";
-	if (typeof md === "number" && Number.isFinite(md)) return String(md);
-	return "-";
+	const unit = getFeatureUnit(key);
+	const fmt = (n, suffix) =>
+		typeof n === "number" && Number.isFinite(n) ? `${n} ${suffix}` : null;
+	if (unit === "both") {
+		const devices = fmt(q.maxDevices, "devices");
+		const points = fmt(q.maxPoints, "points");
+		if (!devices && !points) return "Unlimited";
+		if (devices && points) return `${devices} / ${points}`;
+		return devices || points;
+	}
+	if (unit === "points") return fmt(q.maxDevices, "points") || "Unlimited";
+	return fmt(q.maxDevices, "devices") || "Unlimited";
 };
 
 const resolveBodyFontName = (doc) => {
@@ -320,7 +330,7 @@ export const buildBaSystemLicensePdfBuffer = (payload) =>
 							mid: featureLabelEn(k),
 							right: formatQuotaCell(k, quotas)
 						}));
-			renderThreeColSection("Features & Quotas", quotaRows);
+			renderThreeColSection("Features & Quotas (Devices/Points)", quotaRows);
 
 			const appRows =
 				featList.length === 0

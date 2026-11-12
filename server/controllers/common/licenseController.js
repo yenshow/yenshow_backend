@@ -2,6 +2,7 @@ import { StatusCodes } from "http-status-codes";
 import { ApiError, successResponse } from "../../utils/responseHandler.js";
 import { signLicensePayload } from "../../utils/licenseSign.js";
 import License from "../../models/License.js";
+import { normalizeLicensePayloadForBa } from "../../services/licenseShared.js";
 
 const STATUS_MESSAGES = {
 	pending: "審核中",
@@ -28,34 +29,41 @@ const findLicenseByKey = async (licenseKey) => {
 
 /**
  * 線上 API 回應格式（不含 customerName、usedAt，加入 deviceFingerprint）
+ * features／quotas 對 BA 一律正式 18 鍵（access_security → intercom）
  */
-const formatLicenseResult = (license) => ({
-	serialNumber: license.serialNumber,
-	licenseKey: license.licenseKey,
-	product: license.product,
-	deploymentProfile: license.deploymentProfile || "central",
-	features: license.features || [],
-	quotas: license.quotas || null,
-	status: license.status,
-	deviceFingerprint: license.deviceFingerprint || null
-});
+const formatLicenseResult = (license) => {
+	const { features, quotas } = normalizeLicensePayloadForBa(license);
+	return {
+		serialNumber: license.serialNumber,
+		licenseKey: license.licenseKey,
+		product: license.product,
+		deploymentProfile: license.deploymentProfile || "central",
+		features,
+		quotas,
+		status: license.status,
+		deviceFingerprint: license.deviceFingerprint || null
+	};
+};
 
 /**
  * 離線回應檔 payload（不含 customerName、nonce、refreshedAt）
  */
-const buildOfflinePayload = (license, { isExtension, parentLicenseKey }) => ({
-	licenseKey: license.licenseKey,
-	serialNumber: license.serialNumber,
-	product: license.product,
-	deploymentProfile: license.deploymentProfile || "central",
-	features: license.features || [],
-	quotas: license.quotas || null,
-	status: license.status,
-	deviceFingerprint: license.deviceFingerprint || null,
-	activatedAt: new Date().toISOString(),
-	isExtension,
-	parentLicenseKey: parentLicenseKey || null
-});
+const buildOfflinePayload = (license, { isExtension, parentLicenseKey }) => {
+	const { features, quotas } = normalizeLicensePayloadForBa(license);
+	return {
+		licenseKey: license.licenseKey,
+		serialNumber: license.serialNumber,
+		product: license.product,
+		deploymentProfile: license.deploymentProfile || "central",
+		features,
+		quotas,
+		status: license.status,
+		deviceFingerprint: license.deviceFingerprint || null,
+		activatedAt: new Date().toISOString(),
+		isExtension,
+		parentLicenseKey: parentLicenseKey || null
+	};
+};
 
 /**
  * 驗證副 LK 的主 LK 狀態與設備指紋一致性

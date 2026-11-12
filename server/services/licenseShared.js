@@ -2,57 +2,108 @@ import crypto from "crypto";
 import License from "../models/License.js";
 import { ApiError } from "../utils/responseHandler.js";
 import fileUpload from "../utils/fileUpload.js";
+import {
+	CENTRAL_FEATURES,
+	CONSTRUCTION_FEATURES,
+	FEATURE_LABELS,
+	FEATURE_META,
+	LEGACY_FEATURE_KEY_MAP,
+	LICENSE_FEATURE_ENUM,
+	formatQuotaDisplay,
+	getFeatureLabel,
+	getFeatureUnit,
+	normalizeFeatureKey
+} from "../constants/baLicenseFeatures.js";
+
+export {
+	CENTRAL_FEATURES,
+	CONSTRUCTION_FEATURES,
+	FEATURE_LABELS,
+	FEATURE_META,
+	LEGACY_FEATURE_KEY_MAP,
+	LICENSE_FEATURE_ENUM,
+	formatQuotaDisplay,
+	getFeatureLabel,
+	getFeatureUnit,
+	normalizeFeatureKey
+};
 
 export const LICENSE_EXT_SORT = { appliedAt: 1, createdAt: 1, _id: 1 };
 
-export const FEATURE_LABELS = Object.freeze({
-	people_counting: "人流統計",
-	lighting: "照明系統",
-	hvac: "空調系統",
-	drainage: "排水系統",
-	power: "電力系統",
-	fire: "消防系統",
-	emergency_rescue: "緊急求救",
-	environment: "環境品質",
-	surveillance: "影像監控",
-	vehicle_access: "車輛進出",
-	multimedia: "多媒體資訊",
-	smoke_alarm: "煙霧警報",
-	air_circulation: "空氣循環",
-	elevator: "電梯管理",
-	energy: "能源管理系統",
-	access_security: "門禁保全",
-	visitor: "訪客系統",
-	roll_call: "點名系統"
-});
+/**
+ * 正規化 features[]：access_security→intercom、去重、去掉已廢止 visitor（對 BA／新寫入）
+ */
+export const normalizeFeaturesList = (features, { dropVisitor = true } = {}) => {
+	const list = Array.isArray(features) ? features : [];
+	const out = [];
+	const seen = new Set();
+	for (const raw of list) {
+		if (typeof raw !== "string" || !raw) continue;
+		const key = normalizeFeatureKey(raw);
+		if (dropVisitor && key === "visitor") continue;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		out.push(key);
+	}
+	return out;
+};
 
-export const CENTRAL_FEATURES = [
-	"people_counting",
-	"lighting",
-	"hvac",
-	"drainage",
-	"power",
-	"fire",
-	"emergency_rescue",
-	"environment",
-	"surveillance",
-	"vehicle_access",
-	"multimedia",
-	"smoke_alarm",
-	"air_circulation",
-	"elevator",
-	"energy",
-	"access_security",
-	"visitor"
-];
+/**
+ * 正規化 quotas：key 轉正式鍵；合併衝突時保留較大 maxDevices／maxPoints
+ */
+export const normalizeQuotasMap = (quotas) => {
+	if (quotas === undefined || quotas === null) return null;
+	if (typeof quotas !== "object" || Array.isArray(quotas)) return null;
 
-export const CONSTRUCTION_FEATURES = [
-	"people_counting",
-	"environment",
-	"surveillance",
-	"vehicle_access",
-	"roll_call"
-];
+	const merged = {};
+	for (const [rawKey, quotaValue] of Object.entries(quotas)) {
+		const featureKey = normalizeFeatureKey(rawKey);
+		if (featureKey === "visitor") continue;
+
+		const incoming =
+			quotaValue === null
+				? { maxDevices: null }
+				: typeof quotaValue === "object" && !Array.isArray(quotaValue)
+					? { ...quotaValue }
+					: null;
+		if (!incoming) continue;
+
+		const prev = merged[featureKey];
+		if (!prev) {
+			merged[featureKey] = incoming;
+			continue;
+		}
+
+		const pickMax = (a, b) => {
+			if (a === undefined || a === null || a === "") return b ?? null;
+			if (b === undefined || b === null || b === "") return a;
+			if (typeof a === "number" && typeof b === "number") return Math.max(a, b);
+			return a;
+		};
+		const next = { maxDevices: pickMax(prev.maxDevices, incoming.maxDevices) };
+		if (featureKey === "elevator") {
+			next.maxPoints = pickMax(prev.maxPoints, incoming.maxPoints);
+		}
+		merged[featureKey] = next;
+	}
+
+	return Object.keys(merged).length > 0 ? merged : null;
+};
+
+/** 對 BA／對外 payload：features＋quotas 一律正式鍵 */
+export const normalizeLicensePayloadForBa = (license) => {
+	const features = normalizeFeaturesList(license?.features);
+	const featureSet = new Set(features);
+	const quotas = normalizeQuotasMap(license?.quotas);
+	const filtered =
+		quotas == null
+			? null
+			: Object.fromEntries(Object.entries(quotas).filter(([k]) => featureSet.has(k)));
+	return {
+		features,
+		quotas: filtered && Object.keys(filtered).length > 0 ? filtered : null
+	};
+};
 
 export const getLicenseCatalog = () => ({
 	product: "BA-system",
@@ -68,7 +119,8 @@ export const getLicenseCatalog = () => ({
 			features: [...CONSTRUCTION_FEATURES]
 		}
 	],
-	featureLabels: { ...FEATURE_LABELS }
+	featureLabels: { ...FEATURE_LABELS },
+	featureUnits: Object.fromEntries(Object.entries(FEATURE_META).map(([k, v]) => [k, v.unit]))
 });
 
 export const trimAccount = (value) => (typeof value === "string" ? value.trim() : "");
@@ -80,19 +132,84 @@ export const normalizeDeploymentProfile = (value) => {
 };
 
 export const getAllowedFeaturesByProfile = (deploymentProfile) => {
-	if (deploymentProfile === "construction") return CONSTRUCTION_FEATURES;
-	return CENTRAL_FEATURES;
+	if (deploymentProfile === "construction") return [...CONSTRUCTION_FEATURES];
+	return [...CENTRAL_FEATURES];
 };
 
 export const assertFeaturesForProfile = (features, deploymentProfile, emptyMessage) => {
 	if (!Array.isArray(features) || features.length === 0) {
 		throw ApiError.badRequest(emptyMessage);
 	}
+
+	const forbiddenLegacy = features.filter((f) => f === "access_security");
+	if (forbiddenLegacy.length > 0) {
+		throw ApiError.badRequest("已停用 access_security，請改用 intercom（對講系統）");
+	}
+
+	const normalized = normalizeFeaturesList(features);
 	const allowed = getAllowedFeaturesByProfile(deploymentProfile);
-	const invalidFeatures = features.filter((f) => !allowed.includes(f));
+	const invalidFeatures = normalized.filter((f) => !allowed.includes(f));
 	if (invalidFeatures.length > 0) {
 		throw ApiError.badRequest(`無效的功能模組：${invalidFeatures.join(", ")}`);
 	}
+	return normalized;
+};
+
+const parseNonNegIntOrNull = (value, fieldPath) => {
+	if (value === undefined || value === null || value === "") return null;
+	if (!Number.isInteger(value) || value < 0) {
+		throw ApiError.badRequest(`${fieldPath} 必須為非負整數或 null`);
+	}
+	return value;
+};
+
+export const validateQuotas = (quotas, features) => {
+	if (quotas === undefined || quotas === null) return null;
+	if (typeof quotas !== "object" || Array.isArray(quotas)) {
+		throw ApiError.badRequest("quotas 必須為 object");
+	}
+
+	const normalizedFeatures = normalizeFeaturesList(features);
+	const featureSet = new Set(normalizedFeatures);
+	const normalizedQuotasIn = normalizeQuotasMap(quotas) || {};
+	const normalized = {};
+
+	for (const [featureKey, quotaValue] of Object.entries(normalizedQuotasIn)) {
+		if (!featureSet.has(featureKey)) {
+			throw ApiError.badRequest(`quotas 的 key 必須同時出現在 features[]：${featureKey}`);
+		}
+		if (quotaValue === null) {
+			normalized[featureKey] = { maxDevices: null };
+			continue;
+		}
+		if (typeof quotaValue !== "object" || Array.isArray(quotaValue)) {
+			throw ApiError.badRequest(`quotas.${featureKey} 必須為 object`);
+		}
+
+		const maxDevices = parseNonNegIntOrNull(quotaValue.maxDevices, `quotas.${featureKey}.maxDevices`);
+		const entry = { maxDevices };
+
+		if (featureKey === "elevator") {
+			if (quotaValue.maxPoints !== undefined) {
+				entry.maxPoints = parseNonNegIntOrNull(quotaValue.maxPoints, `quotas.${featureKey}.maxPoints`);
+			}
+		} else if (quotaValue.maxPoints !== undefined && quotaValue.maxPoints !== null) {
+			throw ApiError.badRequest(`quotas.${featureKey} 僅 elevator 可使用 maxPoints`);
+		}
+
+		normalized[featureKey] = entry;
+	}
+
+	return Object.keys(normalized).length > 0 ? normalized : null;
+};
+
+/**
+ * 建立／追加／審核寫入前：features／quotas 轉正式鍵，禁止落盤 access_security
+ */
+export const prepareFeaturesAndQuotasForPersist = (features, quotas, deploymentProfile, emptyMessage) => {
+	const normalizedFeatures = assertFeaturesForProfile(features, deploymentProfile, emptyMessage);
+	const normalizedQuotas = validateQuotas(quotas, normalizedFeatures);
+	return { features: normalizedFeatures, quotas: normalizedQuotas };
 };
 
 export const applyStaffApplicantFilter = (query, staffAcc) => {
@@ -167,42 +284,6 @@ export const linkPendingExtensionsToMainLicenseKey = async (mainLicense) => {
 		{ parentLicenseId: parentId },
 		{ $set: { parentLicenseKey: mainLicense.licenseKey }, $unset: { parentLicenseId: "" } }
 	);
-};
-
-export const validateQuotas = (quotas, features) => {
-	if (quotas === undefined || quotas === null) return null;
-	if (typeof quotas !== "object" || Array.isArray(quotas)) {
-		throw ApiError.badRequest("quotas 必須為 object");
-	}
-
-	const featureSet = new Set((features || []).filter((f) => typeof f === "string"));
-	const normalized = {};
-
-	for (const [featureKey, quotaValue] of Object.entries(quotas)) {
-		if (!featureSet.has(featureKey)) {
-			throw ApiError.badRequest(`quotas 的 key 必須同時出現在 features[]：${featureKey}`);
-		}
-		if (quotaValue === null) {
-			normalized[featureKey] = { maxDevices: null };
-			continue;
-		}
-		if (typeof quotaValue !== "object" || Array.isArray(quotaValue)) {
-			throw ApiError.badRequest(`quotas.${featureKey} 必須為 object`);
-		}
-
-		const maxDevices = quotaValue.maxDevices;
-		if (maxDevices === undefined || maxDevices === null || maxDevices === "") {
-			normalized[featureKey] = { maxDevices: null };
-			continue;
-		}
-		if (!Number.isInteger(maxDevices) || maxDevices < 0) {
-			throw ApiError.badRequest(`quotas.${featureKey}.maxDevices 必須為非負整數或 null`);
-		}
-
-		normalized[featureKey] = { maxDevices };
-	}
-
-	return Object.keys(normalized).length > 0 ? normalized : null;
 };
 
 export const parseJsonPart = (raw, fieldName) => {
@@ -314,6 +395,20 @@ export const applyLicenseKeysForAvailable = async (license, mode) => {
 		license.serialNumber = gen.serialNumber;
 		license.licenseKey = gen.licenseKey;
 	}
+};
+
+/**
+ * 審核通過前：舊鍵→正式鍵後再校驗（允許讀取 access_security → intercom）
+ */
+export const rewriteLicenseFeaturesForIssue = (license) => {
+	const prepared = prepareFeaturesAndQuotasForPersist(
+		normalizeFeaturesList(license.features),
+		normalizeQuotasMap(license.quotas),
+		license.deploymentProfile || "central",
+		"必須指定至少一個授權模組"
+	);
+	license.features = prepared.features;
+	license.quotas = prepared.quotas;
 };
 
 export const saveLicenseAttachment = async (license, attachment, orderNo) => {

@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose";
+import { LICENSE_FEATURE_ENUM } from "../constants/baLicenseFeatures.js";
 
 /**
  * 授權資料模型（主 LK / 副 LK 共用同一張集合）
@@ -30,33 +31,15 @@ const licenseSchema = new Schema(
 		},
 		features: {
 			type: [String],
-			enum: [
-				"people_counting",
-				"lighting",
-				"hvac",
-				"drainage",
-				"power",
-				"fire",
-				"emergency_rescue",
-				"environment",
-				"surveillance",
-				"vehicle_access",
-				"multimedia",
-				"smoke_alarm",
-				"air_circulation",
-				"elevator",
-				"energy",
-				"access_security",
-				"visitor",
-				"roll_call"
-			],
+			enum: [...LICENSE_FEATURE_ENUM],
 			default: [],
-			comment: "授權功能模組（僅 BA-system 使用）"
+			comment: "授權功能模組（BA 正式 18 鍵；access_security／visitor 僅舊資料相容）"
 		},
 		quotas: {
 			type: Schema.Types.Mixed,
 			default: null,
-			comment: "模組配額（選配）。格式：{ [featureKey]: { maxDevices?: number|null } }"
+			comment:
+				"模組授權配額（選配）。格式：{ [featureKey]: { maxDevices?: number|null, maxPoints?: number|null } }；點數模組上限仍放 maxDevices；僅 elevator 另用 maxPoints"
 		},
 		customerName: {
 			type: String,

@@ -134,39 +134,20 @@
         </div>
 
         <div>
-          <label class="block theme-text mb-2">配額</label>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <div
-              v-for="feat in orderedSelectedFeatures"
-              :key="feat"
-              class="flex items-center justify-between gap-3 px-6 py-2 rounded-lg border"
-              :class="conditionalClass('border-gray-600 bg-[#2A3441]', 'border-slate-300 bg-white')"
-            >
-              <div class="theme-text text-sm">{{ getFeatureLabel(feat) }}</div>
-              <div class="flex items-center gap-2">
-                <input
-                  v-model="quotaDraft[feat]"
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="空白=不限"
-                  class="w-28 px-3 py-1.5 rounded-lg border text-sm text-center"
-                  :class="
-                    conditionalClass(
-                      'bg-[#1f2732] border-gray-600 theme-text',
-                      'bg-white border-slate-300',
-                    )
-                  "
-                />
-              </div>
-            </div>
-          </div>
+          <label class="block theme-text mb-2">配額詳情（台數／點數）</label>
+          <LicenseQuotaFields
+            v-model="quotaDraft"
+            :feature-keys="orderedSelectedFeatures"
+            :get-feature-label="getFeatureLabel"
+            :conditional-class="conditionalClass"
+            aria-prefix=""
+          />
           <p
             v-if="licenseDraft.features.length === 0"
             class="text-sm mt-1"
             :class="conditionalClass('text-gray-400', 'text-slate-500')"
           >
-            先選擇功能模組後才可設定配額
+            先選擇功能模組後才可設定台數／點數
           </p>
         </div>
 
@@ -301,7 +282,8 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { buildLicenseQuotasPayload, getDefaultMaxDevicesByFeature } from '@/enums/licenseQuota'
+import { buildLicenseQuotasPayload, createDefaultQuotaDraftEntry } from '@/enums/licenseQuota'
+import LicenseQuotaFields from '@/components/license/LicenseQuotaFields.vue'
 import { isLicenseAttachmentFile } from '@/utils/licenseAttachment.js'
 
 const props = defineProps({
@@ -378,11 +360,11 @@ watch(
       if (!next.includes(key)) delete quotaDraft.value[key]
     }
 
-    // 新增的 feature：套用預設 quota（可手動清空=不限）
+    // 新增的 feature：套用預設台數／點數（可手動清空=不限）
     const added = next.filter((f) => !prev.includes(f))
     for (const featureKey of added) {
       if (quotaDraft.value?.[featureKey] !== undefined) continue
-      quotaDraft.value[featureKey] = getDefaultMaxDevicesByFeature(featureKey)
+      quotaDraft.value[featureKey] = createDefaultQuotaDraftEntry(featureKey)
     }
   },
   { deep: false },

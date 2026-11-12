@@ -17,16 +17,17 @@ import {
 	applyLicenseKeysForAvailable,
 	buildMainLicenseChildrenFilter,
 	escapeRegex,
-	assertFeaturesForProfile,
 	getLicenseCatalog,
 	linkPendingExtensionsToMainLicenseKey,
 	normalizeDeploymentProfile,
+	normalizeLicensePayloadForBa,
 	parseCreateLicenseBody,
 	parseExtendLicenseBody,
+	prepareFeaturesAndQuotasForPersist,
+	rewriteLicenseFeaturesForIssue,
 	saveLicenseAttachment,
 	serializeLicense,
-	trimAccount,
-	validateQuotas
+	trimAccount
 } from "../../services/licenseShared.js";
 
 const staffAccFromActor = (req) => (req.crmActor?.role === "staff" ? req.crmActor.account : null);
@@ -134,7 +135,12 @@ export const createLicense = async (req, res) => {
 	if (!["central", "construction"].includes(normalizedProfile)) {
 		throw ApiError.badRequest("deploymentProfile 必須為 central 或 construction");
 	}
-	assertFeaturesForProfile(features, normalizedProfile, "必須指定至少一個功能模組");
+	const prepared = prepareFeaturesAndQuotasForPersist(
+		features,
+		quotas,
+		normalizedProfile,
+		"必須指定至少一個功能模組"
+	);
 
 	const attachment = req.file;
 	if (!attachment?.buffer) {
@@ -144,8 +150,8 @@ export const createLicense = async (req, res) => {
 	const newLicense = await License.create({
 		product: "BA-system",
 		deploymentProfile: normalizedProfile,
-		features,
-		quotas: validateQuotas(quotas, features),
+		features: prepared.features,
+		quotas: prepared.quotas,
 		customerName,
 		orderNumber: orderNo,
 		applicant: req.crmActor.account,
@@ -211,7 +217,12 @@ export const extendLicense = async (req, res) => {
 
 	const orderNo = trimAccount(orderNumber);
 	if (!orderNo) throw ApiError.badRequest("需要提供訂單編號");
-	assertFeaturesForProfile(features, parentLicense.deploymentProfile || "central", "必須指定至少一個追加授權模組");
+	const prepared = prepareFeaturesAndQuotasForPersist(
+		features,
+		quotas,
+		parentLicense.deploymentProfile || "central",
+		"必須指定至少一個追加授權模組"
+	);
 
 	const attachment = req.file;
 	if (!attachment?.buffer) {
@@ -221,8 +232,8 @@ export const extendLicense = async (req, res) => {
 	const extension = await License.create({
 		product: parentLicense.product,
 		deploymentProfile: parentLicense.deploymentProfile || "central",
-		features,
-		quotas: validateQuotas(quotas, features),
+		features: prepared.features,
+		quotas: prepared.quotas,
 		customerName: parentLicense.customerName,
 		orderNumber: orderNo,
 		parentLicenseKey: parentLicense.licenseKey || null,
@@ -275,6 +286,7 @@ export const reviewLicense = async (req, res) => {
 		license.parentLicenseId = null;
 	}
 
+	rewriteLicenseFeaturesForIssue(license);
 	await applyLicenseKeysForAvailable(license, "review");
 	license.status = "available";
 	license.reviewer = req.crmActor.name || req.crmActor.account;
@@ -302,11 +314,7 @@ export const exportLicensePdf = async (req, res) => {
 	const lk = trimAccount(license.licenseKey);
 	if (!lk) throw ApiError.badRequest("此授權尚未產生 License Key，無法輸出 PDF");
 
-	const features = Array.isArray(license.features) ? license.features : [];
-	const quotas =
-		license.quotas && typeof license.quotas === "object" && !Array.isArray(license.quotas)
-			? license.quotas
-			: {};
+	const { features, quotas } = normalizeLicensePayloadForBa(license);
 	const profile = normalizeDeploymentProfile(license.deploymentProfile);
 	const buffer = await buildBaSystemLicensePdfBuffer({
 		customerName: license.customerName || "",
@@ -315,7 +323,7 @@ export const exportLicensePdf = async (req, res) => {
 		licenseTypeLabel: license.parentLicenseKey ? "Expanded" : "Basal",
 		deploymentProfile: profile,
 		features,
-		quotas
+		quotas: quotas || {}
 	});
 
 	res.setHeader("Content-Type", "application/pdf");
