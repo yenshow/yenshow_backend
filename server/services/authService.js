@@ -1,17 +1,45 @@
 import jwt from "jsonwebtoken";
 import { ApiError } from "../utils/responseHandler.js";
 
+/** 單一帳號同時保留的有效 token 上限（多裝置登入） */
+export const MAX_ACTIVE_TOKENS = 10;
+
+/**
+ * 過濾掉已過期或無效的 JWT
+ */
+export const pruneExpiredTokens = (tokens = []) => {
+	if (!Array.isArray(tokens) || tokens.length === 0) return [];
+
+	return tokens.filter((token) => {
+		if (typeof token !== "string" || !token) return false;
+		try {
+			jwt.verify(token, process.env.JWT_SECRET);
+			return true;
+		} catch {
+			return false;
+		}
+	});
+};
+
+/**
+ * 清過期後再依上限裁切，只保留最新的有效 token
+ */
+export const sanitizeTokens = (tokens = [], maxActive = MAX_ACTIVE_TOKENS) => {
+	const validTokens = pruneExpiredTokens(tokens);
+	if (validTokens.length <= maxActive) return validTokens;
+	return validTokens.slice(-maxActive);
+};
+
 /**
  * 建立 JWT 令牌
  */
 export const createToken = async (user, expiresIn = "7 days") => {
 	const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn });
 
-	// 儲存令牌
-	if (!user.tokens) {
-		user.tokens = [];
-	}
-	user.tokens.push(token);
+	const tokens = sanitizeTokens(user.tokens || []);
+	tokens.push(token);
+
+	user.tokens = tokens.length > MAX_ACTIVE_TOKENS ? tokens.slice(-MAX_ACTIVE_TOKENS) : tokens;
 	await user.save();
 
 	return token;
@@ -51,8 +79,8 @@ export const handleLogin = async (user) => {
  * 處理登出
  */
 export const handleLogout = async (user, token) => {
-	// 移除當前令牌
-	user.tokens = user.tokens.filter((t) => t !== token);
+	const tokens = sanitizeTokens(user.tokens || []);
+	user.tokens = tokens.filter((t) => t !== token);
 	await user.save();
 	return true;
 };
@@ -62,9 +90,9 @@ export const handleLogout = async (user, token) => {
  */
 export const handleTokenExtension = async (user, currentToken) => {
 	// 1. 移除當前的 (可能已過期的) token
-	user.tokens = user.tokens.filter((t) => t !== currentToken);
+	user.tokens = (user.tokens || []).filter((t) => t !== currentToken);
 
-	// 2. 建立並儲存一個新的 token
+	// 2. 建立並儲存一個新的 token（內部會再清過期與裁切上限）
 	const newToken = await createToken(user);
 
 	// 3. 返回新的 token

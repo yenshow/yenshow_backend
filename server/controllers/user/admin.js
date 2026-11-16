@@ -209,6 +209,7 @@ export const resetUserPassword = async (req, res, next) => {
 
 		targetUser.password = newPassword;
 		targetUser.isFirstLogin = true;
+		targetUser.tokens = [];
 		await targetUser.save();
 
 		return successResponse(res, StatusCodes.OK, "密碼已重設，請將暫時密碼提供給對方", {

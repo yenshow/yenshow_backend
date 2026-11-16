@@ -71,6 +71,7 @@ export const changePassword = async (req, res, next) => {
 		}
 
 		user.password = newPassword;
+		user.tokens = [];
 		if (user.isFirstLogin) {
 			user.isFirstLogin = false;
 		}
